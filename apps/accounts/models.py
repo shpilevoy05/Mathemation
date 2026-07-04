@@ -18,6 +18,8 @@ class StudentProfile(models.Model):
     # Filled from the entry diagnostic; None until diagnostics are completed.
     start_score = models.PositiveSmallIntegerField(null=True, blank=True)
     weekly_hours = models.PositiveSmallIntegerField(default=6)
+    # Поправка прогноза, калибруется по факту каждого пробника (EMA ошибки).
+    forecast_calibration = models.FloatField(default=0)
 
     def __str__(self):
         return f"Student {self.user.username}"

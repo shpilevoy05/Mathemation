@@ -46,6 +46,12 @@ def finish_review(request: ExpertReviewRequest, reviewer, score_by_criteria: dic
     attempt.is_correct = request.lost_points == 0
     attempt.save(update_fields=["is_correct"])
     process_attempt_result(attempt)
+    # Вердикт по пробнику: пересчитать итог и, если все работы проверены,
+    # закрыть пробник (калибровка прогноза + адаптация плана).
+    if request.mock_result:
+        from apps.mocks.services import maybe_complete_mock
+
+        maybe_complete_mock(request.mock_result)
     # Nodes named by the expert beyond the assignment tags also feed the backlog.
     if request.lost_points:
         tagged_ids = set(

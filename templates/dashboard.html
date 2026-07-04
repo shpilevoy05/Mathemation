@@ -8,6 +8,10 @@
     section { margin-bottom: 1.5rem; }
     .score { font-size: 1.4rem; }
     li { margin: .25rem 0; }
+    dialog { border: 2px solid #333; border-radius: 8px; max-width: 480px; padding: 1.5rem; }
+    dialog.major { border-color: #d33; }
+    .done { text-decoration: line-through; color: #888; }
+    button { cursor: pointer; }
   </style>
 </head>
 <body>
@@ -15,6 +19,35 @@
   {% if not student %}
     <p>Этот аккаунт не является учеником.</p>
   {% else %}
+
+    {% if major_changes %}
+      <dialog class="major" id="plan-change-dialog" open>
+        <h2>План изменён</h2>
+        {% for change in major_changes %}
+          <p>{{ change.description }}</p>
+        {% endfor %}
+        <form method="dialog"><button>Понятно</button></form>
+      </dialog>
+    {% endif %}
+
+    {% if week_items %}
+      <dialog id="week-plan-dialog" {% if not major_changes %}open{% endif %}>
+        <h2>План на неделю</h2>
+        <ul>
+          {% for item in week_items %}
+            <li {% if item.status == "done" %}class="done"{% endif %}>
+              {% if item.status == "done" %}☑{% else %}☐{% endif %}
+              {{ item.get_item_type_display }} — {{ item.node.title }}
+              ({{ item.due_date|date:"d.m" }})
+            </li>
+          {% endfor %}
+        </ul>
+        <form method="dialog"><button>К занятиям</button></form>
+      </dialog>
+      <p><button onclick="document.getElementById('week-plan-dialog').showModal()">
+        Показать план недели
+      </button></p>
+    {% endif %}
     <section>
       <h2>Прогресс</h2>
       {% if snapshot %}
@@ -22,6 +55,9 @@
           Старт: {{ snapshot.start_score|default:"—" }} →
           Прогноз: <strong>{{ snapshot.predicted_score }}</strong> →
           Цель: {{ snapshot.target_score }}
+          {% if forecast %}
+            (потолок при текущем темпе: {{ forecast.ceiling_score }})
+          {% endif %}
         </p>
         {% if snapshot.weak_topics %}
           <p>Слабые темы:</p>

@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import views
 from rest_framework.response import Response
 
@@ -15,7 +16,8 @@ from .services import complete_mock_part1
 class MockListView(views.APIView):
     def get(self, request):
         return Response([
-            {"id": m.id, "title": m.title} for m in MockExam.objects.filter(is_active=True)
+            {"id": m.id, "title": m.title, "duration_minutes": m.duration_minutes}
+            for m in MockExam.objects.filter(is_active=True)
         ])
 
 
@@ -26,6 +28,8 @@ class StartMockView(views.APIView):
         result = MockExamResult.objects.create(student=student, exam=exam)
         return Response({
             "result_id": result.id,
+            "duration_minutes": exam.duration_minutes,
+            "deadline": result.deadline,
             "assignments": AssignmentSerializer(exam.assignments.all(), many=True).data,
         }, status=201)
 
@@ -42,6 +46,10 @@ class SubmitMockView(views.APIView):
             MockExamResult, pk=result_id, student=student,
             status=MockExamResult.Status.IN_PROGRESS,
         )
+        if timezone.now() > result.deadline:
+            # Время вышло — фиксируем как в реальном ЕГЭ, работу принимаем.
+            result.time_expired = True
+            result.save(update_fields=["time_expired"])
         answers = request.data.get("answers", {})
         for assignment in result.exam.assignments.filter(exam_part=Assignment.Part.PART1):
             submit_attempt(
@@ -53,4 +61,5 @@ class SubmitMockView(views.APIView):
             "primary_score": result.primary_score,
             "scaled_score": result.scaled_score,
             "status": result.status,
+            "time_expired": result.time_expired,
         })

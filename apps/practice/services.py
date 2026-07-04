@@ -103,6 +103,19 @@ def complete_review(review: ReviewSchedule, success: bool) -> None:
         item.save(update_fields=["status", "resolved_at"])
 
 
+def practice_queue(student, node) -> dict:
+    """Задачи для занятия по узлу: перед новой темой подмешиваем 1-2 задачи
+    на старые слабые места (просроченные повторы с других узлов)."""
+    warmup = [
+        r.backlog_item.assignment
+        for r in due_reviews(student).exclude(backlog_item__node=node)[:2]
+    ]
+    new_tasks = list(
+        Assignment.objects.filter(skill_tags__node=node).distinct()
+    )
+    return {"warmup": warmup, "new": new_tasks}
+
+
 def due_reviews(student, on_date=None):
     on_date = on_date or timezone.localdate()
     return (

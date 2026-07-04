@@ -100,3 +100,40 @@ class MistakeBacklogTests(TestCase):
         pending = item.reviews.filter(status=ReviewSchedule.Status.PENDING)
         self.assertEqual(pending.count(), 4)  # full ladder rescheduled
         self.assertEqual(item.status, MistakeBacklogItem.Status.IN_REVIEW)
+
+
+class PracticeQueueTests(TestCase):
+    """Перед новой темой подмешиваются 1-2 задачи на старые слабые места."""
+
+    def setUp(self):
+        self.student = make_student()
+        self.old_node = make_node("old")
+        self.new_node = make_node("new", cluster=self.old_node.cluster)
+        self.old_assignment = make_assignment(self.old_node)
+        self.new_assignment = make_assignment(self.new_node)
+
+    def test_mixes_due_reviews_from_other_nodes(self):
+        from apps.practice.services import practice_queue
+
+        submit_attempt(self.student, self.old_assignment, "wrong", Attempt.Context.LESSON)
+        # Сделаем первый повтор просроченным «на сегодня».
+        review = ReviewSchedule.objects.filter(
+            backlog_item__student=self.student
+        ).first()
+        review.due_date = timezone.localdate()
+        review.save()
+
+        queue = practice_queue(self.student, self.new_node)
+        self.assertIn(self.old_assignment, queue["warmup"])
+        self.assertLessEqual(len(queue["warmup"]), 2)
+        self.assertIn(self.new_assignment, queue["new"])
+
+    def test_own_node_mistakes_not_in_warmup(self):
+        from apps.practice.services import practice_queue
+
+        submit_attempt(self.student, self.new_assignment, "wrong", Attempt.Context.LESSON)
+        review = ReviewSchedule.objects.first()
+        review.due_date = timezone.localdate()
+        review.save()
+        queue = practice_queue(self.student, self.new_node)
+        self.assertEqual(queue["warmup"], [])

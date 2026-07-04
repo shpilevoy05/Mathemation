@@ -114,3 +114,51 @@ FREQUENT_MISTAKE_THRESHOLD = 3
 EXPERT_REVIEW_SLA_HOURS = 48
 # Max leading hints per assignment per student.
 AI_MENTOR_MAX_HINTS = 2
+# Hint provider (dotted path); swap for an LLM-backed provider in production.
+AI_MENTOR_PROVIDER = os.environ.get(
+    "AI_MENTOR_PROVIDER", "apps.ai_mentor.providers.MockHintProvider"
+)
+
+# --- Forgetting curve (индикатор забывания) ---
+# Days after the last practice before a skill starts to decay.
+DECAY_GRACE_DAYS = 14
+# Exponential decay rate per day past the grace period (~половина за месяц).
+DECAY_RATE_PER_DAY = 0.02
+
+# --- Score forecast ---
+# Maximum primary score of the profile EGE (12 задач части 1 + 20 баллов части 2).
+MAX_PRIMARY_SCORE = 32
+# Официальная таблица перевода первичных баллов в тестовые (кладётся конфигом
+# на каждый год; ниже — приближение шкалы профильной математики).
+PRIMARY_TO_SCALED = [
+    0, 5, 9, 14, 18, 22, 27, 33, 39, 45, 50, 56, 62, 68, 70, 72, 74,
+    76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 99, 100, 100, 100,
+]
+# Ceiling simulation: сколько часов нужно на освоение одного узла и до какого
+# уровня mastery реалистично довести узел до экзамена.
+HOURS_PER_NODE = 2
+ATTAINABLE_MASTERY = 85
+# Дней без активности, после которых план перестраивается под сжатое время.
+INACTIVITY_REBUILD_DAYS = 14
+
+# Periodic jobs (celery -A config worker -B).
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    "apply-decay-daily": {
+        "task": "apps.knowledge.tasks.apply_decay_all",
+        "schedule": crontab(hour=3, minute=0),
+    },
+    "mark-missed-reviews-daily": {
+        "task": "apps.practice.tasks.mark_missed_reviews",
+        "schedule": crontab(hour=3, minute=30),
+    },
+    "detect-inactivity-daily": {
+        "task": "apps.progress.tasks.detect_inactivity",
+        "schedule": crontab(hour=4, minute=0),
+    },
+    "weekly-parent-reports": {
+        "task": "apps.progress.tasks.generate_weekly_parent_reports",
+        "schedule": crontab(day_of_week="mon", hour=8, minute=0),
+    },
+}

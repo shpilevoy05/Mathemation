@@ -42,13 +42,25 @@ class StudyPlanItem(models.Model):
 
 
 class PlanChangeLog(models.Model):
+    """«Карточка изменений плана»: что поменялось, когда и почему.
+
+    `is_major` — резкое изменение (плохой пробник, частые ошибки, простой),
+    показывается ученику большим всплывающим окном, пока не подтверждено.
+    """
+
     class Reason(models.TextChoices):
         INACTIVITY = "inactivity"
         POOR_MOCK = "poor_mock"
         FREQUENT_MISTAKES = "frequent_mistakes"
+        DECAY = "decay"  # тема подзабылась и вернулась в план
         MANUAL = "manual"
 
     plan = models.ForeignKey(StudyPlan, on_delete=models.CASCADE, related_name="change_logs")
     reason = models.CharField(max_length=32, choices=Reason.choices)
     description = models.TextField(blank=True)
+    is_major = models.BooleanField(default=False)
+    acknowledged = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]

@@ -39,6 +39,9 @@ class Assignment(models.Model):
     statement = models.TextField()
     # Canonical short answer for part 1 auto-check; empty for part 2.
     correct_answer = models.CharField(max_length=200, blank=True)
+    # Эталонное пошаговое решение: питает наводящие подсказки ИИ-наставника
+    # (он объясняет из проверенного разбора, а не сочиняет) и проверку экспертов.
+    reference_solution = models.TextField(blank=True)
     exam_part = models.PositiveSmallIntegerField(choices=Part.choices, default=Part.PART1)
     difficulty = models.PositiveSmallIntegerField(default=1)  # 1..5
     max_score = models.PositiveSmallIntegerField(default=1)

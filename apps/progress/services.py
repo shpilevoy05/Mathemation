@@ -1,6 +1,7 @@
-"""Forecast, progress snapshots and weekly parent reports."""
+"""Forecast (текущий балл + потолок с рычагами), snapshots, weekly reports."""
 from datetime import timedelta
 
+from django.conf import settings
 from django.utils import timezone
 
 from apps.knowledge.models import KnowledgeNode, SkillMastery
@@ -11,26 +12,99 @@ from apps.practice.models import Attempt, MistakeBacklogItem
 from .models import ParentReport, ProgressSnapshot
 
 WEAK_TOPIC_LIMIT = 5
+# EMA-вес свежего пробника при калибровке прогноза.
+CALIBRATION_ALPHA = 0.3
 
 
-def predict_score(student) -> tuple[int, float]:
-    """Naive forecast: exam-weighted average mastery mapped onto 0-100.
+def primary_to_scaled(primary: float) -> int:
+    """Перевод первичных баллов в тестовые по таблице (конфиг на каждый год)."""
+    table = settings.PRIMARY_TO_SCALED
+    idx = min(max(int(round(primary)), 0), len(table) - 1)
+    return table[idx]
 
-    TODO: replace with a calibrated primary→scaled score model once real
-    mock-exam data is available.
+
+def expected_primary(student, mastery_override: dict[int, float] | None = None) -> float:
+    """Ожидаемый первичный балл: взвешенное среднее mastery → доля от максимума.
+
+    TODO: заменить на Σ P(верно | mastery, IRT-сложность) по профилю экзамена,
+    когда накопятся реальные логи попыток.
     """
     nodes = list(KnowledgeNode.objects.select_related("cluster").all())
     if not nodes:
-        return 0, 0.0
-    masteries = dict(
+        return 0.0
+    masteries = mastery_override if mastery_override is not None else dict(
         SkillMastery.objects.filter(student=student).values_list("node_id", "mastery")
     )
     total_w = sum(n.weight * n.cluster.exam_weight for n in nodes)
+    if not total_w:
+        return 0.0
     weighted = sum(
         masteries.get(n.id, 0) * n.weight * n.cluster.exam_weight for n in nodes
     )
-    avg = weighted / total_w if total_w else 0.0
-    return round(avg), round(avg, 2)
+    return (weighted / total_w) / 100 * settings.MAX_PRIMARY_SCORE
+
+
+def predict_score(student, mastery_override: dict[int, float] | None = None) -> tuple[int, float]:
+    """(прогнозный тестовый балл с калибровкой, средний взвешенный mastery)."""
+    primary = expected_primary(student, mastery_override)
+    scaled = primary_to_scaled(primary) + student.forecast_calibration
+    avg = primary / settings.MAX_PRIMARY_SCORE * 100
+    return int(min(max(round(scaled), 0), 100)), round(avg, 2)
+
+
+def calibrate_forecast(student, actual_scaled: int) -> None:
+    """После пробника сверяем предсказание с фактом и подтягиваем модель."""
+    raw_predicted = primary_to_scaled(expected_primary(student))
+    error = actual_scaled - raw_predicted
+    student.forecast_calibration = round(
+        (1 - CALIBRATION_ALPHA) * student.forecast_calibration + CALIBRATION_ALPHA * error, 2
+    )
+    student.save(update_fields=["forecast_calibration"])
+
+
+def ceiling_forecast(student, weekly_hours: int | None = None, exam_date=None) -> dict:
+    """Потолок: чего реально достичь к экзамену при заданном темпе.
+
+    Рычаги «поиграть ползунком» = вызов с другими weekly_hours / exam_date.
+    Возвращает потолочный балл и списки достижимых/недостижимых узлов —
+    последние подсвечиваются на карте оверлеем «что реально успеешь».
+    """
+    from apps.planning.services import order_pending_nodes
+
+    weekly_hours = weekly_hours or student.weekly_hours
+    exam_date = exam_date or student.exam_date
+    current_score, _ = predict_score(student)
+
+    masteries = dict(
+        SkillMastery.objects.filter(student=student).values_list("node_id", "mastery")
+    )
+    pending = order_pending_nodes(student)
+
+    if exam_date is None:
+        reachable = [n.id for n in pending]
+        unreachable: list[int] = []
+    else:
+        days_left = max((exam_date - timezone.localdate()).days, 0)
+        budget_hours = days_left / 7 * weekly_hours
+        can_take = int(budget_hours // settings.HOURS_PER_NODE)
+        reachable = [n.id for n in pending[:can_take]]
+        unreachable = [n.id for n in pending[can_take:]]
+
+    simulated = dict(masteries)
+    for node_id in reachable:
+        simulated[node_id] = max(
+            simulated.get(node_id, 0), float(settings.ATTAINABLE_MASTERY)
+        )
+    ceiling_score, _ = predict_score(student, mastery_override=simulated)
+
+    return {
+        "current_score": current_score,
+        "ceiling_score": max(ceiling_score, current_score),
+        "weekly_hours": weekly_hours,
+        "exam_date": exam_date,
+        "reachable_node_ids": reachable,
+        "unreachable_node_ids": unreachable,
+    }
 
 
 def weak_topics(student, limit=WEAK_TOPIC_LIMIT) -> list[dict]:
@@ -75,6 +149,13 @@ def build_parent_report(student, week_start=None) -> ParentReport:
     )
     solved = attempts.filter(is_correct=True).count()
     total = attempts.count()
+
+    from apps.ai_mentor.models import AiHintMessage
+
+    hints_used = AiHintMessage.objects.filter(
+        session__student=student, role=AiHintMessage.Role.MENTOR,
+        created_at__date__gte=week_start, created_at__date__lt=week_end,
+    ).count()
 
     snapshots = list(
         ProgressSnapshot.objects.filter(student=student).order_by("-created_at")[:2]
@@ -122,6 +203,7 @@ def build_parent_report(student, week_start=None) -> ParentReport:
         "week_fact": {
             "attempts": total,
             "solved": solved,
+            "hints_used": hints_used,
             "plan_items_done": (
                 plan.items.filter(
                     status=StudyPlanItem.Status.DONE,

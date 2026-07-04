@@ -54,3 +54,21 @@ class StudyPlanTests(TestCase):
         plan = build_study_plan(self.student)
         order = self._node_order(plan)
         self.assertEqual(order[0], heavy.id)
+
+    def test_rebuild_after_inactivity_logs_major_change(self):
+        from apps.planning.models import PlanChangeLog
+        from apps.planning.services import rebuild_after_inactivity
+
+        build_study_plan(self.student)
+        plan = rebuild_after_inactivity(self.student, idle_days=14)
+        self.assertIsNotNone(plan)
+        change = PlanChangeLog.objects.get(reason=PlanChangeLog.Reason.INACTIVITY)
+        self.assertTrue(change.is_major)
+        self.assertFalse(change.acknowledged)
+        # Снижение показываем фактом, без упрёка: в тексте есть прогноз.
+        self.assertIn("прогноз", change.description.lower())
+
+    def test_rebuild_after_inactivity_skips_students_without_plan(self):
+        from apps.planning.services import rebuild_after_inactivity
+
+        self.assertIsNone(rebuild_after_inactivity(self.student, idle_days=14))

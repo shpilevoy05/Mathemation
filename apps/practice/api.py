@@ -6,7 +6,7 @@ from apps.accounts.api import get_student
 from apps.content.models import Assignment
 
 from .models import Attempt, MistakeBacklogItem, ReviewSchedule
-from .services import complete_review, due_reviews, submit_attempt
+from .services import complete_review, due_reviews, practice_queue, submit_attempt
 
 
 class AttemptSerializer(serializers.ModelSerializer):
@@ -76,4 +76,27 @@ class CompleteReviewView(views.APIView):
             ReviewSchedule, pk=review_id, backlog_item__student=student
         )
         complete_review(review, success=bool(request.data.get("success")))
-        return Response({"status": review.status})
+        item = review.backlog_item
+        resolved = item.status == MistakeBacklogItem.Status.RESOLVED
+        payload = {"status": review.status, "mistake_resolved": resolved}
+        if resolved:
+            # Закрытие петли мотивирует.
+            payload["message"] = f"Эту ошибку ты уже не делаешь: «{item.node.title}» ✅"
+        return Response(payload)
+
+
+class NodePracticeView(views.APIView):
+    """GET /api/nodes/<id>/practice/ — очередь занятия: сначала 1-2 задачи
+    на старые слабые места, затем задачи новой темы."""
+
+    def get(self, request, node_id):
+        from apps.content.api import AssignmentSerializer
+        from apps.knowledge.models import KnowledgeNode
+
+        student = get_student(request)
+        node = get_object_or_404(KnowledgeNode, pk=node_id)
+        queue = practice_queue(student, node)
+        return Response({
+            "warmup": AssignmentSerializer(queue["warmup"], many=True).data,
+            "new": AssignmentSerializer(queue["new"], many=True).data,
+        })

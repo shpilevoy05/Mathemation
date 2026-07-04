@@ -47,5 +47,12 @@ class SubmitSolutionView(views.APIView):
         solution = request.FILES.get("file")
         if solution is None:
             return Response({"detail": "Файл решения обязателен."}, status=400)
-        review = submit_solution(student, assignment, solution)
+        mock_result = None
+        if request.data.get("mock_result"):
+            from apps.mocks.models import MockExamResult
+
+            mock_result = get_object_or_404(
+                MockExamResult, pk=request.data["mock_result"], student=student
+            )
+        review = submit_solution(student, assignment, solution, mock_result=mock_result)
         return Response(_payload(review), status=201)
