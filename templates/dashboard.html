@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Матемация — кабинет</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    section { margin-bottom: 1.5rem; }
+    .score { font-size: 1.4rem; }
+    li { margin: .25rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Матемация</h1>
+  {% if not student %}
+    <p>Этот аккаунт не является учеником.</p>
+  {% else %}
+    <section>
+      <h2>Прогресс</h2>
+      {% if snapshot %}
+        <p class="score">
+          Старт: {{ snapshot.start_score|default:"—" }} →
+          Прогноз: <strong>{{ snapshot.predicted_score }}</strong> →
+          Цель: {{ snapshot.target_score }}
+        </p>
+        {% if snapshot.weak_topics %}
+          <p>Слабые темы:</p>
+          <ul>
+            {% for t in snapshot.weak_topics %}
+              <li>{{ t.title }} — {{ t.mastery }}%</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% else %}
+        <p>Пройдите входную диагностику, чтобы построить план (API: /api/diagnostics/).</p>
+      {% endif %}
+    </section>
+    <section>
+      <h2>План на сегодня</h2>
+      {% if today_items %}
+        <ul>
+          {% for item in today_items %}
+            <li>{{ item.get_item_type_display }} — {{ item.node.title }} ({{ item.get_status_display }})</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>На сегодня пунктов плана нет.</p>
+      {% endif %}
+    </section>
+    <section>
+      <h2>Отработка ошибок</h2>
+      {% if due_reviews %}
+        <ul>
+          {% for r in due_reviews %}
+            <li>{{ r.backlog_item.assignment.title }} — {{ r.backlog_item.node.title }} (повтор {{ r.interval_days }} дн.)</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>Отработок на сегодня нет.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+</body>
+</html>
