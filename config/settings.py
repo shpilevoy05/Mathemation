@@ -76,6 +76,11 @@ else:
 
 AUTH_USER_MODEL = "accounts.User"
 
+# После логина/логаута через api-auth возвращаем в кабинет, а не на
+# несуществующий дефолтный /accounts/profile/.
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/api-auth/login/"
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
