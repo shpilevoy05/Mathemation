@@ -16,4 +16,5 @@ class KnowledgeNodeAdmin(admin.ModelAdmin):
 
 
 admin.site.register(TopicCluster)
+admin.site.register(KnowledgeDependency)
 admin.site.register(SkillMastery)

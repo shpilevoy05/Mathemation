@@ -15,11 +15,20 @@ class SkillTagInline(admin.TabularInline):
 
 @admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
-    list_display = ["title", "node", "order"]
+    list_display = ["title", "node", "order", "has_video"]
+    fields = ["node", "title", "order", "video_url", "video_duration_minutes"]
     inlines = [TheoryBlockInline]
+
+    @admin.display(boolean=True, description="Видео")
+    def has_video(self, obj):
+        return bool(obj.video_url)
 
 
 @admin.register(Assignment)
 class AssignmentAdmin(admin.ModelAdmin):
     list_display = ["title", "exam_part", "difficulty", "max_score"]
     inlines = [SkillTagInline]
+
+
+admin.site.register(TheoryBlock)
+admin.site.register(AssignmentSkillTag)

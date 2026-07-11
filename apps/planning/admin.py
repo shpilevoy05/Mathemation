@@ -32,6 +32,22 @@ class StudyPlanAdmin(admin.ModelAdmin):
     inlines = [StudyPlanItemInline]
 
 
+@admin.register(StudyPlanItem)
+class StudyPlanItemAdmin(admin.ModelAdmin):
+    list_display = [
+        "plan_student", "node", "item_type", "due_date", "week_index", "status",
+    ]
+    list_filter = ["status", "item_type", "due_date"]
+    date_hierarchy = "due_date"
+    list_editable = ["due_date", "status"]
+    search_fields = ["plan__student__user__username"]
+    list_select_related = ["plan__student__user", "node"]
+
+    @admin.display(description="Ученик", ordering="plan__student__user__username")
+    def plan_student(self, obj):
+        return obj.plan.student
+
+
 @admin.register(PlanChangeLog)
 class PlanChangeLogAdmin(admin.ModelAdmin):
     list_display = ["id", "plan", "reason", "is_major", "acknowledged", "created_at"]

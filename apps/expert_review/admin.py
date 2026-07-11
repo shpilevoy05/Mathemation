@@ -24,6 +24,13 @@ class ExpertReviewRequestAdmin(admin.ModelAdmin):
         "reviewed_at",
     ]
 
+    def changelist_view(self, request, extra_context=None):
+        if request.method == "GET" and not request.GET:
+            request.GET = request.GET.copy()
+            request.GET["status__exact"] = ExpertReviewRequest.Status.SUBMITTED
+            request.META["QUERY_STRING"] = request.GET.urlencode()
+        return super().changelist_view(request, extra_context=extra_context)
+
     def save_model(self, request, obj, form, change):
         if form.cleaned_data.get("finish_review"):
             from .services import finish_review

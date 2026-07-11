@@ -31,6 +31,15 @@ class AiHintSessionAdmin(admin.ModelAdmin):
     list_filter = ("escalated_to_expert", "created_at")
     inlines = (AiHintMessageInline,)
 
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        if (
+            not request.user.is_superuser
+            and request.user.groups.filter(name="Эксперты").exists()
+        ):
+            return queryset.filter(escalated_to_expert=True)
+        return queryset
+
 
 @admin.register(AiHintMessage)
 class AiHintMessageAdmin(admin.ModelAdmin):

@@ -1,11 +1,12 @@
 """Демо-данные: мини-граф знаний профильной математики, уроки, задачи,
-входная диагностика, пробник и три пользователя (ученик/родитель/эксперт).
+входная диагностика, пробник и четыре пользователя.
 
 В продакшене граф и банк задач ведут методисты через админку; эта команда
 нужна, чтобы сервис можно было потрогать сразу после `migrate`.
 """
 from datetime import timedelta
 
+from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -115,6 +116,11 @@ TRAJECTORIES = [
     ("score90", "90+", 90, 100, 10),
 ]
 
+DEMO_VIDEOS = {
+    "frac-powers": ("https://example.com/embed/demo", 12),
+    "linear-quadratic": ("https://example.com/embed/demo", 18),
+}
+
 
 class Command(BaseCommand):
     help = "Наполняет базу демо-данными (идемпотентно)."
@@ -160,6 +166,9 @@ class Command(BaseCommand):
             lesson, _ = Lesson.objects.update_or_create(
                 node=node, title=f"Урок: {node.title}", defaults={"order": node.order}
             )
+            if code in DEMO_VIDEOS:
+                lesson.video_url, lesson.video_duration_minutes = DEMO_VIDEOS[code]
+                lesson.save(update_fields=["video_url", "video_duration_minutes"])
             TheoryBlock.objects.update_or_create(
                 lesson=lesson, order=0,
                 defaults={
@@ -245,10 +254,24 @@ class Command(BaseCommand):
         )
         if created:
             expert_user.set_password("demo12345")
-            expert_user.save()
+        expert_user.role = User.Role.EXPERT
+        expert_user.is_staff = True
+        expert_user.save()
+        expert_user.groups.add(Group.objects.get(name="Эксперты"))
+
+        methodist_user, created = User.objects.get_or_create(
+            username="methodist",
+            defaults={"role": User.Role.METHODIST, "is_staff": True},
+        )
+        if created:
+            methodist_user.set_password("demo12345")
+        methodist_user.role = User.Role.METHODIST
+        methodist_user.is_staff = True
+        methodist_user.save()
+        methodist_user.groups.add(Group.objects.get(name="Методисты"))
 
         self.stdout.write(self.style.SUCCESS(
             f"Демо-данные готовы: {KnowledgeNode.objects.count()} узлов, "
             f"{Assignment.objects.count()} задач. "
-            "Пользователи: student / parent / expert (пароль demo12345)."
+            "Пользователи: student / parent / expert / methodist (пароль demo12345)."
         ))

@@ -7,6 +7,7 @@ class User(AbstractUser):
         STUDENT = "student"
         PARENT = "parent"
         EXPERT = "expert"
+        METHODIST = "methodist"
 
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.STUDENT)
 

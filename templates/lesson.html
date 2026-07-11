@@ -4,6 +4,7 @@
 {% if not student %}<section class="empty-state"><h1>Занятие</h1><p>Этот раздел доступен ученикам.</p></section>{% else %}
 <a class="back-link" href="{% url 'track' %}">← К дорожке</a>
 <div class="page-heading"><div><p class="eyebrow">Занятие</p><h1>{{ node.title }}</h1><p>Сначала разогрев на старых слабых местах, затем новая тема.</p></div></div>
+{% for lesson in video_lessons %}<section class="card video-lesson"><h2>{{ lesson.title }}</h2>{% if lesson.video_duration_minutes %}<p>Длительность: {{ lesson.video_duration_minutes }} мин.</p>{% endif %}{% if lesson.video_is_embeddable %}<iframe src="{{ lesson.video_url }}" title="Видео: {{ lesson.title }}" loading="lazy" allowfullscreen></iframe>{% else %}<p><a href="{{ lesson.video_url }}">Открыть видео</a></p>{% endif %}</section>{% endfor %}
 <section class="card theory-summary"><details><summary><strong>Теория занятия</strong><span>Открыть конспект</span></summary>{% for block in theory_blocks %}<article class="theory-block"><h3>{{ block.title }}</h3><div>{{ block.body|linebreaksbr }}</div></article>{% empty %}<p>Конспект для темы готовится.</p>{% endfor %}</details></section>
 <div class="lesson-layout" id="tasks">
   <section class="task-stage">

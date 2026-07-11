@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from apps.ai_mentor.models import AiHintMessage, AiHintSession
 from apps.ai_mentor.services import mentor_available
-from apps.content.models import TheoryBlock
+from apps.content.models import Lesson, TheoryBlock
 from apps.gamification.services import gamification_snapshot
 from apps.knowledge.models import KnowledgeNode, TopicCluster
 from apps.knowledge.services import apply_decay, node_states
@@ -176,6 +176,9 @@ def _track_point(point_type, title, state, node_id=None):
 
 def lesson_context(student, node_id, attempt_context=Attempt.Context.LESSON):
     node = get_object_or_404(KnowledgeNode, pk=node_id)
+    video_lessons = list(Lesson.objects.filter(node=node).exclude(video_url=""))
+    for lesson in video_lessons:
+        lesson.video_is_embeddable = lesson.video_url.startswith("https://")
     queue = practice_queue(student, node)
     tasks = [
         {"assignment": assignment, "phase": "warmup", "phase_label": "Старое слабое место"}
@@ -200,6 +203,7 @@ def lesson_context(student, node_id, attempt_context=Attempt.Context.LESSON):
         task["hint_session"] = sessions.get(task["assignment"].id)
     return {
         "node": node,
+        "video_lessons": video_lessons,
         "theory_blocks": TheoryBlock.objects.filter(lesson__node=node).select_related("lesson"),
         "tasks": tasks,
         "attempt_context": attempt_context,

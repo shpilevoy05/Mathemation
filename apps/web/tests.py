@@ -4,6 +4,7 @@ from django.urls import reverse
 
 from apps.accounts.models import User
 from apps.ai_mentor.models import AiHintMessage, AiHintSession
+from apps.content.models import Lesson
 from apps.mocks.models import MockExam
 from apps.practice.models import MistakeBacklogItem
 from apps.knowledge.models import KnowledgeNode
@@ -67,6 +68,29 @@ class StudentCabinetTests(TestCase):
         url = reverse("lesson", args=[self.node.id])
         self.assertContains(self.client.get(url), 'data-mentor-panel')
         self.assertNotContains(self.client.get(f"{url}?context=review"), 'data-mentor-panel')
+
+    def test_https_video_is_embedded_on_lesson_page(self):
+        lesson = Lesson.objects.get(node=self.node)
+        lesson.video_url = "https://videos.example/embed/lesson"
+        lesson.video_duration_minutes = 15
+        lesson.save(update_fields=["video_url", "video_duration_minutes"])
+
+        response = self.client.get(reverse("lesson", args=[self.node.id]))
+
+        self.assertContains(
+            response, '<iframe src="https://videos.example/embed/lesson"', html=False
+        )
+        self.assertContains(response, "Длительность: 15 мин.")
+
+    def test_http_video_is_a_link_and_is_not_embedded(self):
+        lesson = Lesson.objects.get(node=self.node)
+        lesson.video_url = "http://videos.example/embed/lesson"
+        lesson.save(update_fields=["video_url"])
+
+        response = self.client.get(reverse("lesson", args=[self.node.id]))
+
+        self.assertNotContains(response, '<iframe src="http://videos.example/embed/lesson"')
+        self.assertContains(response, 'href="http://videos.example/embed/lesson"')
 
     def test_forecast_contains_required_caveat(self):
         response = self.client.get(reverse("forecast"))
