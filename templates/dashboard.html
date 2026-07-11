@@ -34,6 +34,26 @@
   {% endif %}
 
   <div class="dashboard-grid">
+    <section class="card card-wide gamification-card" data-gamification-widget>
+      <div class="gamification-summary">
+        <div><p class="eyebrow">Ритм и прогресс</p><h2>Учебная серия</h2></div>
+        <div class="gamification-stat streak-stat">
+          <span aria-hidden="true">🔥</span><strong>{{ gamification.streak_current }}</strong>
+          <small>{% if gamification.streak_mode == "weekly" %}нед. подряд{% else %}дн. подряд{% endif %}</small>
+        </div>
+        <div class="gamification-stat"><strong>{{ gamification.xp }} XP</strong><small>уровень {{ gamification.level }}</small></div>
+      </div>
+      <div class="quest-grid">
+        {% for quest in gamification.quests %}
+          <article class="quest-item {% if quest.completed %}is-completed{% endif %}">
+            <div><strong>{{ quest.title }}</strong><small>+{{ quest.reward_xp }} XP</small></div>
+            <div class="quest-progress"><span style="width: {{ quest.progress_percent }}%"></span></div>
+            <small>{{ quest.progress_count }} из {{ quest.target_count }}{% if quest.completed %} · выполнено{% endif %}</small>
+          </article>
+        {% empty %}<p class="empty-copy">Квесты появятся вместе с активным учебным планом.</p>{% endfor %}
+      </div>
+    </section>
+
     <section class="card card-wide">
       <div class="section-heading"><div><p class="eyebrow">Прогресс</p><h2>От старта к цели</h2></div><a href="{% url 'forecast' %}">Подробнее</a></div>
       {% if snapshot %}

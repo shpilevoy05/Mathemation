@@ -9,6 +9,7 @@ from apps.ai_mentor.api import HintView, ParentAiLogView
 from apps.content.api import AssignmentViewSet, LessonViewSet, TrackView
 from apps.diagnostics.api import DiagnosticListView, StartDiagnosticView, SubmitDiagnosticView
 from apps.expert_review.api import ExpertReviewListView, SubmitSolutionView
+from apps.gamification.api import GamificationView
 from apps.knowledge.api import KnowledgeMapView, NodeDetailView
 from apps.mocks.api import MockListView, StartMockView, SubmitMockView
 from apps.planning.api import (
@@ -70,6 +71,7 @@ api_urls = [
     path("forecast/", ForecastView.as_view()),
     path("parent/report/", ParentReportView.as_view()),
     path("parent/ai-log/", ParentAiLogView.as_view()),
+    path("gamification/", GamificationView.as_view()),
 ]
 
 urlpatterns = [

@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "apps.expert_review",
     "apps.progress",
     "apps.ai_mentor",
+    "apps.gamification",
     "apps.events",
     "apps.web",
 ]
@@ -112,6 +113,8 @@ CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_EAGER", "0") == "1"
 
 # --- Mathemation domain config ---
+# Streak period is an MVP experiment: "daily" or "weekly".
+STREAK_MODE = "daily"
 # Mastery threshold above which a node is considered mastered and skipped in the plan.
 MASTERY_THRESHOLD = 70
 # Learning rate of the synchronous mastery micro-update.
@@ -157,6 +160,10 @@ INACTIVITY_REBUILD_DAYS = 14
 from celery.schedules import crontab  # noqa: E402
 
 CELERY_BEAT_SCHEDULE = {
+    "generate-weekly-quests": {
+        "task": "apps.gamification.tasks.generate_weekly_quests_all",
+        "schedule": crontab(day_of_week="mon", hour=5, minute=0),
+    },
     "apply-decay-daily": {
         "task": "apps.knowledge.tasks.apply_decay_all",
         "schedule": crontab(hour=3, minute=0),

@@ -16,6 +16,10 @@ class Event(models.Model):
         REVIEW_COMPLETED = "review_completed"
         TRAJECTORY_ASSIGNED = "trajectory_assigned"
         TRAJECTORY_TRANSITION = "trajectory_transition"
+        XP_AWARDED = "xp_awarded"
+        STREAK_ADVANCED = "streak_advanced"
+        STREAK_RESET = "streak_reset"
+        QUEST_COMPLETED = "quest_completed"
 
     student = models.ForeignKey(
         "accounts.StudentProfile",

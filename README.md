@@ -10,13 +10,23 @@
 ## Стек
 Django + DRF (модульный монолит), PostgreSQL (dev/tests — SQLite), Celery + Redis.
 
+## Геймификация
+
+`apps/gamification` ведёт XP, вычисляемый из XP уровень, настраиваемый стрик и
+еженедельные квесты. Режим стрика задаётся `STREAK_MODE = "daily" | "weekly"`
+(по умолчанию `daily`). Учебные действия начисляют XP синхронно через сервисный
+слой; завершение квеста также записывается в append-only журнал событий.
+
+Текущий прогресс доступен в кабинете и через `GET /api/gamification/`.
+Квесты создаются идемпотентно при чтении текущей недели и еженедельной Celery-задачей.
+
 ## Запуск
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe manage.py migrate
 .\.venv\Scripts\python.exe manage.py seed_demo  # граф, задачи, траектории, пользователи
 .\.venv\Scripts\python.exe manage.py runserver
-# фоновые задачи (забывание, weekly-отчёты, простой, просроченные повторы):
+# фоновые задачи (забывание, weekly-отчёты/квесты, простой, просроченные повторы):
 celery -A config worker -B
 ```
 После `seed_demo` доступны пользователи `student`, `parent`, `expert`

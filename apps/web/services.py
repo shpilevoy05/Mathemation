@@ -9,6 +9,7 @@ from django.utils import timezone
 from apps.ai_mentor.models import AiHintMessage, AiHintSession
 from apps.ai_mentor.services import mentor_available
 from apps.content.models import TheoryBlock
+from apps.gamification.services import gamification_snapshot
 from apps.knowledge.models import KnowledgeNode, TopicCluster
 from apps.knowledge.services import apply_decay, node_states
 from apps.mocks.models import MockExam, MockExamResult
@@ -62,6 +63,7 @@ def dashboard_context(student):
             student=student, acknowledged=False
         ).select_related("from_trajectory", "to_trajectory"),
         "forecast": ceiling_forecast(student) if plan else None,
+        "gamification": gamification_snapshot(student),
     }
 
 

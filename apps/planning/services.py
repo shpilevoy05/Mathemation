@@ -420,9 +420,15 @@ def acknowledge_trajectory_transition(student, transition_id: int):
     return transition
 
 
+@transaction.atomic
 def complete_item(item: StudyPlanItem) -> StudyPlanItem:
+    if item.status == StudyPlanItem.Status.DONE:
+        return item
     item.status = StudyPlanItem.Status.DONE
     item.save(update_fields=["status"])
+    from apps.gamification.services import record_plan_item_activity
+
+    record_plan_item_activity(item.plan.student)
     return item
 
 

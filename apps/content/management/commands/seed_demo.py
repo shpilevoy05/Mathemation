@@ -13,6 +13,7 @@ from django.utils import timezone
 from apps.accounts.models import ParentProfile, StudentProfile, User
 from apps.content.models import Assignment, AssignmentSkillTag, Lesson, TheoryBlock
 from apps.diagnostics.models import DiagnosticTest
+from apps.gamification.services import generate_weekly_quests
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.mocks.models import MockExam
 from apps.planning.models import Trajectory
@@ -227,6 +228,7 @@ class Command(BaseCommand):
         assign_trajectory(student, student.target_score)
         if get_active_plan(student) is None:
             build_study_plan(student, reason="seed_demo")
+        generate_weekly_quests(student)
 
         parent_user, created = User.objects.get_or_create(
             username="parent", defaults={"role": User.Role.PARENT}

@@ -41,6 +41,9 @@ def submit_attempt(student, assignment: Assignment, answer: str, context: str,
     )
     if is_correct is not None:
         process_attempt_result(attempt)
+    from apps.gamification.services import record_attempt_activity
+
+    record_attempt_activity(student, is_correct)
     return attempt
 
 
@@ -121,7 +124,10 @@ def _maybe_reinsert_topic(student, node) -> None:
         )
 
 
+@transaction.atomic
 def complete_review(review: ReviewSchedule, success: bool) -> None:
+    if review.status == ReviewSchedule.Status.COMPLETED:
+        return
     review.status = ReviewSchedule.Status.COMPLETED
     review.save(update_fields=["status"])
     item = review.backlog_item
@@ -145,6 +151,9 @@ def complete_review(review: ReviewSchedule, success: bool) -> None:
         interval_days=review.interval_days,
         success=success,
     )
+    from apps.gamification.services import record_review_activity
+
+    record_review_activity(item.student)
 
 
 def practice_queue(student, node) -> dict:
