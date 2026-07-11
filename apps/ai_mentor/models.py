@@ -29,6 +29,9 @@ class AiHintMessage(models.Model):
     session = models.ForeignKey(AiHintSession, on_delete=models.CASCADE, related_name="messages")
     role = models.CharField(max_length=16, choices=Role.choices)
     text = models.TextField()
+    is_blocked = models.BooleanField(default=False)
+    failed_claims = models.JSONField(default=list, blank=True)
+    unverified_claims = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

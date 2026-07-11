@@ -5,6 +5,7 @@ class Event(models.Model):
     class Type(models.TextChoices):
         ATTEMPT_SUBMITTED = "attempt_submitted"
         HINT_ISSUED = "hint_issued"
+        HINT_BLOCKED_BY_GUARDRAIL = "hint_blocked_by_guardrail"
         DIAGNOSTIC_STARTED = "diagnostic_started"
         DIAGNOSTIC_SUBMITTED = "diagnostic_submitted"
         MOCK_STARTED = "mock_started"
@@ -37,4 +38,3 @@ class Event(models.Model):
 
     def delete(self, *args, **kwargs):
         raise RuntimeError("События являются append-only и не могут быть удалены.")
-

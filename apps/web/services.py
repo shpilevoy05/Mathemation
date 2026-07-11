@@ -2,10 +2,11 @@
 
 from datetime import timedelta
 
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from apps.ai_mentor.models import AiHintSession
+from apps.ai_mentor.models import AiHintMessage, AiHintSession
 from apps.ai_mentor.services import mentor_available
 from apps.content.models import TheoryBlock
 from apps.knowledge.models import KnowledgeNode, TopicCluster
@@ -186,7 +187,12 @@ def lesson_context(student, node_id, attempt_context=Attempt.Context.LESSON):
         for session in AiHintSession.objects.filter(
             student=student,
             assignment_id__in=[task["assignment"].id for task in tasks],
-        ).prefetch_related("messages")
+        ).prefetch_related(
+            Prefetch(
+                "messages",
+                queryset=AiHintMessage.objects.filter(is_blocked=False),
+            )
+        )
     }
     for task in tasks:
         task["hint_session"] = sessions.get(task["assignment"].id)

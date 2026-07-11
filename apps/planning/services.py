@@ -1,11 +1,12 @@
 """Study plan building and adaptation."""
-from collections import deque
 from datetime import timedelta
 
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from apps.engine.dto import EdgeDTO, EngineParams, NodeState
+from apps.engine.planner import greedy_pending_nodes, topological_order
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode
 from apps.knowledge.services import mastery_map
 
@@ -18,35 +19,41 @@ from .models import (
 )
 
 
+def _engine_params() -> EngineParams:
+    return EngineParams(
+        mastery_threshold=settings.MASTERY_THRESHOLD,
+        decay_grace_days=settings.DECAY_GRACE_DAYS,
+        decay_rate_per_day=settings.DECAY_RATE_PER_DAY,
+        max_primary_score=settings.MAX_PRIMARY_SCORE,
+        hours_per_node=settings.HOURS_PER_NODE,
+        attainable_mastery=settings.ATTAINABLE_MASTERY,
+        bkt_alpha=settings.BKT_ALPHA,
+        forecast_calibration_alpha=settings.FORECAST_CALIBRATION_ALPHA,
+    )
+
+
+def _node_dto(node, mastery: float = 0.0) -> NodeState:
+    return NodeState(
+        node_id=node.id,
+        mastery=float(mastery),
+        last_practiced_at=None,
+        weight=float(node.weight),
+        cluster_weight=float(node.cluster.exam_weight),
+    )
+
+
 def _topological_order(nodes):
     """Order nodes so prerequisites come first; ties broken by exam weight desc."""
-    ids = {n.id for n in nodes}
-    deps = KnowledgeDependency.objects.filter(node_id__in=ids, prerequisite_id__in=ids)
-    incoming = {n.id: set() for n in nodes}
-    outgoing = {n.id: set() for n in nodes}
-    for d in deps:
-        incoming[d.node_id].add(d.prerequisite_id)
-        outgoing[d.prerequisite_id].add(d.node_id)
-
     by_id = {n.id: n for n in nodes}
-    ready = sorted(
-        (nid for nid, pre in incoming.items() if not pre),
-        key=lambda nid: -(by_id[nid].weight * by_id[nid].cluster.exam_weight),
-    )
-    queue, result = deque(ready), []
-    while queue:
-        nid = queue.popleft()
-        result.append(by_id[nid])
-        for nxt in sorted(
-            outgoing[nid],
-            key=lambda x: -(by_id[x].weight * by_id[x].cluster.exam_weight),
-        ):
-            incoming[nxt].discard(nid)
-            if not incoming[nxt]:
-                queue.append(nxt)
-    # Cycles shouldn't exist; append leftovers defensively.
-    leftover = [n for n in nodes if n not in result]
-    return result + leftover
+    ids = set(by_id)
+    edges = [
+        EdgeDTO(from_node_id=dependency.prerequisite_id, to_node_id=dependency.node_id)
+        for dependency in KnowledgeDependency.objects.filter(
+            node_id__in=ids, prerequisite_id__in=ids
+        )
+    ]
+    ordered = topological_order([_node_dto(node) for node in nodes], edges)
+    return [by_id[state.node_id] for state in ordered]
 
 
 def order_pending_nodes(student) -> list[KnowledgeNode]:
@@ -56,8 +63,17 @@ def order_pending_nodes(student) -> list[KnowledgeNode]:
     """
     masteries = mastery_map(student)
     nodes = list(KnowledgeNode.objects.select_related("cluster").all())
-    pending = [n for n in nodes if masteries.get(n.id, 0) < settings.MASTERY_THRESHOLD]
-    return _topological_order(pending)
+    ids = {node.id for node in nodes}
+    edges = [
+        EdgeDTO(from_node_id=dependency.prerequisite_id, to_node_id=dependency.node_id)
+        for dependency in KnowledgeDependency.objects.filter(
+            node_id__in=ids, prerequisite_id__in=ids
+        )
+    ]
+    by_id = {node.id: node for node in nodes}
+    states = [_node_dto(node, masteries.get(node.id, 0.0)) for node in nodes]
+    ordered = greedy_pending_nodes(states, edges, _engine_params())
+    return [by_id[state.node_id] for state in ordered]
 
 
 def build_study_plan(student, reason: str = "initial") -> StudyPlan:

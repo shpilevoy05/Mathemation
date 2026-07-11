@@ -4,14 +4,18 @@ from django.conf import settings
 
 from apps.practice.models import Attempt
 
+from .guardrails import check_hint, contains_final_answer
 from .models import AiHintMessage, AiHintSession
-from .providers import get_provider
+from .providers import UNCERTAINTY_NOTE, get_provider
 
 DISALLOWED_CONTEXTS = {Attempt.Context.MOCK, Attempt.Context.DIAGNOSTIC, Attempt.Context.REVIEW}
 
 ESCALATION_TEXT = (
     "Подсказки исчерпаны. Если решение всё ещё не складывается — отправь свою "
     "попытку на проверку эксперту, он разберёт её по шагам."
+)
+GUARDRAIL_BLOCK_TEXT = (
+    "Не могу поручиться за этот шаг. Давай спросим живого преподавателя."
 )
 
 
@@ -48,13 +52,59 @@ def request_hint(student, assignment, question: str, context: str) -> dict:
 
     session.hints_used += 1
     session.save(update_fields=["hints_used"])
-    text = get_provider().generate_hint(assignment, question, session.hints_used)
-    AiHintMessage.objects.create(
-        session=session, role=AiHintMessage.Role.MENTOR, text=text
-    )
+    provider_text = get_provider().generate_hint(assignment, question, session.hints_used)
+    guardrail = check_hint(provider_text)
+    failed_claims = list(guardrail.failed_claims)
+    if (
+        assignment.exam_part == assignment.Part.PART1
+        and assignment.correct_answer
+        and contains_final_answer(
+            provider_text, assignment.correct_answer, assignment.statement
+        )
+    ):
+        failed_claims.append("final_answer")
+
     from apps.events.models import Event
     from apps.events.services import log_event
 
+    if not guardrail.passed or failed_claims:
+        AiHintMessage.objects.create(
+            session=session,
+            role=AiHintMessage.Role.MENTOR,
+            text=provider_text,
+            is_blocked=True,
+            failed_claims=failed_claims,
+            unverified_claims=guardrail.unverified_claims,
+        )
+        session.escalated_to_expert = True
+        session.save(update_fields=["escalated_to_expert"])
+        AiHintMessage.objects.create(
+            session=session,
+            role=AiHintMessage.Role.MENTOR,
+            text=GUARDRAIL_BLOCK_TEXT,
+        )
+        log_event(
+            Event.Type.HINT_BLOCKED_BY_GUARDRAIL,
+            student=student,
+            assignment_id=assignment.id,
+            hint_index=session.hints_used,
+            failed_claims=failed_claims,
+        )
+        return {
+            "session": session,
+            "text": GUARDRAIL_BLOCK_TEXT,
+            "escalated": True,
+        }
+
+    text = provider_text
+    if guardrail.unverified_claims and UNCERTAINTY_NOTE not in text:
+        text = f"{text}\n\n{UNCERTAINTY_NOTE}"
+    AiHintMessage.objects.create(
+        session=session,
+        role=AiHintMessage.Role.MENTOR,
+        text=text,
+        unverified_claims=guardrail.unverified_claims,
+    )
     log_event(
         Event.Type.HINT_ISSUED,
         student=student,

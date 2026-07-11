@@ -59,7 +59,7 @@ class ParentAiLogView(views.APIView):
                 "escalated_to_expert": session.escalated_to_expert,
                 "messages": [
                     {"role": m.role, "text": m.text, "created_at": m.created_at}
-                    for m in session.messages.all()
+                    for m in session.messages.filter(is_blocked=False)
                 ],
             })
         return Response([

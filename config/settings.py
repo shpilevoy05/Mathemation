@@ -114,6 +114,8 @@ CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_EAGER", "0") == "1"
 # --- Mathemation domain config ---
 # Mastery threshold above which a node is considered mastered and skipped in the plan.
 MASTERY_THRESHOLD = 70
+# Learning rate of the synchronous mastery micro-update.
+BKT_ALPHA = 0.3
 # Spaced-repetition intervals in days for mistake rework.
 REVIEW_INTERVALS_DAYS = [1, 3, 7, 30]
 # Open mistakes on one node that force the topic back into the plan.
@@ -136,6 +138,8 @@ DECAY_RATE_PER_DAY = 0.02
 # --- Score forecast ---
 # Maximum primary score of the profile EGE (12 задач части 1 + 20 баллов части 2).
 MAX_PRIMARY_SCORE = 32
+# EMA weight of the latest mock when calibrating a forecast.
+FORECAST_CALIBRATION_ALPHA = 0.3
 # Официальная таблица перевода первичных баллов в тестовые (кладётся конфигом
 # на каждый год; ниже — приближение шкалы профильной математики).
 PRIMARY_TO_SCALED = [

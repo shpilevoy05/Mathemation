@@ -1,13 +1,26 @@
-"""Mastery update and forgetting-curve domain logic."""
-import math
+"""ORM adapters for mastery and forgetting-curve engine algorithms."""
 
 from django.conf import settings
 from django.utils import timezone
 
+from apps.engine.decay import decayed_mastery
+from apps.engine.dto import EngineParams
+from apps.engine.mastery import bkt_update
+
 from .models import KnowledgeNode, SkillMastery
 
-# Exponential-moving-average learning rate. TODO: replace with BKT/IRT later.
-ALPHA = 0.3
+
+def _engine_params() -> EngineParams:
+    return EngineParams(
+        mastery_threshold=settings.MASTERY_THRESHOLD,
+        decay_grace_days=settings.DECAY_GRACE_DAYS,
+        decay_rate_per_day=settings.DECAY_RATE_PER_DAY,
+        max_primary_score=settings.MAX_PRIMARY_SCORE,
+        hours_per_node=settings.HOURS_PER_NODE,
+        attainable_mastery=settings.ATTAINABLE_MASTERY,
+        bkt_alpha=settings.BKT_ALPHA,
+        forecast_calibration_alpha=settings.FORECAST_CALIBRATION_ALPHA,
+    )
 
 
 def update_mastery(student, node: KnowledgeNode, correct: bool, weight: float = 1.0) -> SkillMastery:
@@ -17,9 +30,7 @@ def update_mastery(student, node: KnowledgeNode, correct: bool, weight: float = 
     Every practice resets the forgetting curve: peak = new value, peak_at = now.
     """
     sm, _ = SkillMastery.objects.get_or_create(student=student, node=node)
-    target = 100.0 if correct else 0.0
-    step = ALPHA * min(max(weight, 0.0), 1.0)
-    sm.mastery = round(sm.mastery + step * (target - sm.mastery), 2)
+    sm.mastery = bkt_update(sm.mastery, correct, weight, _engine_params())
     sm.peak_mastery = sm.mastery
     sm.peak_at = timezone.now()
     sm.last_practiced_at = sm.peak_at
@@ -47,8 +58,7 @@ def decayed_value(peak: float, peak_at, now=None) -> float:
     """
     now = now or timezone.now()
     days = (now - peak_at).total_seconds() / 86400
-    over_grace = max(0.0, days - settings.DECAY_GRACE_DAYS)
-    return round(peak * math.exp(-settings.DECAY_RATE_PER_DAY * over_grace), 2)
+    return decayed_mastery(peak, days, _engine_params())
 
 
 def apply_decay(student) -> list[SkillMastery]:
