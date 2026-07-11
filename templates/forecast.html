@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Прогноз — Матемация{% endblock %}
+{% block content %}
+{% if not student %}<section class="empty-state"><h1>Прогноз</h1><p>Этот раздел доступен ученикам.</p></section>{% else %}
+<div class="page-heading"><div><p class="eyebrow">Честная оценка</p><h1>Прогноз и потолок</h1><p>Посмотри, как темп и время до экзамена влияют на достижимый результат.</p></div></div>
+<section class="forecast-hero" data-forecast><div class="forecast-score"><small>Текущий прогноз</small><strong data-current-score>{{ forecast.current_score }}</strong><span>при текущем темпе</span></div><div class="forecast-arrow">→</div><div class="forecast-score ceiling"><small>Потолок</small><strong data-ceiling-score>{{ forecast.ceiling_score }}</strong><span>при выбранных условиях</span></div></section>
+<p class="disclaimer prominent">Это не гарантия балла. Прогноз — условный диапазон результата при текущем темпе; фактический результат зависит от регулярности, пробников и работы над ошибками.</p>
+<section class="card levers"><div><p class="eyebrow">Рычаги</p><h2>Проверь другой сценарий</h2></div><label>Недельная нагрузка <strong><span data-hours-output>{{ forecast.weekly_hours }}</span> ч</strong><input type="range" min="1" max="24" value="{{ forecast.weekly_hours }}" data-forecast-hours></label><label>Дата экзамена<input type="date" value="{{ forecast.exam_date|date:'Y-m-d' }}" data-forecast-date></label><p class="form-error" data-forecast-error hidden></p></section>
+{% endif %}{% endblock %}

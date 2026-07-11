@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ result.exam.title }} — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Пробник</h1><p>Для этого аккаунта кабинет ученика недоступен.</p></section>
+{% elif result.status != 'in_progress' %}
+  <section class="empty-state"><h1>Пробник уже отправлен</h1><a class="button" href="{% url 'mock_result' result.id %}">Посмотреть результат</a></section>
+{% else %}
+  <section class="page-heading"><div><p class="eyebrow">Пробник</p><h1>{{ result.exam.title }}</h1><p>Дедлайн сервера: {{ result.deadline|date:"d.m.Y H:i:s" }}</p></div><div class="timer-card"><small>Осталось</small><strong data-mock-timer data-deadline="{{ result.deadline|date:'c' }}">—:—:—</strong></div></section>
+  <form data-mock-form data-result-id="{{ result.id }}" data-result-url="{% url 'mock_result' result.id %}">
+    <section class="card mock-part"><p class="eyebrow">Часть 1</p><h2>Краткие ответы</h2>
+      {% for assignment in part1_assignments %}<article class="mock-task"><h3>{{ forloop.counter }}. {{ assignment.title }}</h3><p>{{ assignment.statement }}</p><label>Ответ<input name="answer_{{ assignment.id }}" autocomplete="off"></label></article>{% empty %}<p>В этом пробнике нет задач части 1.</p>{% endfor %}
+    </section>
+    <section class="card mock-part"><p class="eyebrow">Часть 2</p><h2>Развёрнутые решения</h2>
+      {% for assignment in part2_assignments %}<article class="mock-task" data-part2-assignment="{{ assignment.id }}"><h3>{{ assignment.title }}</h3><p>{{ assignment.statement }}</p><label>Фото или скан решения<input type="file" name="file_{{ assignment.id }}" accept="image/*,.pdf" required></label></article>{% empty %}<p>В этом пробнике нет задач части 2.</p>{% endfor %}
+    </section>
+    <p class="form-error" data-mock-error hidden></p><button class="button button-primary mock-submit" type="submit">Завершить пробник</button>
+  </form>
+{% endif %}
+{% endblock %}

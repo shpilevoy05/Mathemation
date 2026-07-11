@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Родительский кабинет — Матемация{% endblock %}
+{% block content %}
+{% if not parent %}<section class="empty-state"><h1>Родительский кабинет</h1><p>Для этого аккаунта родительский кабинет недоступен.</p></section>
+{% elif not child %}<section class="empty-state"><h1>Родительский кабинет</h1><p>К профилю пока не привязан ученик.</p></section>
+{% else %}
+  <section class="hero"><div><p class="eyebrow">Родительский кабинет</p><h1>{{ child.user.get_full_name|default:child.user.username }}</h1><p>Короткая и честная сводка без лишнего контроля.</p></div></section>
+  <div class="dashboard-grid">
+    <section class="card card-wide"><h2>Реальный балл</h2><div class="score-path"><div><small>Старт</small><strong>{{ report_data.dynamics.start_score|default:"—" }}</strong></div><span>→</span><div class="accent"><small>Прогноз</small><strong>{{ report_data.dynamics.current_predicted_score|default:"—" }}</strong></div><span>→</span><div><small>Цель</small><strong>{{ report_data.dynamics.target_score }}</strong></div></div><p class="disclaimer">Прогноз рассчитан при текущем темпе и не является гарантией.</p></section>
+    <section class="card"><h2>Факт недели</h2><ul class="plain-list"><li>Занятия по плану — {{ report_data.week_fact.plan_items_done }}</li><li>Решено задач — {{ report_data.week_fact.attempts }}</li><li>Пробники — {{ report_data.week_fact.mocks_completed }}</li></ul></section>
+    <section class="card"><h2>Динамика</h2><p>Изменение прогноза: {{ report_data.dynamics.delta|default:"нет данных" }}</p><p>Подсказок наставника: <strong>{{ report_data.week_fact.hints_used }}</strong></p><button class="button" type="button" data-parent-ai-log="/api/parent/ai-log/">Показать переписку</button></section>
+    <section class="card"><h2>Риски</h2>{% if report_data.risks %}<ul>{% for risk in report_data.risks %}<li>{{ risk }}</li>{% endfor %}</ul>{% else %}<p>Критичных рисков сейчас нет.</p>{% endif %}</section>
+    <section class="card"><h2>Слабые темы</h2><ul class="plain-list">{% for topic in report_data.weak_topics %}<li>{{ topic.title }} <small>{{ topic.mastery|floatformat:0 }}% освоения</small></li>{% empty %}<li>Нет данных</li>{% endfor %}</ul></section>
+    <section class="card"><h2>Распределение ошибок</h2><ul class="plain-list">{% for item in error_distribution %}<li>{{ item.label }} — {{ item.count }}</li>{% empty %}<li>Открытых ошибок нет.</li>{% endfor %}</ul></section>
+    <section class="card"><h2>Что дальше</h2><p>{{ report_data.next_step }}</p></section>
+  </div>
+  <dialog class="app-dialog" id="parent-ai-log"><div class="section-heading"><h2>Переписка с наставником</h2><button class="link-button" type="button" data-close-dialog>Закрыть</button></div><div data-parent-ai-content><p>Загрузка…</p></div></dialog>
+{% endif %}
+{% endblock %}

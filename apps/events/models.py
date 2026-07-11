@@ -1,0 +1,40 @@
+from django.db import models
+
+
+class Event(models.Model):
+    class Type(models.TextChoices):
+        ATTEMPT_SUBMITTED = "attempt_submitted"
+        HINT_ISSUED = "hint_issued"
+        DIAGNOSTIC_STARTED = "diagnostic_started"
+        DIAGNOSTIC_SUBMITTED = "diagnostic_submitted"
+        MOCK_STARTED = "mock_started"
+        MOCK_SUBMITTED = "mock_submitted"
+        EXPERT_REVIEW_COMPLETED = "expert_review_completed"
+        PLAN_REBUILT = "plan_rebuilt"
+        PLAN_CHANGE_LOGGED = "plan_change_logged"
+        REVIEW_COMPLETED = "review_completed"
+        TRAJECTORY_ASSIGNED = "trajectory_assigned"
+        TRAJECTORY_TRANSITION = "trajectory_transition"
+
+    student = models.ForeignKey(
+        "accounts.StudentProfile",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="events",
+    )
+    event_type = models.CharField(max_length=64, choices=Type.choices)
+    payload = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None:
+            raise RuntimeError("События являются append-only и не могут быть изменены.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise RuntimeError("События являются append-only и не могут быть удалены.")
+

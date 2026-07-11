@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Результат пробника — Матемация{% endblock %}
+{% block content %}
+{% if not student %}<section class="empty-state"><h1>Результат</h1><p>Для этого аккаунта кабинет ученика недоступен.</p></section>
+{% else %}
+  <section class="page-heading"><div><p class="eyebrow">{{ status_label }}</p><h1>{{ result.exam.title }}</h1><p>{{ result.started_at|date:"d.m.Y" }}</p></div></section>
+  <div class="dashboard-grid">
+    <section class="card"><p class="eyebrow">Автопроверка</p><h2>Часть 1</h2><strong class="score-large">{{ result.primary_score }}</strong><p>первичных баллов</p></section>
+    <section class="card"><p class="eyebrow">Итог</p><h2>Первичный → тестовый</h2><strong class="score-large">{{ result.total_primary_score }} → {{ result.scaled_score|default:"—" }}</strong>{% if result.status == 'completed' %}<p>Прогноз перекалиброван по фактическому результату.</p>{% endif %}</section>
+    <section class="card card-wide"><h2>Экспертная проверка части 2</h2>
+      {% for review in reviews %}<article class="review-result"><div><h3>{{ review.assignment.title }}</h3>{% if review.status == 'reviewed' %}<span class="status-pill">проверено</span>{% else %}<span class="status-pill">на проверке у эксперта</span><p>Срок проверки по SLA: {{ review.sla_deadline|date:"d.m.Y H:i" }}</p>{% endif %}</div>
+        {% if review.reviewed_at %}<p><strong>Критерии ФИПИ:</strong></p><ul>{% for criterion, score in review.score_by_criteria.items %}<li>{{ criterion }} — {{ score }}</li>{% endfor %}</ul><p><strong>Где потерян балл:</strong> {{ review.comment|default:"Комментарий не указан." }}</p>{% endif %}</article>{% empty %}<p class="empty-copy">Решения части 2 не отправлялись.</p>{% endfor %}
+    </section>
+  </div>
+{% endif %}
+{% endblock %}

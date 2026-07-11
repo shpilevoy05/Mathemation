@@ -1,0 +1,42 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Матемация{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'js/app.js' %}" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="{% url 'dashboard' %}">Матемация</a>
+      {% if user.is_authenticated %}
+        <nav class="main-nav" aria-label="Основная навигация">
+          {% if user.student_profile %}
+            <a href="{% url 'dashboard' %}">Кабинет</a>
+            <a href="{% url 'knowledge_map' %}">Карта навыков</a>
+            <a href="{% url 'track' %}">Дорожка</a>
+            <a href="{% url 'practice_backlog' %}">Отработка</a>
+            <a href="{% url 'mocks' %}">Пробники</a>
+            <a href="{% url 'forecast' %}">Прогноз</a>
+          {% elif user.parent_profile %}
+            <a href="{% url 'parent_dashboard' %}">Родителю</a>
+          {% endif %}
+        </nav>
+        <div class="account-menu">
+          <span>{{ user.get_full_name|default:user.username }}</span>
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}<button class="link-button" type="submit">Выйти</button>
+          </form>
+        </div>
+      {% endif %}
+    </div>
+  </header>
+  <main class="page-shell">
+    {% if messages %}{% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

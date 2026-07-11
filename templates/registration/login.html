@@ -1,0 +1,3 @@
+{% extends "base.html" %}
+{% block title %}Вход — Матемация{% endblock %}
+{% block content %}<div class="auth-shell"><section class="auth-card"><p class="eyebrow">Продолжить подготовку</p><h1>Вход в Матемацию</h1><p>Твоя траектория, карта навыков и отработка ждут тебя.</p>{% if form.errors %}<p class="form-error">Не получилось войти. Проверь логин и пароль.</p>{% endif %}<form method="post" class="stack-form">{% csrf_token %}<label for="id_username">Логин</label>{{ form.username }}<label for="id_password">Пароль</label>{{ form.password }}{% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}<button class="button button-primary" type="submit">Войти</button></form></section></div>{% endblock %}

@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Дорожка — Матемация{% endblock %}
+{% block content %}
+{% if not student %}<section class="empty-state"><h1>Дорожка</h1><p>Этот раздел доступен ученикам.</p></section>{% else %}
+<div class="page-heading"><div><p class="eyebrow">Последовательность подготовки</p><h1>Дорожка</h1><p>Уроки, практика, отработка и пробники — в нужном порядке.</p></div></div>
+<div class="track">{% for cluster in track_clusters %}<section class="track-cluster" style="--cluster-color: {{ cluster.color }}"><h2>{{ cluster.title }}</h2>{% for point in cluster.points %}<div class="track-row {% if point.is_current %}is-current{% endif %} {% if point.is_done %}is-done{% endif %}"><span class="track-dot">{% if point.is_done %}✓{% else %}{{ forloop.counter }}{% endif %}</span><div class="track-card"><small>{{ point.type_label }} · {{ point.state_label }}</small><h3>{{ point.title }}</h3>{% if point.node_id %}<a href="{% url 'lesson' point.node_id %}">Открыть <span>→</span></a>{% elif point.type == 'review' %}<a href="{% url 'practice_backlog' %}">К отработке <span>→</span></a>{% endif %}</div></div>{% endfor %}</section>{% endfor %}{% if mock_points %}<section class="track-cluster mock-cluster"><h2>Контрольные точки</h2>{% for point in mock_points %}<div class="track-row"><span class="track-dot">П</span><div class="track-card"><small>Пробник</small><h3>{{ point.title }}</h3></div></div>{% endfor %}</section>{% endif %}</div>
+{% endif %}{% endblock %}
