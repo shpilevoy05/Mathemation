@@ -206,3 +206,68 @@ class TrajectoryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["slug"], "score84")
         self.assertIn("при текущем темпе", response.json()["message"].lower())
+
+    def test_target_score_api_switches_trajectory_and_rebuilds_plan(self):
+        self.student.target_score = 84
+        self.student.save(update_fields=["target_score"])
+        assign_trajectory(self.student, 84)
+        old_plan = build_study_plan(self.student)
+        self.client.force_login(self.student.user)
+
+        response = self.client.post(
+            "/api/me/target/", {"target_score": 90}, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.target_score, 90)
+        self.assertEqual(response.json()["trajectory"]["slug"], "score90")
+        new_plan = get_active_plan(self.student)
+        self.assertNotEqual(new_plan.id, old_plan.id)
+        self.assertEqual(new_plan.target_score, 90)
+        self.assertEqual(new_plan.trajectory.slug, "score90")
+        change = PlanChangeLog.objects.get(
+            plan=new_plan, reason=PlanChangeLog.Reason.MANUAL
+        )
+        self.assertTrue(change.is_major)
+        self.assertIn("Целевой балл изменён на 90", change.description)
+        event = Event.objects.get(event_type=Event.Type.TARGET_SCORE_CHANGED)
+        self.assertEqual(event.payload["old"], 84)
+        self.assertEqual(event.payload["new"], 90)
+        self.assertEqual(event.payload["trajectory_id"], new_plan.trajectory_id)
+
+    def test_target_score_api_keeps_plan_within_same_trajectory(self):
+        self.student.target_score = 84
+        self.student.save(update_fields=["target_score"])
+        assign_trajectory(self.student, 84)
+        plan = build_study_plan(self.student)
+        rebuild_events = Event.objects.filter(event_type=Event.Type.PLAN_REBUILT).count()
+        self.client.force_login(self.student.user)
+
+        response = self.client.post(
+            "/api/me/target/", {"target_score": 86}, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["trajectory_changed"])
+        self.assertEqual(response.json()["trajectory"]["slug"], "score84")
+        self.assertEqual(get_active_plan(self.student).id, plan.id)
+        self.assertEqual(
+            Event.objects.filter(event_type=Event.Type.PLAN_REBUILT).count(),
+            rebuild_events,
+        )
+        self.assertFalse(
+            PlanChangeLog.objects.filter(reason=PlanChangeLog.Reason.MANUAL).exists()
+        )
+
+    def test_target_score_api_rejects_values_outside_range(self):
+        self.client.force_login(self.student.user)
+        for target_score in (39, 101):
+            with self.subTest(target_score=target_score):
+                response = self.client.post(
+                    "/api/me/target/",
+                    {"target_score": target_score},
+                    content_type="application/json",
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("target_score", response.json())

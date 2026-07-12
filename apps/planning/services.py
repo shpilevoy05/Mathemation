@@ -259,7 +259,7 @@ def assign_trajectory(student, target_score: int) -> Trajectory:
 
     transition = TrajectoryTransition.objects.create(
         student=student,
-        from_trajectory=None,
+        from_trajectory=current,
         to_trajectory=trajectory,
         reasons=["target_score"],
         recovery_actions=[],
@@ -280,6 +280,48 @@ def assign_trajectory(student, target_score: int) -> Trajectory:
         target_score=target_score,
     )
     return trajectory
+
+
+@transaction.atomic
+def change_target_score(student, target_score: int) -> dict:
+    """Change a student's goal and rebuild only when its trajectory changes."""
+    old_score = student.target_score
+    old_trajectory = _current_trajectory(student)
+    student.target_score = target_score
+    student.save(update_fields=["target_score"])
+
+    trajectory = assign_trajectory(student, target_score)
+    trajectory_changed = (
+        old_trajectory is None or old_trajectory.pk != trajectory.pk
+    )
+    plan = get_active_plan(student)
+    if trajectory_changed:
+        plan = build_study_plan(student, reason=PlanChangeLog.Reason.MANUAL)
+        log_plan_change(
+            student,
+            reason=PlanChangeLog.Reason.MANUAL,
+            description=(
+                f"Целевой балл изменён на {target_score} — траектория {trajectory.title}"
+            ),
+            is_major=True,
+        )
+
+    from apps.events.models import Event
+    from apps.events.services import log_event
+
+    log_event(
+        Event.Type.TARGET_SCORE_CHANGED,
+        student=student,
+        old=old_score,
+        new=target_score,
+        trajectory_id=trajectory.id,
+    )
+    return {
+        "target_score": target_score,
+        "trajectory": trajectory,
+        "trajectory_changed": trajectory_changed,
+        "plan": plan,
+    }
 
 
 def _recovery_actions(student, details: dict, trajectory: Trajectory) -> list[str]:

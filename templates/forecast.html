@@ -5,5 +5,15 @@
 <div class="page-heading"><div><p class="eyebrow">Честная оценка</p><h1>Прогноз и потолок</h1><p>Посмотри, как темп и время до экзамена влияют на достижимый результат.</p></div></div>
 <section class="forecast-hero" data-forecast><div class="forecast-score"><small>Текущий прогноз</small><strong data-current-score>{{ forecast.current_score }}</strong><span>при текущем темпе</span></div><div class="forecast-arrow">→</div><div class="forecast-score ceiling"><small>Потолок</small><strong data-ceiling-score>{{ forecast.ceiling_score }}</strong><span>при выбранных условиях</span></div></section>
 <p class="disclaimer prominent">Это не гарантия балла. Прогноз — условный диапазон результата при текущем темпе; фактический результат зависит от регулярности, пробников и работы над ошибками.</p>
+<section class="card target-score-card" data-target-score-card>
+  <div><p class="eyebrow">Целевой балл</p><h2><span data-target-score-current>{{ target_score }}</span> баллов</h2><p>Текущая траектория: <strong data-target-trajectory>{{ trajectory.title|default:"ещё не назначена" }}</strong></p></div>
+  <form class="target-score-form" data-target-score-form>
+    <label for="target-score">Новая цель</label>
+    <div><input id="target-score" name="target_score" type="number" min="40" max="100" step="1" value="{{ target_score }}" required><button class="button button-primary" type="submit">Изменить цель</button></div>
+    <p class="target-warning">План будет перестроен под новую траекторию.</p>
+    <p class="form-error" data-target-score-error hidden></p>
+    <p class="target-success" data-target-score-success hidden></p>
+  </form>
+</section>
 <section class="card levers"><div><p class="eyebrow">Рычаги</p><h2>Проверь другой сценарий</h2></div><label>Недельная нагрузка <strong><span data-hours-output>{{ forecast.weekly_hours }}</span> ч</strong><input type="range" min="1" max="24" value="{{ forecast.weekly_hours }}" data-forecast-hours></label><label>Дата экзамена<input type="date" value="{{ forecast.exam_date|date:'Y-m-d' }}" data-forecast-date></label><p class="form-error" data-forecast-error hidden></p></section>
 {% endif %}{% endblock %}

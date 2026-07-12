@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from apps.accounts.api import MeView
+from apps.accounts.api import MeView, TargetScoreView
 from apps.ai_mentor.api import HintView, ParentAiLogView
 from apps.content.api import AssignmentViewSet, LessonViewSet, TrackView
 from apps.diagnostics.api import DiagnosticListView, StartDiagnosticView, SubmitDiagnosticView
@@ -39,6 +39,7 @@ router.register("assignments", AssignmentViewSet)
 api_urls = [
     path("", include(router.urls)),
     path("me/", MeView.as_view()),
+    path("me/target/", TargetScoreView.as_view()),
     path("knowledge-map/", KnowledgeMapView.as_view()),
     path("nodes/<int:node_id>/", NodeDetailView.as_view()),
     path("nodes/<int:node_id>/practice/", NodePracticeView.as_view()),

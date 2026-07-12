@@ -7,7 +7,40 @@ from apps.ai_mentor.models import AiHintMessage, AiHintSession
 from apps.content.models import Lesson
 from apps.mocks.models import MockExam
 from apps.practice.models import MistakeBacklogItem
-from apps.knowledge.models import KnowledgeNode
+from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
+from apps.knowledge.services import set_mastery
+from apps.knowledge.tests import make_node, make_student
+
+from .services import track_context
+
+
+class TrackContextTests(TestCase):
+    def test_positions_unlock_conditions_and_mastered_state_are_prepared(self):
+        student = make_student(username="track-context-student")
+        cluster = TopicCluster.objects.create(title="Тестовый кластер", color="#3D6BE5")
+        mastered = make_node("track-mastered", cluster=cluster, order=0)
+        prerequisite = make_node("track-prerequisite", cluster=cluster, order=1)
+        locked = make_node("track-locked", cluster=cluster, order=2)
+        KnowledgeDependency.objects.create(
+            node=locked, prerequisite=prerequisite, min_mastery=70
+        )
+        for node in (mastered, prerequisite, locked):
+            Lesson.objects.create(node=node, title=f"Урок: {node.title}")
+        set_mastery(student, mastered, 90)
+
+        context = track_context(student)
+        points = context["track_clusters"][0]["points"]
+
+        self.assertEqual([point["position"] for point in points], [0, 1, 2, 3, 4, 0])
+        mastered_points = [point for point in points if point["node_id"] == mastered.id]
+        self.assertTrue(all(point["is_done"] for point in mastered_points))
+        locked_point = next(
+            point for point in points if point["node_id"] == locked.id
+        )
+        self.assertEqual(locked_point["visual_state"], "locked")
+        self.assertIsNone(locked_point["url"])
+        self.assertEqual(locked_point["unlock_conditions"][0]["title"], prerequisite.title)
+        self.assertIn("нужно 70%, сейчас 0%", locked_point["unlock_tooltip"])
 
 
 class StudentCabinetTests(TestCase):
@@ -65,6 +98,14 @@ class StudentCabinetTests(TestCase):
         self.assertContains(response, "Линейные и квадратные уравнения")
         self.assertContains(response, "нужно 50%")
         self.assertContains(response, "сейчас 0%")
+
+    def test_track_page_contains_cluster_sections_and_path_points(self):
+        response = self.client.get(reverse("track"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "data-track-cluster")
+        self.assertContains(response, "data-track-point")
+        self.assertContains(response, "track-pos-0")
+        self.assertContains(response, "track-state-locked")
 
     def test_methodist_node_admin_contains_both_dependency_inlines(self):
         self.client.force_login(User.objects.get(username="methodist"))

@@ -60,7 +60,7 @@
         <div class="score-path">
           <div><small>Старт</small><strong>{{ snapshot.start_score|default:"—" }}</strong></div><span>→</span>
           <div class="accent"><small>Прогноз</small><strong>{{ snapshot.predicted_score }}</strong></div><span>→</span>
-          <div><small>Цель</small><strong>{{ snapshot.target_score }}</strong></div><span>→</span>
+          <div><small>Цель</small><strong>{{ target_score }}</strong></div><span>→</span>
           <div><small>Потолок</small><strong>{{ forecast.ceiling_score|default:"—" }}</strong></div>
         </div>
         <p class="disclaimer">Прогноз и потолок рассчитаны при текущем темпе и не являются гарантией результата.</p>

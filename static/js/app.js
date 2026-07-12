@@ -13,7 +13,10 @@
     const response = await fetch(url, { credentials: "same-origin", ...options, headers });
     let data = null;
     try { data = await response.json(); } catch (_) { data = {}; }
-    if (!response.ok) throw new Error(data.detail || "Не удалось выполнить запрос. Попробуй ещё раз.");
+    if (!response.ok) {
+      const firstError = Object.values(data).flat().find(value => typeof value === "string");
+      throw new Error(data.detail || firstError || "Не удалось выполнить запрос. Попробуй ещё раз.");
+    }
     return data;
   }
   window.apiFetch = apiFetch;
@@ -118,6 +121,22 @@
   updateTaskProgress();
 
   document.addEventListener("submit", async event => {
+    const targetScoreForm = event.target.closest("[data-target-score-form]");
+    if (targetScoreForm) {
+      event.preventDefault();
+      const button = targetScoreForm.querySelector("button"), input = targetScoreForm.querySelector("input"), error = targetScoreForm.querySelector("[data-target-score-error]"), success = targetScoreForm.querySelector("[data-target-score-success]");
+      button.disabled = true; error.hidden = true; success.hidden = true;
+      try {
+        const data = await apiFetch("/api/me/target/", { method: "POST", body: JSON.stringify({ target_score: Number(input.value) }) });
+        document.querySelector("[data-target-score-current]").textContent = data.target_score;
+        document.querySelector("[data-target-trajectory]").textContent = data.trajectory.title;
+        document.querySelector("[data-current-score]").textContent = data.forecast.current_score;
+        document.querySelector("[data-ceiling-score]").textContent = data.forecast.ceiling_score;
+        success.textContent = data.trajectory_changed ? `Цель изменена. План перестроен под траекторию ${data.trajectory.title}.` : `Цель изменена. Траектория ${data.trajectory.title} сохранена, план не перестраивался.`;
+        success.hidden = false;
+      } catch (exception) { error.textContent = exception.message; error.hidden = false; }
+      finally { button.disabled = false; }
+    }
     const mockForm = event.target.closest("[data-mock-form]");
     if (mockForm) {
       event.preventDefault();
