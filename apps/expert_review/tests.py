@@ -101,3 +101,79 @@ class ExpertErrorTagTests(TestCase):
                 event_type=Event.Type.EXPERT_REVIEW_COMPLETED,
             ).exists()
         )
+
+
+class FinishExpertReviewApiTests(TestCase):
+    def setUp(self):
+        self.student = make_student(username="api-review-student")
+        self.node = make_node("api-review-node")
+        self.assignment = make_assignment(
+            self.node, answer="", part=Assignment.Part.PART2
+        )
+        self.assignment.max_score = 2
+        self.assignment.save(update_fields=["max_score"])
+        self.review = submit_solution(
+            self.student,
+            self.assignment,
+            SimpleUploadedFile("api-solution.png", b"scan"),
+        )
+        self.expert = get_user_model().objects.create_user(
+            username="api-expert", role="expert"
+        )
+        self.url = f"/api/expert-reviews/{self.review.id}/finish/"
+        self.payload = {
+            "score_by_criteria": {"К1": 1, "К2": 0},
+            "error_tags": [MistakeBacklogItem.ErrorType.WRONG_METHOD],
+            "related_node_ids": [self.node.id],
+            "comment": "Не обоснован переход",
+            "needs_resubmission": False,
+        }
+
+    def test_expert_finish_runs_full_pipeline(self):
+        self.client.force_login(self.expert)
+        response = self.client.post(self.url, self.payload, content_type="application/json")
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.review.refresh_from_db()
+        self.assertEqual(self.review.status, ExpertReviewRequest.Status.REVIEWED)
+        self.assertEqual(self.review.reviewer, self.expert)
+        self.assertEqual(self.review.total_score, 1)
+        self.assertEqual(self.review.lost_points, 1)
+        self.assertTrue(
+            SkillMastery.objects.filter(student=self.student, node=self.node).exists()
+        )
+        self.assertTrue(
+            MistakeBacklogItem.objects.filter(
+                student=self.student,
+                assignment=self.assignment,
+                error_type=MistakeBacklogItem.ErrorType.WRONG_METHOD,
+            ).exists()
+        )
+        self.assertTrue(
+            Event.objects.filter(
+                student=self.student,
+                event_type=Event.Type.EXPERT_REVIEW_COMPLETED,
+            ).exists()
+        )
+
+    def test_student_is_forbidden(self):
+        self.client.force_login(self.student.user)
+        response = self.client.post(self.url, self.payload, content_type="application/json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_repeated_finish_returns_conflict(self):
+        self.client.force_login(self.expert)
+        self.assertEqual(
+            self.client.post(self.url, self.payload, content_type="application/json").status_code,
+            200,
+        )
+        self.assertEqual(
+            self.client.post(self.url, self.payload, content_type="application/json").status_code,
+            409,
+        )
+
+    def test_score_above_one_is_invalid(self):
+        self.client.force_login(self.expert)
+        self.payload["score_by_criteria"] = {"К1": 2}
+        response = self.client.post(self.url, self.payload, content_type="application/json")
+        self.assertEqual(response.status_code, 400)

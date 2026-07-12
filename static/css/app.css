@@ -286,12 +286,39 @@ a.track-node-link:hover { transform: translateY(-3px); }
 @keyframes track-pulse { 50% { transform: scale(1.04); } }
 .mock-history { margin-top: 22px; }.mock-part { margin-bottom: 20px; }.mock-task { padding: 20px 0; border-top: 1px solid var(--line); }.mock-task:first-of-type { border-top: 0; }.mock-task input[type=file] { padding: 7px; }.mock-submit { min-width: 220px; }.timer-card { display: grid; min-width: 180px; padding: 16px 20px; border-radius: var(--radius); color: var(--card); text-align: center; background: var(--primary); }.timer-card strong { font-size: 1.8rem; font-variant-numeric: tabular-nums; }.score-large { font-size: 2.5rem; }.review-result { padding: 18px 0; border-top: 1px solid var(--line); }
 
+/* Expert and methodist cabinets. */
+.muted { color: var(--muted); }.text-danger { color: var(--danger); }.text-success { color: var(--success); }
+.backoffice-stats { grid-template-columns: repeat(3, 1fr); }.backoffice-section { margin: 24px 0; }
+.review-queue, .review-column, .message-list { display: grid; gap: 14px; }
+.review-queue-card { display: grid; grid-template-columns: minmax(220px, 1.3fr) minmax(150px, .8fr) auto; align-items: center; gap: 20px; }
+.review-queue-card > div:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 10px; }
+.review-queue-card > div:first-child strong, .review-queue-card > div:first-child span:not(.chip) { flex-basis: 100%; }
+.hover-lift { transition: box-shadow .18s ease, transform .18s ease; }.hover-lift:hover { box-shadow: var(--shadow-lift); transform: translateY(-2px); }
+.queue-actions { display: flex; align-items: center; justify-content: end; gap: 10px; }
+.chip { display: inline-flex; width: fit-content; padding: 5px 9px; border-radius: 999px; color: var(--primary-dark); background: var(--primary-soft); font-size: .78rem; font-weight: 750; }
+.success-soft { color: var(--success); background: var(--success-soft); }.warning-soft { color: var(--warning); background: var(--warning-soft); }.danger-soft { color: var(--danger); background: var(--danger-soft); }
+.escalation-card p { margin: 3px 0 0; color: var(--muted); }details { margin-top: 14px; }summary { cursor: pointer; font-weight: 700; }
+.blocked-mark, .message small { display: block; margin-top: 5px; }.blocked-mark { color: var(--danger); font-size: .78rem; }.message small { color: var(--muted); }
+.expert-review-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.solution-image { display: block; width: 100%; border-radius: 12px; }.review-form { display: grid; gap: 18px; }.criteria-list { display: grid; gap: 9px; }
+.criterion-row { display: flex; justify-content: space-between; align-items: center; padding-bottom: 9px; border-bottom: 1px solid var(--line); }
+.score-toggle { display: flex; gap: 6px; }.score-toggle button { min-width: 44px; padding: 7px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); background: var(--card); cursor: pointer; }
+.score-toggle button.is-selected { color: var(--card); border-color: var(--primary); background: var(--primary); }.review-total { padding: 12px; margin: 0; border-radius: var(--radius-sm); background: var(--primary-soft); }
+.review-form fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }.review-form legend, .field-label { display: block; margin-bottom: 9px; font-weight: 800; }
+.choice-chips { display: flex; flex-wrap: wrap; gap: 8px; }.chip-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.chip-toggle span { display: inline-flex; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); cursor: pointer; }.chip-toggle input:checked + span { color: var(--card); border-color: var(--primary); background: var(--primary); }
+.checkbox-list { display: grid; gap: 7px; }.checkbox-list label, .check-control { display: flex; align-items: center; gap: 9px; }.checkbox-list input, .check-control input { width: auto; min-height: auto; accent-color: var(--primary); }
+.review-form textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); resize: vertical; font: inherit; }.review-form textarea:focus { border-color: var(--primary); outline: 3px solid var(--primary-soft); }
+.admin-link-list { margin: 10px 0 18px; }.methodist-cluster { padding: 14px 0 14px 16px; margin-top: 18px; border-left: 5px solid var(--cluster-color); }.table-scroll { overflow-x: auto; }
+.methodist-cluster table { width: 100%; border-collapse: collapse; }.methodist-cluster th, .methodist-cluster td { padding: 9px 12px; border-bottom: 1px solid var(--line); text-align: left; }.methodist-cluster th { color: var(--muted); font-size: .78rem; }
+
 @media (max-width: 900px) {
   .header-inner { gap: 12px; }
   .main-nav a { padding-inline: .65rem; }
   .logo-word { display: none; }
   .node-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .levers { grid-template-columns: 1fr; }
+  .expert-review-layout { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 720px) {
@@ -327,6 +354,7 @@ a.track-node-link:hover { transform: translateY(-3px); }
   .forecast-hero { gap: 8px; padding: 25px 10px; }.forecast-score strong { font-size: 3.4rem; }.forecast-arrow { font-size: 1.3rem; }
   .target-score-card { grid-template-columns: 1fr; gap: 16px; }.target-score-form > div { align-items: stretch; flex-direction: column; }.target-score-form input { max-width: none; }
   .review-list article, .mistake-list article { align-items: stretch; flex-direction: column; }.mistake-meta { text-align: left; }
+  .review-queue-card { grid-template-columns: 1fr; gap: 10px; }.queue-actions { justify-content: space-between; }
   .app-dialog { padding: 22px; }
   .track-pos-0 .track-node-link { translate: -46px 0; }.track-pos-1 .track-node-link { translate: -23px 0; }.track-pos-3 .track-node-link { translate: 23px 0; }.track-pos-4 .track-node-link { translate: 46px 0; }
 }

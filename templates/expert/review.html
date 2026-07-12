@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Проверка решения · Матемация{% endblock %}
+{% block content %}
+{% if not allowed %}
+  <section class="empty-state"><h1>Проверка решения</h1><p>Кабинет эксперта недоступен для вашей роли.</p></section>
+{% else %}
+  <header class="page-heading"><div><h1>Проверка решения</h1><p>{{ review.student.user.username }} · {{ review.assignment.title }}</p></div></header>
+  <div class="expert-review-layout">
+    <div class="review-column">
+      <section class="card"><h2>Решение ученика</h2>
+        {% if solution_is_image %}<a href="{{ review.solution_file.url }}" target="_blank" rel="noopener"><img class="solution-image" src="{{ review.solution_file.url }}" alt="Решение ученика"></a>
+        {% else %}<a class="button" href="{{ review.solution_file.url }}" target="_blank" rel="noopener">Скачать файл</a>{% endif %}
+      </section>
+      <section class="card"><h2>Условие задачи</h2><div class="prose">{{ review.assignment.statement|linebreaks }}</div>
+        <details><summary>Эталонный разбор</summary><div class="prose">{{ review.assignment.reference_solution|linebreaks }}</div></details>
+      </section>
+    </div>
+    <form class="card review-form" data-expert-review-form data-finish-url="/api/expert-reviews/{{ review.id }}/finish/">
+      {% csrf_token %}
+      <h2>Баллы по критериям</h2>
+      <div class="criteria-list">
+        {% for number in criteria %}<div class="criterion-row" data-criterion="К{{ number }}"><strong>К{{ number }}</strong><div class="score-toggle" role="group" aria-label="Баллы за К{{ number }}"><button class="is-selected" type="button" data-score="0">0</button><button type="button" data-score="1">1</button></div></div>{% endfor %}
+      </div>
+      <p class="review-total">Итого: <strong data-review-total>0</strong> из {{ review.assignment.max_score }}</p>
+
+      <fieldset><legend>Типы ошибок</legend><div class="choice-chips">
+        {% for error_type in error_types %}<label class="chip-toggle"><input type="checkbox" name="error_tags" value="{{ error_type.value }}"><span>{{ error_type.label }}</span></label>{% endfor %}
+      </div></fieldset>
+
+      <fieldset><legend>Затронутые темы</legend><div class="checkbox-list">
+        {% for node in primary_nodes %}<label><input type="checkbox" name="related_node_ids" value="{{ node.id }}" checked><span>{{ node.code }} · {{ node.title }}</span></label>{% empty %}<p class="muted">У задачи не указаны темы.</p>{% endfor %}
+      </div>
+      {% if other_nodes %}<details><summary>Другие темы</summary><div class="checkbox-list">{% for node in other_nodes %}<label><input type="checkbox" name="related_node_ids" value="{{ node.id }}"><span>{{ node.code }} · {{ node.title }}</span></label>{% endfor %}</div></details>{% endif %}</fieldset>
+
+      <label class="field-label" for="review-comment">Где потерян балл</label><textarea id="review-comment" name="comment" rows="4"></textarea>
+      <label class="check-control"><input type="checkbox" name="needs_resubmission"><span>Вернуть на доработку</span></label>
+      <p class="form-error" data-review-error hidden></p>
+      <button class="button button-primary" type="submit">Завершить проверку</button>
+    </form>
+  </div>
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const form = document.querySelector("[data-expert-review-form]");
+    const refreshTotal = () => {
+      const total = [...form.querySelectorAll(".score-toggle .is-selected")].reduce((sum, button) => sum + Number(button.dataset.score), 0);
+      form.querySelector("[data-review-total]").textContent = total;
+    };
+    form.querySelectorAll(".score-toggle button").forEach(button => button.addEventListener("click", () => {
+      button.parentElement.querySelectorAll("button").forEach(item => item.classList.toggle("is-selected", item === button));
+      refreshTotal();
+    }));
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      const submit = form.querySelector("[type=submit]"), error = form.querySelector("[data-review-error]");
+      submit.disabled = true; error.hidden = true;
+      const score_by_criteria = {};
+      form.querySelectorAll("[data-criterion]").forEach(row => { score_by_criteria[row.dataset.criterion] = Number(row.querySelector(".is-selected").dataset.score); });
+      const checked = name => [...form.querySelectorAll(`input[name=${name}]:checked`)].map(input => input.value);
+      try {
+        await window.apiFetch(form.dataset.finishUrl, {method: "POST", body: JSON.stringify({score_by_criteria, error_tags: checked("error_tags"), related_node_ids: checked("related_node_ids").map(Number), comment: form.elements.comment.value, needs_resubmission: form.elements.needs_resubmission.checked})});
+        window.location.assign("/expert/");
+      } catch (exception) { error.textContent = exception.message; error.hidden = false; submit.disabled = false; }
+    });
+  });
+  </script>
+{% endif %}
+{% endblock %}

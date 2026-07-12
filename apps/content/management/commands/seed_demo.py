@@ -7,6 +7,7 @@
 from datetime import timedelta
 
 from django.contrib.auth.models import Group
+from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -14,6 +15,7 @@ from django.utils import timezone
 from apps.accounts.models import ParentProfile, StudentProfile, User
 from apps.content.models import Assignment, AssignmentSkillTag, Lesson, TheoryBlock
 from apps.diagnostics.models import DiagnosticTest
+from apps.expert_review.models import ExpertReviewRequest
 from apps.gamification.services import generate_weekly_quests
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.mocks.models import MockExam
@@ -276,6 +278,18 @@ class Command(BaseCommand):
         methodist_user.is_staff = True
         methodist_user.save()
         methodist_user.groups.add(Group.objects.get(name="Методисты"))
+
+        ExpertReviewRequest.objects.get_or_create(
+            student=student,
+            assignment=part2[0],
+            status=ExpertReviewRequest.Status.SUBMITTED,
+            defaults={
+                "solution_file": ContentFile(
+                    b"Mathemation demo solution scan",
+                    name="demo-part2-solution.txt",
+                )
+            },
+        )
 
         self.stdout.write(self.style.SUCCESS(
             f"Демо-данные готовы: {KnowledgeNode.objects.count()} узлов, "

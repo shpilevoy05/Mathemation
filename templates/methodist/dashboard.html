@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Контент · Матемация{% endblock %}
+{% block content %}
+{% if not allowed %}
+  <section class="empty-state"><h1>Контент</h1><p>Кабинет методиста недоступен для вашей роли.</p></section>
+{% else %}
+  <header class="page-heading hero"><div><h1>Контент</h1><p>Граф знаний, уроки и банк задач</p></div></header>
+  <section class="stat-grid" aria-label="Статистика контента">
+    <article class="stat-tile"><span class="stat-icon">◉</span><div><strong>{{ node_count }}</strong><h2>Узлов</h2></div></article>
+    <article class="stat-tile"><span class="stat-icon">▶</span><div><strong>{{ lesson_count }}</strong><h2>Уроков <small>(с видео {{ video_lesson_count }})</small></h2></div></article>
+    <article class="stat-tile"><span class="stat-icon">∑</span><div><strong>{{ assignment_count }}</strong><h2>Задач</h2></div></article>
+    <article class="stat-tile"><span class="stat-icon">!</span><div><strong{% if content_gap_count %} class="text-danger"{% endif %}>{{ content_gap_count }}</strong><h2>Дыры контента</h2></div></article>
+  </section>
+
+  <section class="card backoffice-section"><h2>Дыры контента</h2>
+    <details {% if assignments_without_solution %}open{% endif %}><summary>Задачи без эталонного разбора</summary><ul class="admin-link-list">{% for item in assignments_without_solution %}<li><a href="/admin/content/assignment/{{ item.id }}/change/">{{ item.title }}</a></li>{% empty %}<li class="text-success">✓ всё заполнено</li>{% endfor %}</ul></details>
+    <details {% if lessons_without_content %}open{% endif %}><summary>Уроки без теории и видео</summary><ul class="admin-link-list">{% for item in lessons_without_content %}<li><a href="/admin/content/lesson/{{ item.id }}/change/">{{ item.title }}</a></li>{% empty %}<li class="text-success">✓ всё заполнено</li>{% endfor %}</ul></details>
+    <details {% if nodes_without_assignments %}open{% endif %}><summary>Узлы без задач</summary><ul class="admin-link-list">{% for item in nodes_without_assignments %}<li><a href="/admin/knowledge/knowledgenode/{{ item.id }}/change/">{{ item.code }} · {{ item.title }}</a></li>{% empty %}<li class="text-success">✓ всё заполнено</li>{% endfor %}</ul></details>
+  </section>
+
+  <section class="card backoffice-section"><h2>Граф по кластерам</h2>
+    {% for cluster in content_clusters %}<section class="methodist-cluster" style="--cluster-color: {{ cluster.color }}"><h3>{{ cluster.title }}</h3><div class="table-scroll"><table><thead><tr><th>Код</th><th>Название</th><th>Пререквизиты</th><th>Уроки / задачи</th><th></th></tr></thead><tbody>
+      {% for node in cluster.nodes.all %}<tr><td>{{ node.code }}</td><td>{{ node.title }}</td><td>{{ node.ui_prerequisites }}</td><td>{{ node.lesson_count }} / {{ node.assignment_count }}</td><td><a href="/admin/knowledge/knowledgenode/{{ node.id }}/change/">Редактировать</a></td></tr>{% endfor %}
+    </tbody></table></div></section>{% empty %}<p class="muted">Кластеры ещё не созданы.</p>{% endfor %}
+  </section>
+  <a class="button button-primary" href="/admin/">Открыть админку</a>
+{% endif %}
+{% endblock %}

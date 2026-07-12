@@ -8,7 +8,7 @@ from apps.accounts.api import MeView, TargetScoreView
 from apps.ai_mentor.api import HintView, ParentAiLogView
 from apps.content.api import AssignmentViewSet, LessonViewSet, TrackView
 from apps.diagnostics.api import DiagnosticListView, StartDiagnosticView, SubmitDiagnosticView
-from apps.expert_review.api import ExpertReviewListView, SubmitSolutionView
+from apps.expert_review.api import ExpertReviewFinishView, ExpertReviewListView, SubmitSolutionView
 from apps.gamification.api import GamificationView
 from apps.knowledge.api import KnowledgeMapView, NodeDetailView
 from apps.mocks.api import MockListView, StartMockView, SubmitMockView
@@ -68,6 +68,7 @@ api_urls = [
     path("mocks/results/<int:result_id>/submit/", SubmitMockView.as_view()),
     path("expert-reviews/", ExpertReviewListView.as_view()),
     path("expert-reviews/submit/", SubmitSolutionView.as_view()),
+    path("expert-reviews/<int:review_id>/finish/", ExpertReviewFinishView.as_view()),
     path("progress/", ProgressView.as_view()),
     path("forecast/", ForecastView.as_view()),
     path("parent/report/", ParentReportView.as_view()),
@@ -91,6 +92,9 @@ urlpatterns = [
     path("mocks/run/<int:result_id>/", web_views.mock_run, name="mock_run"),
     path("mocks/result/<int:result_id>/", web_views.mock_result, name="mock_result"),
     path("parent/", web_views.parent_dashboard, name="parent_dashboard"),
+    path("expert/", web_views.expert_queue, name="expert_queue"),
+    path("expert/review/<int:review_id>/", web_views.expert_review, name="expert_review"),
+    path("methodist/", web_views.methodist_dashboard, name="methodist_dashboard"),
 ]
 
 if settings.DEBUG:

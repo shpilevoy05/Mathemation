@@ -1,10 +1,14 @@
+from datetime import timedelta
+
 from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.ai_mentor.models import AiHintMessage, AiHintSession
-from apps.content.models import Lesson
+from apps.content.models import Assignment, Lesson
+from apps.expert_review.models import ExpertReviewRequest
 from apps.mocks.models import MockExam
 from apps.practice.models import MistakeBacklogItem
 from apps.progress.models import ProgressSnapshot
@@ -26,6 +30,88 @@ class DashboardMetricServiceTests(SimpleTestCase):
         self.assertEqual(journey_percent(60, 80, 60), 100)
         self.assertEqual(journey_percent(60, 40, 60), 0)
         self.assertEqual(xp_progress_percent(250, 2), 50)
+
+
+class BackofficeCabinetTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", verbosity=0)
+        cls.student = User.objects.get(username="student")
+        cls.expert = User.objects.get(username="expert")
+        cls.methodist = User.objects.get(username="methodist")
+        cls.review = ExpertReviewRequest.objects.get(
+            status=ExpertReviewRequest.Status.SUBMITTED
+        )
+        ExpertReviewRequest.objects.filter(pk=cls.review.pk).update(
+            created_at=timezone.now() - timedelta(hours=cls.review.sla_hours + 1)
+        )
+        cls.superuser = User.objects.create_superuser(
+            username="root-reviewer", password="test"
+        )
+
+    def test_backoffice_pages_redirect_anonymous_user(self):
+        for url in (reverse("expert_queue"), reverse("methodist_dashboard")):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 302)
+                self.assertIn(reverse("login"), response.url)
+
+    def test_expert_access_and_other_roles_get_placeholder(self):
+        self.client.force_login(self.expert)
+        response = self.client.get(reverse("expert_queue"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "В очереди")
+        self.assertContains(response, self.review.assignment.title)
+        self.assertContains(response, "просрочено")
+
+        for user in (self.student, self.methodist):
+            with self.subTest(user=user.username):
+                self.client.force_login(user)
+                response = self.client.get(reverse("expert_queue"))
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "Кабинет эксперта недоступен")
+                self.assertNotContains(response, self.review.assignment.title)
+
+    def test_methodist_access_and_expert_gets_placeholder(self):
+        self.client.force_login(self.methodist)
+        response = self.client.get(reverse("methodist_dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Дыры контента")
+
+        self.client.force_login(self.expert)
+        response = self.client.get(reverse("methodist_dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Кабинет методиста недоступен")
+        self.assertNotContains(response, "Граф по кластерам")
+
+    def test_superuser_sees_both_backoffice_pages(self):
+        self.client.force_login(self.superuser)
+        self.assertContains(self.client.get(reverse("expert_queue")), "В очереди")
+        self.assertContains(
+            self.client.get(reverse("methodist_dashboard")), "Граф по кластерам"
+        )
+
+    def test_review_page_contains_criteria_and_error_type_chips(self):
+        self.client.force_login(self.expert)
+        response = self.client.get(reverse("expert_review", args=[self.review.id]))
+        self.assertEqual(response.status_code, 200)
+        for number in range(1, self.review.assignment.max_score + 1):
+            self.assertContains(response, f"К{number}")
+        self.assertContains(response, "неверный метод")
+        self.assertNotContains(response, "тип уточняется")
+
+    def test_methodist_lists_assignment_without_reference_solution(self):
+        gap = Assignment.objects.create(
+            title="Задача без эталона",
+            statement="Условие",
+            exam_part=Assignment.Part.PART2,
+        )
+        self.client.force_login(self.methodist)
+        response = self.client.get(reverse("methodist_dashboard"))
+        self.assertContains(response, gap.title)
+        self.assertContains(
+            response, f"/admin/content/assignment/{gap.id}/change/"
+        )
 
 
 class TrackContextTests(TestCase):

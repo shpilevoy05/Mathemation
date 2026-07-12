@@ -1,17 +1,19 @@
 """Read-side composition for the server-rendered student cabinet."""
 
 from datetime import timedelta
+from pathlib import Path
 
-from django.db.models import Prefetch
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.ai_mentor.models import AiHintMessage, AiHintSession
 from apps.ai_mentor.services import mentor_available
-from apps.content.models import Lesson, TheoryBlock
+from apps.content.models import Assignment, Lesson, TheoryBlock
+from apps.expert_review.models import ExpertReviewRequest
 from apps.gamification.services import gamification_snapshot
-from apps.knowledge.models import KnowledgeNode, TopicCluster
+from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.knowledge.services import apply_decay, node_states
 from apps.mocks.models import MockExam, MockExamResult
 from apps.planning.models import StudyPlanItem, TrajectoryTransition
@@ -22,6 +24,133 @@ from apps.progress.models import ProgressSnapshot
 from apps.progress.services import ceiling_forecast
 
 from .labels import ERROR_TYPE_LABELS
+
+
+def expert_queue_context(user):
+    """Compose the expert queue, SLA metrics and recent mentor escalations."""
+    now = timezone.now()
+    pending = list(
+        ExpertReviewRequest.objects.filter(status=ExpertReviewRequest.Status.SUBMITTED)
+        .select_related("student__user", "assignment", "mock_result")
+    )
+    for review in pending:
+        review.sla_deadline = review.created_at + timedelta(hours=review.sla_hours)
+        review.is_overdue = review.sla_deadline < now
+        review.sla_hours_left = (review.sla_deadline - now).total_seconds() / 3600
+        review.sla_tone = (
+            "danger" if review.is_overdue else
+            "warning" if review.sla_hours_left < 12 else "success"
+        )
+        review.age_hours = max(0, int((now - review.created_at).total_seconds() // 3600))
+    pending.sort(key=lambda item: (not item.is_overdue, item.sla_deadline))
+
+    escalations = list(
+        AiHintSession.objects.filter(
+            escalated_to_expert=True,
+            created_at__gte=now - timedelta(days=14),
+        )
+        .select_related("student__user", "assignment")
+        .prefetch_related("messages")
+        .order_by("-created_at")
+    )
+    return {
+        "pending_reviews": pending,
+        "pending_count": len(pending),
+        "overdue_count": sum(item.is_overdue for item in pending),
+        "reviewed_last_7d": ExpertReviewRequest.objects.filter(
+            reviewed_at__gte=now - timedelta(days=7)
+        ).count(),
+        "escalations": escalations,
+    }
+
+
+def expert_review_context(review_id):
+    """Prepare one submitted review and all choices used by the verdict form."""
+    review = get_object_or_404(
+        ExpertReviewRequest.objects.select_related("student__user", "assignment")
+        .prefetch_related("assignment__skill_tags__node__cluster"),
+        pk=review_id,
+        status=ExpertReviewRequest.Status.SUBMITTED,
+    )
+    primary_nodes = [tag.node for tag in review.assignment.skill_tags.all()]
+    primary_ids = {node.id for node in primary_nodes}
+    cluster_ids = {node.cluster_id for node in primary_nodes}
+    other_nodes = KnowledgeNode.objects.filter(cluster_id__in=cluster_ids).exclude(
+        pk__in=primary_ids
+    )
+    suffix = Path(review.solution_file.name).suffix.lower()
+    return {
+        "review": review,
+        "criteria": range(1, review.assignment.max_score + 1),
+        "error_types": [
+            {"value": value, "label": ERROR_TYPE_LABELS[value]}
+            for value in MistakeBacklogItem.ErrorType.values
+            if value != MistakeBacklogItem.ErrorType.UNKNOWN
+        ],
+        "primary_nodes": primary_nodes,
+        "other_nodes": other_nodes,
+        "solution_is_image": suffix in {".jpg", ".jpeg", ".png", ".webp"},
+    }
+
+
+def methodist_context():
+    """Compose content health counters and a cluster-oriented graph read model."""
+    assignments_without_solution = list(
+        Assignment.objects.filter(reference_solution="").order_by("title")
+    )
+    lessons_without_content = list(
+        Lesson.objects.annotate(theory_count=Count("theory_blocks"))
+        .filter(theory_count=0, video_url="")
+        .order_by("title")
+    )
+    nodes_without_assignments = list(
+        KnowledgeNode.objects.annotate(assignment_count=Count("assignments", distinct=True))
+        .filter(assignment_count=0)
+        .order_by("cluster__order", "order")
+    )
+
+    clusters = list(
+        TopicCluster.objects.prefetch_related(
+            Prefetch(
+                "nodes",
+                queryset=KnowledgeNode.objects.annotate(
+                    lesson_count=Count("lessons", distinct=True),
+                    assignment_count=Count("assignments", distinct=True),
+                ).prefetch_related(
+                    Prefetch(
+                        "dependencies",
+                        queryset=KnowledgeDependency.objects.select_related("prerequisite"),
+                    )
+                ),
+            )
+        )
+    )
+    for cluster in clusters:
+        for node in cluster.nodes.all():
+            node.ui_prerequisites = ", ".join(
+                f"{dependency.prerequisite.code} ≥{dependency.min_mastery}%"
+                for dependency in node.dependencies.all()
+            ) or "—"
+
+    lesson_totals = Lesson.objects.aggregate(
+        total=Count("id"),
+        with_video=Count("id", filter=~Q(video_url="")),
+    )
+    return {
+        "node_count": KnowledgeNode.objects.count(),
+        "lesson_count": lesson_totals["total"],
+        "video_lesson_count": lesson_totals["with_video"],
+        "assignment_count": Assignment.objects.count(),
+        "content_gap_count": (
+            len(assignments_without_solution)
+            + len(lessons_without_content)
+            + len(nodes_without_assignments)
+        ),
+        "assignments_without_solution": assignments_without_solution,
+        "lessons_without_content": lessons_without_content,
+        "nodes_without_assignments": nodes_without_assignments,
+        "content_clusters": clusters,
+    }
 
 
 NODE_STATE_LABELS = {

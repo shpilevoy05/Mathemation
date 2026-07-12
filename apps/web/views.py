@@ -6,6 +6,7 @@ from django.shortcuts import render
 from apps.practice.models import Attempt
 
 from . import services
+from .permissions import is_expert, is_methodist
 
 
 def _render_student_page(request, template_name, context_factory, *args, **kwargs):
@@ -93,3 +94,30 @@ def parent_dashboard(request):
     if parent is not None:
         context.update(services.parent_context(parent))
     return render(request, "parent_dashboard.html", context)
+
+
+@login_required
+def expert_queue(request):
+    allowed = is_expert(request.user)
+    context = {"allowed": allowed}
+    if allowed:
+        context.update(services.expert_queue_context(request.user))
+    return render(request, "expert/queue.html", context)
+
+
+@login_required
+def expert_review(request, review_id):
+    allowed = is_expert(request.user)
+    context = {"allowed": allowed}
+    if allowed:
+        context.update(services.expert_review_context(review_id))
+    return render(request, "expert/review.html", context)
+
+
+@login_required
+def methodist_dashboard(request):
+    allowed = is_methodist(request.user)
+    context = {"allowed": allowed}
+    if allowed:
+        context.update(services.methodist_context())
+    return render(request, "methodist/dashboard.html", context)
