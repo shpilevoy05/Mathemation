@@ -104,6 +104,17 @@ Django Admin на `/admin/` — обязательный рабочий инте
   `AI_MENTOR_PROVIDER` (LLM подключается без изменения кода). Лог виден
   родителю: `GET /api/parent/ai-log/`, счётчик подсказок — в weekly-отчёте
   (`apps/ai_mentor`).
+
+  Для подключения живой модели задайте
+  `AI_MENTOR_PROVIDER=apps.ai_mentor.providers.LLMHintProvider`, формат
+  `AI_MENTOR_LLM_FORMAT=openai` или `yandexgpt`, а также
+  `AI_MENTOR_LLM_BASE_URL`, `AI_MENTOR_LLM_API_KEY` и
+  `AI_MENTOR_LLM_MODEL`. Для YandexGPT дополнительно задайте
+  `AI_MENTOR_LLM_FOLDER_ID`, если в `AI_MENTOR_LLM_MODEL` не передан полный
+  `gpt://...` URI. Таймаут, лимит ответа и температура управляются через
+  `AI_MENTOR_LLM_TIMEOUT_SECONDS` (20), `AI_MENTOR_LLM_MAX_TOKENS` (400) и
+  `AI_MENTOR_LLM_TEMPERATURE` (0.3). По умолчанию используется сетевой-независимый
+  `MockHintProvider`.
 - **Append-only событийный лог** — попытки, подсказки, диагностики, пробники,
   экспертные проверки, изменения плана, повторы и переходы траекторий пишутся
   через единую сервисную точку без имён и e-mail (`apps/events`).

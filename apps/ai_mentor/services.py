@@ -6,7 +6,13 @@ from apps.practice.models import Attempt
 
 from .guardrails import check_hint, contains_final_answer
 from .models import AiHintMessage, AiHintSession
-from .providers import UNCERTAINTY_NOTE, get_provider
+from .providers import (
+    HintProvider,
+    LLMHintProvider,
+    MockHintProvider,
+    UNCERTAINTY_NOTE,
+    get_provider,
+)
 
 DISALLOWED_CONTEXTS = {Attempt.Context.MOCK, Attempt.Context.DIAGNOSTIC, Attempt.Context.REVIEW}
 
@@ -52,7 +58,22 @@ def request_hint(student, assignment, question: str, context: str) -> dict:
 
     session.hints_used += 1
     session.save(update_fields=["hints_used"])
-    provider_text = get_provider().generate_hint(assignment, question, session.hints_used)
+    provider = get_provider()
+    provider_name = "llm" if isinstance(provider, LLMHintProvider) else "mock"
+    if isinstance(provider, HintProvider):
+        provider_text = provider.generate_hint(
+            assignment, question, session.hints_used, session=session
+        )
+    else:
+        # Backward compatibility for small duck-typed providers used by deployments.
+        provider_text = provider.generate_hint(assignment, question, session.hints_used)
+    if provider_text is None:
+        provider_name = "mock_fallback"
+        provider_text = MockHintProvider().generate_hint(
+            assignment, question, session.hints_used, session=session
+        )
+        if UNCERTAINTY_NOTE not in provider_text:
+            provider_text = f"{provider_text}\n\n{UNCERTAINTY_NOTE}"
     guardrail = check_hint(provider_text)
     failed_claims = list(guardrail.failed_claims)
     if (
@@ -110,5 +131,6 @@ def request_hint(student, assignment, question: str, context: str) -> dict:
         student=student,
         assignment_id=assignment.id,
         hint_index=session.hints_used,
+        provider=provider_name,
     )
     return {"session": session, "text": text, "escalated": False}

@@ -130,6 +130,18 @@ AI_MENTOR_MAX_HINTS = 2
 # Hint provider (dotted path); swap for an LLM-backed provider in production.
 AI_MENTOR_PROVIDER = os.environ.get(
     "AI_MENTOR_PROVIDER", "apps.ai_mentor.providers.MockHintProvider"
+) or "apps.ai_mentor.providers.MockHintProvider"
+AI_MENTOR_LLM_FORMAT = os.environ.get("AI_MENTOR_LLM_FORMAT") or "openai"
+AI_MENTOR_LLM_BASE_URL = os.environ.get("AI_MENTOR_LLM_BASE_URL", "")
+AI_MENTOR_LLM_API_KEY = os.environ.get("AI_MENTOR_LLM_API_KEY", "")
+AI_MENTOR_LLM_MODEL = os.environ.get("AI_MENTOR_LLM_MODEL", "")
+AI_MENTOR_LLM_FOLDER_ID = os.environ.get("AI_MENTOR_LLM_FOLDER_ID", "")
+AI_MENTOR_LLM_TIMEOUT_SECONDS = int(
+    os.environ.get("AI_MENTOR_LLM_TIMEOUT_SECONDS") or "20"
+)
+AI_MENTOR_LLM_MAX_TOKENS = int(os.environ.get("AI_MENTOR_LLM_MAX_TOKENS") or "400")
+AI_MENTOR_LLM_TEMPERATURE = float(
+    os.environ.get("AI_MENTOR_LLM_TEMPERATURE") or "0.3"
 )
 
 # --- Forgetting curve (индикатор забывания) ---
