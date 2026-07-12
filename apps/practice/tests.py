@@ -95,11 +95,28 @@ class MistakeBacklogTests(TestCase):
         submit_attempt(self.student, self.assignment, "wrong", Attempt.Context.LESSON)
         item = MistakeBacklogItem.objects.get()
         first = item.reviews.first()
+        baseline_next_due = item.reviews.exclude(pk=first.pk).first().due_date
         complete_review(first, success=False)
         item.refresh_from_db()
         pending = item.reviews.filter(status=ReviewSchedule.Status.PENDING)
         self.assertEqual(pending.count(), 4)  # full ladder rescheduled
         self.assertEqual(item.status, MistakeBacklogItem.Status.IN_REVIEW)
+        self.assertLess(
+            pending.order_by("-interval_days").first().interval_days,
+            30,
+        )
+        self.assertLess(pending.order_by("due_date").first().due_date, baseline_next_due)
+
+    def test_success_stretches_next_pending_review(self):
+        submit_attempt(self.student, self.assignment, "wrong", Attempt.Context.LESSON)
+        item = MistakeBacklogItem.objects.get()
+        first = item.reviews.first()
+        next_review = item.reviews.filter(pk__gt=first.pk).order_by("due_date").first()
+        original_interval = next_review.interval_days
+        complete_review(first, success=True)
+        next_review.refresh_from_db()
+        self.assertGreater(next_review.interval_days, original_interval)
+        self.assertLessEqual(next_review.interval_days, 60)
 
 
 class PracticeQueueTests(TestCase):

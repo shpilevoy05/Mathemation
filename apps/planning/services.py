@@ -5,8 +5,9 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from apps.engine.dto import EdgeDTO, EngineParams, NodeState
-from apps.engine.planner import greedy_pending_nodes, topological_order
+from apps.content.models import Assignment
+from apps.engine.dto import EdgeDTO, EngineParams, NodeState, TaskWeight
+from apps.engine.planner import greedy_plan, topological_order
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode
 from apps.knowledge.services import mastery_map
 
@@ -29,6 +30,14 @@ def _engine_params() -> EngineParams:
         attainable_mastery=settings.ATTAINABLE_MASTERY,
         bkt_alpha=settings.BKT_ALPHA,
         forecast_calibration_alpha=settings.FORECAST_CALIBRATION_ALPHA,
+        theta_scale=settings.IRT_THETA_SCALE,
+        b_step=settings.IRT_DIFFICULTY_STEP,
+        default_discrimination=settings.IRT_DEFAULT_DISCRIMINATION,
+        guess=settings.IRT_GUESS,
+        review_intervals_days=tuple(settings.REVIEW_INTERVALS_DAYS),
+        review_ease=settings.REVIEW_EASE,
+        min_review_interval_days=settings.MIN_REVIEW_INTERVAL_DAYS,
+        max_review_interval_days=settings.MAX_REVIEW_INTERVAL_DAYS,
     )
 
 
@@ -80,7 +89,35 @@ def order_pending_nodes(student) -> list[KnowledgeNode]:
     ]
     by_id = {node.id: node for node in nodes}
     states = [_node_dto(node, masteries.get(node.id, 0.0)) for node in nodes]
-    ordered = greedy_pending_nodes(states, edges, _engine_params())
+    assignments = list(
+        Assignment.objects.filter(skill_tags__node_id__in=ids)
+        .prefetch_related("skill_tags")
+        .distinct()
+    )
+    task_weights = []
+    for assignment in assignments:
+        tags = list(assignment.skill_tags.all())
+        task_weights.append(
+            TaskWeight(
+                assignment_id=assignment.id,
+                node_ids=tuple(tag.node_id for tag in tags),
+                node_weights=tuple(float(tag.weight) for tag in tags),
+                max_score=float(assignment.max_score),
+                difficulty=float(assignment.difficulty),
+                discrimination=settings.IRT_DEFAULT_DISCRIMINATION,
+            )
+        )
+    if not task_weights:
+        task_weights = [
+            TaskWeight(
+                assignment_id=node.id,
+                node_ids=(node.id,),
+                max_score=float(node.weight * node.cluster.exam_weight),
+                difficulty=3.0,
+            )
+            for node in nodes
+        ]
+    ordered = greedy_plan(states, edges, task_weights, _engine_params())
     return [by_id[state.node_id] for state in ordered]
 
 

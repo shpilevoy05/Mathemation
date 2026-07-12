@@ -6,11 +6,34 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.content.models import Assignment
+from apps.engine.decay import next_intervals
+from apps.engine.dto import EngineParams
 from apps.knowledge.services import update_mastery
 from apps.planning.models import PlanChangeLog
 from apps.planning.services import reinsert_node
 
 from .models import Attempt, MistakeBacklogItem, ReviewSchedule
+
+
+def _engine_params() -> EngineParams:
+    return EngineParams(
+        mastery_threshold=settings.MASTERY_THRESHOLD,
+        decay_grace_days=settings.DECAY_GRACE_DAYS,
+        decay_rate_per_day=settings.DECAY_RATE_PER_DAY,
+        max_primary_score=settings.MAX_PRIMARY_SCORE,
+        hours_per_node=settings.HOURS_PER_NODE,
+        attainable_mastery=settings.ATTAINABLE_MASTERY,
+        bkt_alpha=settings.BKT_ALPHA,
+        forecast_calibration_alpha=settings.FORECAST_CALIBRATION_ALPHA,
+        theta_scale=settings.IRT_THETA_SCALE,
+        b_step=settings.IRT_DIFFICULTY_STEP,
+        default_discrimination=settings.IRT_DEFAULT_DISCRIMINATION,
+        guess=settings.IRT_GUESS,
+        review_intervals_days=tuple(settings.REVIEW_INTERVALS_DAYS),
+        review_ease=settings.REVIEW_EASE,
+        min_review_interval_days=settings.MIN_REVIEW_INTERVAL_DAYS,
+        max_review_interval_days=settings.MAX_REVIEW_INTERVAL_DAYS,
+    )
 
 
 @transaction.atomic
@@ -92,12 +115,19 @@ def register_mistake(
 
 
 def schedule_reviews(item: MistakeBacklogItem) -> list[ReviewSchedule]:
+    """Create the unchanged base ladder for a new mistake."""
+    return _create_review_schedule(item, settings.REVIEW_INTERVALS_DAYS)
+
+
+def _create_review_schedule(
+    item: MistakeBacklogItem, intervals: list[int] | tuple[int, ...]
+) -> list[ReviewSchedule]:
     today = timezone.localdate()
     return [
         ReviewSchedule.objects.create(
             backlog_item=item, interval_days=days, due_date=today + timedelta(days=days)
         )
-        for days in settings.REVIEW_INTERVALS_DAYS
+        for days in intervals
     ]
 
 
@@ -136,11 +166,29 @@ def complete_review(review: ReviewSchedule, success: bool) -> None:
         item.reviews.filter(status=ReviewSchedule.Status.PENDING).delete()
         item.error_count += 1
         item.save(update_fields=["error_count"])
-        schedule_reviews(item)
-    elif not item.reviews.filter(status=ReviewSchedule.Status.PENDING).exists():
-        item.status = MistakeBacklogItem.Status.RESOLVED
-        item.resolved_at = timezone.now()
-        item.save(update_fields=["status", "resolved_at"])
+        _create_review_schedule(
+            item, next_intervals(item.error_count, 0, _engine_params())
+        )
+    else:
+        next_pending = item.reviews.filter(
+            status=ReviewSchedule.Status.PENDING
+        ).order_by("due_date", "id").first()
+        if next_pending:
+            params = _engine_params()
+            stretched = min(
+                max(
+                    int(round(next_pending.interval_days * params.review_ease)),
+                    params.min_review_interval_days,
+                ),
+                params.max_review_interval_days,
+            )
+            next_pending.interval_days = stretched
+            next_pending.due_date = timezone.localdate() + timedelta(days=stretched)
+            next_pending.save(update_fields=["interval_days", "due_date"])
+        else:
+            item.status = MistakeBacklogItem.Status.RESOLVED
+            item.resolved_at = timezone.now()
+            item.save(update_fields=["status", "resolved_at"])
     from apps.events.models import Event
     from apps.events.services import log_event
 

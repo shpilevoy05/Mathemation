@@ -20,6 +20,14 @@ def _engine_params() -> EngineParams:
         attainable_mastery=settings.ATTAINABLE_MASTERY,
         bkt_alpha=settings.BKT_ALPHA,
         forecast_calibration_alpha=settings.FORECAST_CALIBRATION_ALPHA,
+        theta_scale=settings.IRT_THETA_SCALE,
+        b_step=settings.IRT_DIFFICULTY_STEP,
+        default_discrimination=settings.IRT_DEFAULT_DISCRIMINATION,
+        guess=settings.IRT_GUESS,
+        review_intervals_days=tuple(settings.REVIEW_INTERVALS_DAYS),
+        review_ease=settings.REVIEW_EASE,
+        min_review_interval_days=settings.MIN_REVIEW_INTERVAL_DAYS,
+        max_review_interval_days=settings.MAX_REVIEW_INTERVAL_DAYS,
     )
 
 

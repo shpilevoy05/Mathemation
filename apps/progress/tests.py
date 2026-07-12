@@ -49,6 +49,13 @@ class ForecastTests(TestCase):
         after, _ = predict_score(self.student)
         self.assertLess(after, before)
 
+    def test_forecast_api_stays_in_score_bounds(self):
+        self.client.force_login(self.student.user)
+        response = self.client.get("/api/forecast/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(0 <= response.json()["current_score"] <= 100)
+        self.assertTrue(0 <= response.json()["ceiling_score"] <= 100)
+
 
 class CeilingForecastTests(TestCase):
     """Потолок и «рычаги»: темп и дата двигают достижимый балл."""

@@ -4,11 +4,11 @@ from datetime import datetime, timezone
 from django.test import SimpleTestCase
 
 from apps.engine.ceiling import simulate_ceiling
-from apps.engine.decay import decayed_mastery
+from apps.engine.decay import decayed_mastery, next_intervals
 from apps.engine.dto import EdgeDTO, EngineParams, NodeState, TaskWeight
-from apps.engine.forecast import expected_primary, scaled_score
+from apps.engine.forecast import expected_primary, probability_correct, scaled_score
 from apps.engine.mastery import bkt_update
-from apps.engine.planner import topological_order
+from apps.engine.planner import greedy_plan, topological_order
 
 
 PARAMS = EngineParams(
@@ -20,6 +20,14 @@ PARAMS = EngineParams(
     attainable_mastery=85,
     bkt_alpha=0.3,
     forecast_calibration_alpha=0.3,
+    theta_scale=6,
+    b_step=1.2,
+    default_discrimination=1,
+    guess=0,
+    review_intervals_days=(1, 3, 7, 30),
+    review_ease=1.6,
+    min_review_interval_days=1,
+    max_review_interval_days=60,
 )
 
 
@@ -45,17 +53,44 @@ class DecayEngineTests(SimpleTestCase):
         late = decayed_mastery(90, 45, PARAMS)
         self.assertLess(late, early)
 
+    def test_adaptive_intervals_shrink_stretch_and_stay_bounded(self):
+        failed = next_intervals(1, 0, PARAMS)
+        successful = next_intervals(0, 1, PARAMS)
+        self.assertTrue(all(a <= b for a, b in zip(failed, PARAMS.review_intervals_days)))
+        self.assertTrue(all(a >= b for a, b in zip(successful, PARAMS.review_intervals_days)))
+        minimum = next_intervals(20, 0, PARAMS)
+        maximum = next_intervals(0, 20, PARAMS)
+        self.assertTrue(all(interval == 1 for interval in minimum))
+        self.assertTrue(all(interval <= 60 for interval in maximum))
+        self.assertIn(60, maximum)
+
 
 class ForecastEngineTests(SimpleTestCase):
     def test_simple_half_mastered_profile(self):
         states = [node(1, 100), node(2, 0)]
         tasks = [
-            TaskWeight(1, (1,), 1, 1),
-            TaskWeight(2, (2,), 1, 1),
+            TaskWeight(1, (1,), 1, 3),
+            TaskWeight(2, (2,), 1, 3),
         ]
         primary = expected_primary(states, tasks, PARAMS)
-        self.assertEqual(primary, 16)
+        self.assertAlmostEqual(primary, 16)
         self.assertEqual(scaled_score(primary, list(range(33))), 16)
+
+    def test_irt_probability_is_monotonic_and_bounded(self):
+        low = probability_correct(20, 3, PARAMS)
+        high = probability_correct(80, 3, PARAMS)
+        easy = probability_correct(50, 1, PARAMS)
+        hard = probability_correct(50, 5, PARAMS)
+        self.assertLess(low, high)
+        self.assertGreater(easy, hard)
+        self.assertTrue(all(0 <= value <= 1 for value in (low, high, easy, hard)))
+
+    def test_expected_score_never_decreases_with_mastery(self):
+        task = [TaskWeight(1, (1,), 2, 4)]
+        self.assertLessEqual(
+            expected_primary([node(1, 30)], task, PARAMS),
+            expected_primary([node(1, 70)], task, PARAMS),
+        )
 
 
 class CeilingEngineTests(SimpleTestCase):
@@ -96,6 +131,27 @@ class CeilingEngineTests(SimpleTestCase):
 
 
 class PlannerEngineTests(SimpleTestCase):
+    def test_higher_score_gain_is_planned_first_and_order_is_stable(self):
+        states = [node(1), node(2), node(3)]
+        tasks = [
+            TaskWeight(1, (1,), 1, 3),
+            TaskWeight(2, (2,), 4, 3),
+            TaskWeight(3, (3,), 1, 3),
+        ]
+        first = greedy_plan(states, [], tasks, PARAMS)
+        second = greedy_plan(states, [], tasks, PARAMS)
+        self.assertEqual([state.node_id for state in first], [2, 1, 3])
+        self.assertEqual(first, second)
+
+    def test_greedy_plan_keeps_prerequisite_first(self):
+        ordered = greedy_plan(
+            [node(2, weight=10), node(1)],
+            [EdgeDTO(1, 2)],
+            [TaskWeight(2, (2,), 10, 3), TaskWeight(1, (1,), 1, 3)],
+            PARAMS,
+        )
+        self.assertEqual([state.node_id for state in ordered], [1, 2])
+
     def test_prerequisites_precede_dependants(self):
         ordered = topological_order(
             [node(2, weight=10), node(1)],

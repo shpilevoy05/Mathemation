@@ -25,6 +25,8 @@ class TaskWeight:
     node_ids: tuple[int, ...]
     max_score: float
     difficulty: float
+    discrimination: float = 1.0
+    node_weights: tuple[float, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +45,14 @@ class EngineParams:
     attainable_mastery: float
     bkt_alpha: float
     forecast_calibration_alpha: float
+    theta_scale: float
+    b_step: float
+    default_discrimination: float
+    guess: float
+    review_intervals_days: tuple[int, ...]
+    review_ease: float
+    min_review_interval_days: int
+    max_review_interval_days: int
 
 
 @dataclass(frozen=True, slots=True)

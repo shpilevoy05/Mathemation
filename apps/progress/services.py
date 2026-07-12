@@ -9,6 +9,7 @@ from apps.engine.ceiling import simulate_ceiling
 from apps.engine.dto import EdgeDTO, EngineParams, NodeState, TaskWeight
 from apps.engine.forecast import expected_primary as engine_expected_primary
 from apps.engine.forecast import scaled_score
+from apps.content.models import Assignment
 from apps.knowledge.models import KnowledgeNode, SkillMastery
 from apps.knowledge.models import KnowledgeDependency
 from apps.planning.models import StudyPlanItem
@@ -30,6 +31,14 @@ def _engine_params() -> EngineParams:
         attainable_mastery=settings.ATTAINABLE_MASTERY,
         bkt_alpha=settings.BKT_ALPHA,
         forecast_calibration_alpha=settings.FORECAST_CALIBRATION_ALPHA,
+        theta_scale=settings.IRT_THETA_SCALE,
+        b_step=settings.IRT_DIFFICULTY_STEP,
+        default_discrimination=settings.IRT_DEFAULT_DISCRIMINATION,
+        guess=settings.IRT_GUESS,
+        review_intervals_days=tuple(settings.REVIEW_INTERVALS_DAYS),
+        review_ease=settings.REVIEW_EASE,
+        min_review_interval_days=settings.MIN_REVIEW_INTERVAL_DAYS,
+        max_review_interval_days=settings.MAX_REVIEW_INTERVAL_DAYS,
     )
 
 
@@ -55,16 +64,35 @@ def _forecast_dtos(
         )
         for node in nodes
     ]
-    # One synthetic task per node reproduces the existing weighted-node forecast.
-    weights = [
-        TaskWeight(
-            assignment_id=node.id,
-            node_ids=(node.id,),
-            max_score=float(node.weight * node.cluster.exam_weight),
-            difficulty=0.0,
+    assignments = list(
+        Assignment.objects.filter(skill_tags__node_id__in=[node.id for node in nodes])
+        .prefetch_related("skill_tags")
+        .distinct()
+    )
+    weights = []
+    for assignment in assignments:
+        tags = list(assignment.skill_tags.all())
+        weights.append(
+            TaskWeight(
+                assignment_id=assignment.id,
+                node_ids=tuple(tag.node_id for tag in tags),
+                node_weights=tuple(float(tag.weight) for tag in tags),
+                max_score=float(assignment.max_score),
+                difficulty=float(assignment.difficulty),
+                discrimination=settings.IRT_DEFAULT_DISCRIMINATION,
+            )
         )
-        for node in nodes
-    ]
+    # Empty content databases still get a deterministic node-based bootstrap.
+    if not weights:
+        weights = [
+            TaskWeight(
+                assignment_id=node.id,
+                node_ids=(node.id,),
+                max_score=float(node.weight * node.cluster.exam_weight),
+                difficulty=3.0,
+            )
+            for node in nodes
+        ]
     return states, weights
 
 

@@ -121,6 +121,9 @@ MASTERY_THRESHOLD = 70
 BKT_ALPHA = 0.3
 # Spaced-repetition intervals in days for mistake rework.
 REVIEW_INTERVALS_DAYS = [1, 3, 7, 30]
+REVIEW_EASE = 1.6
+MIN_REVIEW_INTERVAL_DAYS = 1
+MAX_REVIEW_INTERVAL_DAYS = 60
 # Open mistakes on one node that force the topic back into the plan.
 FREQUENT_MISTAKE_THRESHOLD = 3
 # Expert review SLA (hours), stored per-request but defaulted here.
@@ -155,6 +158,11 @@ DECAY_RATE_PER_DAY = 0.02
 MAX_PRIMARY_SCORE = 32
 # EMA weight of the latest mock when calibrating a forecast.
 FORECAST_CALIBRATION_ALPHA = 0.3
+# Bootstrap IRT 2PL parameters; real attempt logs can calibrate them later.
+IRT_THETA_SCALE = 6.0
+IRT_DIFFICULTY_STEP = 1.2
+IRT_DEFAULT_DISCRIMINATION = 1.0
+IRT_GUESS = 0.0
 # Официальная таблица перевода первичных баллов в тестовые (кладётся конфигом
 # на каждый год; ниже — приближение шкалы профильной математики).
 PRIMARY_TO_SCALED = [
