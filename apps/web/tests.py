@@ -63,6 +63,17 @@ class StudentCabinetTests(TestCase):
         response = self.client.get(reverse("knowledge_map"))
         self.assertContains(response, "Действия с дробями и степенями")
         self.assertContains(response, "Линейные и квадратные уравнения")
+        self.assertContains(response, "нужно 50%")
+        self.assertContains(response, "сейчас 0%")
+
+    def test_methodist_node_admin_contains_both_dependency_inlines(self):
+        self.client.force_login(User.objects.get(username="methodist"))
+        response = self.client.get(
+            reverse("admin:knowledge_knowledgenode_change", args=[self.node.id])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Условия открытия (родительские темы)")
+        self.assertContains(response, "Открывает темы (дочерние)")
 
     def test_mentor_panel_is_only_rendered_for_lesson_context(self):
         url = reverse("lesson", args=[self.node.id])

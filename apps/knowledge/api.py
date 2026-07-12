@@ -46,6 +46,7 @@ class KnowledgeMapView(views.APIView):
                     "decay_percent": s.get("decay_percent", 0),
                     "last_practiced_at": s.get("last_practiced_at"),
                     "prerequisites": s.get("prerequisites", []),
+                    "unmet_conditions": s.get("unmet_conditions", []),
                 }
                 if overlay:
                     payload["reachable_by_exam"] = node.id not in unreachable

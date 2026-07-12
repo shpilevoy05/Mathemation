@@ -47,7 +47,11 @@ def _topological_order(nodes):
     by_id = {n.id: n for n in nodes}
     ids = set(by_id)
     edges = [
-        EdgeDTO(from_node_id=dependency.prerequisite_id, to_node_id=dependency.node_id)
+        EdgeDTO(
+            from_node_id=dependency.prerequisite_id,
+            to_node_id=dependency.node_id,
+            min_mastery=float(dependency.min_mastery),
+        )
         for dependency in KnowledgeDependency.objects.filter(
             node_id__in=ids, prerequisite_id__in=ids
         )
@@ -65,7 +69,11 @@ def order_pending_nodes(student) -> list[KnowledgeNode]:
     nodes = list(KnowledgeNode.objects.select_related("cluster").all())
     ids = {node.id for node in nodes}
     edges = [
-        EdgeDTO(from_node_id=dependency.prerequisite_id, to_node_id=dependency.node_id)
+        EdgeDTO(
+            from_node_id=dependency.prerequisite_id,
+            to_node_id=dependency.node_id,
+            min_mastery=float(dependency.min_mastery),
+        )
         for dependency in KnowledgeDependency.objects.filter(
             node_id__in=ids, prerequisite_id__in=ids
         )

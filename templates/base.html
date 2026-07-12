@@ -11,18 +11,21 @@
 <body>
   <header class="site-header">
     <div class="header-inner">
-      <a class="brand" href="{% url 'dashboard' %}">Матемация</a>
+      <a class="brand" href="{% url 'dashboard' %}" aria-label="Матемация">
+        <span class="brand-mark" aria-hidden="true"><span class="brand-fire">🔥</span><span class="brand-sigma">Σ</span></span>
+        <span class="brand-word">МАТЕМАЦИЯ</span>
+      </a>
       {% if user.is_authenticated %}
         <nav class="main-nav" aria-label="Основная навигация">
           {% if user.student_profile %}
-            <a href="{% url 'dashboard' %}">Кабинет</a>
-            <a href="{% url 'knowledge_map' %}">Карта навыков</a>
-            <a href="{% url 'track' %}">Дорожка</a>
-            <a href="{% url 'practice_backlog' %}">Отработка</a>
-            <a href="{% url 'mocks' %}">Пробники</a>
-            <a href="{% url 'forecast' %}">Прогноз</a>
+            <a class="{% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}">Кабинет</a>
+            <a class="{% if request.resolver_match.url_name == 'knowledge_map' or request.resolver_match.url_name == 'knowledge_node' %}is-active{% endif %}" href="{% url 'knowledge_map' %}">Карта навыков</a>
+            <a class="{% if request.resolver_match.url_name == 'track' or request.resolver_match.url_name == 'lesson' %}is-active{% endif %}" href="{% url 'track' %}">Дорожка</a>
+            <a class="{% if request.resolver_match.url_name == 'practice_backlog' %}is-active{% endif %}" href="{% url 'practice_backlog' %}">Отработка</a>
+            <a class="{% if request.resolver_match.url_name == 'mocks' or request.resolver_match.url_name == 'mock_run' or request.resolver_match.url_name == 'mock_result' %}is-active{% endif %}" href="{% url 'mocks' %}">Пробники</a>
+            <a class="{% if request.resolver_match.url_name == 'forecast' %}is-active{% endif %}" href="{% url 'forecast' %}">Прогноз</a>
           {% elif user.parent_profile %}
-            <a href="{% url 'parent_dashboard' %}">Родителю</a>
+            <a class="{% if request.resolver_match.url_name == 'parent_dashboard' %}is-active{% endif %}" href="{% url 'parent_dashboard' %}">Родителю</a>
           {% endif %}
         </nav>
         <div class="account-menu">

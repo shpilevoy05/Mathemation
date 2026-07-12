@@ -16,6 +16,7 @@ class NodeState:
 class EdgeDTO:
     from_node_id: int
     to_node_id: int
+    min_mastery: float = 70.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,4 +50,3 @@ class CeilingResult:
     mastery_profile: dict[int, float]
     reachable_node_ids: tuple[int, ...]
     unreachable_node_ids: tuple[int, ...]
-

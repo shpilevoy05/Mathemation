@@ -89,6 +89,7 @@ def knowledge_map_context(student, overlay=False):
                     "decay_percent": state["decay_percent"],
                     "last_practiced_at": state["last_practiced_at"],
                     "reachable_by_exam": node.id not in unreachable,
+                    "unmet_conditions": state["unmet_conditions"],
                 }
             )
         clusters.append({"title": cluster.title, "color": cluster.color, "nodes": nodes})

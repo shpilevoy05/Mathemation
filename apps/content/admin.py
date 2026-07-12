@@ -16,6 +16,7 @@ class SkillTagInline(admin.TabularInline):
 @admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
     list_display = ["title", "node", "order", "has_video"]
+    search_fields = ["title", "node__title", "node__code"]
     fields = ["node", "title", "order", "video_url", "video_duration_minutes"]
     inlines = [TheoryBlockInline]
 
@@ -27,6 +28,7 @@ class LessonAdmin(admin.ModelAdmin):
 @admin.register(Assignment)
 class AssignmentAdmin(admin.ModelAdmin):
     list_display = ["title", "exam_part", "difficulty", "max_score"]
+    search_fields = ["title", "statement"]
     inlines = [SkillTagInline]
 
 

@@ -116,7 +116,11 @@ def ceiling_forecast(student, weekly_hours: int | None = None, exam_date=None) -
 
     states, _ = _forecast_dtos(student)
     edges = [
-        EdgeDTO(from_node_id=dependency.prerequisite_id, to_node_id=dependency.node_id)
+        EdgeDTO(
+            from_node_id=dependency.prerequisite_id,
+            to_node_id=dependency.node_id,
+            min_mastery=float(dependency.min_mastery),
+        )
         for dependency in KnowledgeDependency.objects.all()
     ]
     days_left = (

@@ -136,3 +136,58 @@ class NodeStatesTests(TestCase):
         states = node_states(student)
         self.assertEqual(states[base.id]["state"], "mastered")
         self.assertEqual(states[adv.id]["state"], "available")
+
+    def test_each_dependency_uses_its_own_mastery_threshold(self):
+        student = make_student()
+        base = make_node("base")
+        threshold_50 = make_node("threshold-50", cluster=base.cluster)
+        threshold_80 = make_node("threshold-80", cluster=base.cluster)
+        KnowledgeDependency.objects.create(
+            node=threshold_50, prerequisite=base, min_mastery=50
+        )
+        KnowledgeDependency.objects.create(
+            node=threshold_80, prerequisite=base, min_mastery=80
+        )
+
+        set_mastery(student, base, 45)
+        states = node_states(student)
+        self.assertEqual(states[threshold_50.id]["state"], "locked")
+        self.assertEqual(states[threshold_50.id]["unmet_conditions"][0]["current_mastery"], 45)
+
+        set_mastery(student, base, 55)
+        states = node_states(student)
+        self.assertEqual(states[threshold_50.id]["state"], "available")
+        self.assertEqual(states[threshold_80.id]["state"], "locked")
+        self.assertEqual(states[threshold_80.id]["unmet_conditions"][0]["required_mastery"], 80)
+
+
+class KnowledgeMapApiTests(TestCase):
+    def test_locked_node_exposes_unmet_opening_condition(self):
+        student = make_student()
+        base = make_node("api-base")
+        child = make_node("api-child", cluster=base.cluster)
+        KnowledgeDependency.objects.create(
+            node=child, prerequisite=base, min_mastery=80
+        )
+        set_mastery(student, base, 55)
+        self.client.force_login(student.user)
+
+        response = self.client.get("/api/knowledge-map/")
+
+        self.assertEqual(response.status_code, 200)
+        child_payload = next(
+            node
+            for cluster in response.json()["clusters"]
+            for node in cluster["nodes"]
+            if node["id"] == child.id
+        )
+        self.assertEqual(child_payload["state"], "locked")
+        self.assertEqual(
+            child_payload["unmet_conditions"][0],
+            {
+                "node_id": base.id,
+                "title": base.title,
+                "required_mastery": 80,
+                "current_mastery": 55.0,
+            },
+        )

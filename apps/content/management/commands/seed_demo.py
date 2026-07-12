@@ -121,6 +121,11 @@ DEMO_VIDEOS = {
     "linear-quadratic": ("https://example.com/embed/demo", 18),
 }
 
+DEMO_EDGE_THRESHOLDS = {
+    ("roots-logs", "frac-powers"): 50,
+    ("linear-quadratic", "frac-powers"): 80,
+}
+
 
 class Command(BaseCommand):
     help = "Наполняет базу демо-данными (идемпотентно)."
@@ -158,8 +163,10 @@ class Command(BaseCommand):
             )
         for code, _, _, _, _, _, prereqs in NODES:
             for pre in prereqs:
-                KnowledgeDependency.objects.get_or_create(
-                    node=nodes[code], prerequisite=nodes[pre]
+                KnowledgeDependency.objects.update_or_create(
+                    node=nodes[code],
+                    prerequisite=nodes[pre],
+                    defaults={"min_mastery": DEMO_EDGE_THRESHOLDS.get((code, pre), 70)},
                 )
 
         for code, node in nodes.items():

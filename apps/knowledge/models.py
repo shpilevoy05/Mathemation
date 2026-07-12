@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 
 
@@ -48,6 +49,11 @@ class KnowledgeDependency(models.Model):
     node = models.ForeignKey(KnowledgeNode, on_delete=models.CASCADE, related_name="dependencies")
     prerequisite = models.ForeignKey(
         KnowledgeNode, on_delete=models.CASCADE, related_name="dependents"
+    )
+    min_mastery = models.PositiveSmallIntegerField(
+        default=70,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="минимальное освоение, %",
     )
 
     class Meta:

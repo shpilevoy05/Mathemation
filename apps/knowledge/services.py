@@ -105,20 +105,31 @@ def node_states(student) -> dict[int, dict]:
     """Состояния узлов карты: закрыто / можно начинать / в процессе / освоено / подзабылось.
 
     «Закрыто» и «можно начинать» выводятся из зависимостей: узел доступен,
-    когда все его пререквизиты освоены (mastery >= MASTERY_THRESHOLD).
+    когда каждый его пререквизит освоен до порога конкретного ребра.
     """
     masteries = {
         m.node_id: m for m in SkillMastery.objects.filter(student=student)
     }
-    nodes = list(KnowledgeNode.objects.prefetch_related("dependencies"))
+    nodes = list(KnowledgeNode.objects.prefetch_related("dependencies__prerequisite"))
     states = {}
     for node in nodes:
         m = masteries.get(node.id)
-        prereq_ids = [d.prerequisite_id for d in node.dependencies.all()]
-        unlocked = all(
-            (masteries.get(pid) and masteries[pid].mastery >= settings.MASTERY_THRESHOLD)
-            for pid in prereq_ids
-        )
+        dependencies = list(node.dependencies.all())
+        prereq_ids = [dependency.prerequisite_id for dependency in dependencies]
+        unmet_conditions = []
+        for dependency in dependencies:
+            current = masteries.get(dependency.prerequisite_id)
+            current_mastery = current.mastery if current else 0.0
+            if current_mastery < dependency.min_mastery:
+                unmet_conditions.append(
+                    {
+                        "node_id": dependency.prerequisite_id,
+                        "title": dependency.prerequisite.title,
+                        "required_mastery": dependency.min_mastery,
+                        "current_mastery": current_mastery,
+                    }
+                )
+        unlocked = not unmet_conditions
         if m and m.status == SkillMastery.Status.MASTERED:
             state = "mastered"
         elif m and m.status == SkillMastery.Status.DECAYED:
@@ -135,5 +146,6 @@ def node_states(student) -> dict[int, dict]:
             "decay_percent": m.decay_percent if m else 0.0,
             "last_practiced_at": m.last_practiced_at if m else None,
             "prerequisites": prereq_ids,
+            "unmet_conditions": unmet_conditions,
         }
     return states

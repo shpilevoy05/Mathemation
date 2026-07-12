@@ -15,6 +15,8 @@ def topological_order(
     outgoing = {node_id: set() for node_id in ids}
     for edge in edges:
         if edge.from_node_id in ids and edge.to_node_id in ids:
+            if by_id[edge.from_node_id].mastery >= edge.min_mastery:
+                continue
             incoming[edge.to_node_id].add(edge.from_node_id)
             outgoing[edge.from_node_id].add(edge.to_node_id)
 
@@ -50,8 +52,18 @@ def greedy_pending_nodes(
     params: EngineParams,
 ) -> list[NodeState]:
     """Choose pending nodes by score gain per hour while respecting edges."""
+    by_id = {node.node_id: node for node in node_states}
+    required_prerequisites = {
+        edge.from_node_id
+        for edge in edges
+        if edge.from_node_id in by_id
+        and by_id[edge.from_node_id].mastery < edge.min_mastery
+    }
     pending = [
-        node for node in node_states if node.mastery < params.mastery_threshold
+        node
+        for node in node_states
+        if node.mastery < params.mastery_threshold
+        or node.node_id in required_prerequisites
     ]
     # With a constant HOURS_PER_NODE, score/hour ordering is score-weight ordering.
     return topological_order(pending, edges)

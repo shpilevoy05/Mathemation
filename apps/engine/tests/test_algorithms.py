@@ -73,6 +73,27 @@ class CeilingEngineTests(SimpleTestCase):
             len(fast.unreachable_node_ids), len(slow.unreachable_node_ids)
         )
 
+    def test_child_stays_unreachable_when_edge_threshold_cannot_be_reached(self):
+        result = simulate_ceiling(
+            [node(2, weight=10), node(1, mastery=55)],
+            [EdgeDTO(from_node_id=1, to_node_id=2, min_mastery=90)],
+            days_left=14,
+            weekly_hours=20,
+            params=PARAMS,
+        )
+        self.assertEqual(result.reachable_node_ids, (1,))
+        self.assertEqual(result.unreachable_node_ids, (2,))
+
+    def test_prerequisite_above_global_but_below_edge_threshold_is_studied_first(self):
+        result = simulate_ceiling(
+            [node(2, weight=10), node(1, mastery=75)],
+            [EdgeDTO(from_node_id=1, to_node_id=2, min_mastery=80)],
+            days_left=14,
+            weekly_hours=20,
+            params=PARAMS,
+        )
+        self.assertEqual(result.reachable_node_ids, (1, 2))
+
 
 class PlannerEngineTests(SimpleTestCase):
     def test_prerequisites_precede_dependants(self):
@@ -82,3 +103,11 @@ class PlannerEngineTests(SimpleTestCase):
         )
         self.assertEqual([state.node_id for state in ordered], [1, 2])
 
+    def test_unsatisfied_edge_threshold_always_keeps_prerequisite_first(self):
+        for threshold in (50, 80, 100):
+            with self.subTest(threshold=threshold):
+                ordered = topological_order(
+                    [node(2, weight=10), node(1, mastery=threshold - 1)],
+                    [EdgeDTO(1, 2, min_mastery=threshold)],
+                )
+                self.assertEqual([state.node_id for state in ordered], [1, 2])
