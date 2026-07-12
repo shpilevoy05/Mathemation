@@ -1,5 +1,5 @@
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
 from apps.accounts.models import User
@@ -7,11 +7,25 @@ from apps.ai_mentor.models import AiHintMessage, AiHintSession
 from apps.content.models import Lesson
 from apps.mocks.models import MockExam
 from apps.practice.models import MistakeBacklogItem
+from apps.progress.models import ProgressSnapshot
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.knowledge.services import set_mastery
 from apps.knowledge.tests import make_node, make_student
 
-from .services import track_context
+from .services import (
+    gauge_metrics,
+    journey_percent,
+    track_context,
+    xp_progress_percent,
+)
+
+
+class DashboardMetricServiceTests(SimpleTestCase):
+    def test_gauge_journey_and_xp_percentages_are_prepared_in_services(self):
+        self.assertEqual(gauge_metrics(50)["offset"], "125.60")
+        self.assertEqual(journey_percent(60, 80, 60), 100)
+        self.assertEqual(journey_percent(60, 40, 60), 0)
+        self.assertEqual(xp_progress_percent(250, 2), 50)
 
 
 class TrackContextTests(TestCase):
@@ -91,6 +105,13 @@ class StudentCabinetTests(TestCase):
         self.assertContains(response, "Траектория")
         self.assertContains(response, "84+")
         self.assertContains(response, "при текущем темпе")
+
+    def test_dashboard_contains_h1_design_system_markers_and_logo(self):
+        response = self.client.get(reverse("dashboard"))
+        self.assertContains(response, 'class="hero student-hero"')
+        self.assertContains(response, 'class="stat-grid"')
+        self.assertContains(response, 'class="score-journey"')
+        self.assertContains(response, 'class="logo-mark"')
 
     def test_knowledge_map_contains_seed_nodes(self):
         response = self.client.get(reverse("knowledge_map"))
@@ -194,3 +215,25 @@ class StudentCabinetTests(TestCase):
         self.assertContains(response, "неверный метод")
         self.assertContains(response, "Подсказок наставника")
         self.assertNotContains(response, "СЕКРЕТНЫЙ ТЕКСТ ЧАТА")
+
+    def test_parent_report_contains_gauge_sparkline_and_pace_caveat(self):
+        student = self.user.student_profile
+        ProgressSnapshot.objects.create(
+            student=student,
+            start_score=40,
+            predicted_score=50,
+            target_score=student.target_score,
+        )
+        self.client.force_login(User.objects.get(username="parent"))
+
+        response = self.client.get(reverse("parent_dashboard"))
+
+        self.assertContains(response, "stroke-dasharray")
+        self.assertContains(response, "<polyline", html=False)
+        self.assertContains(response, "при текущем темпе")
+
+    def test_login_contains_large_logo_and_tagline(self):
+        self.client.logout()
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, "logo--lg")
+        self.assertContains(response, "ценит время")

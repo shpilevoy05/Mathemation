@@ -4,14 +4,25 @@
 {% if not student %}
   <section class="empty-state"><h1>Кабинет ученика</h1><p>Для этого аккаунта кабинет ученика недоступен. Выберите подходящий раздел или войдите под аккаунтом ученика.</p></section>
 {% else %}
-  <section class="hero">
-    <div><p class="eyebrow">Кабинет ученика</p><h1>Привет, {{ user.first_name|default:user.username }}!</h1><p>Сегодня двигаемся по траектории без лишней спешки.</p></div>
-    {% if trajectory %}<div class="trajectory-badge"><span>Траектория</span><strong>{{ trajectory.title }}</strong><small>{{ trajectory.weekly_load_hours }} ч в неделю · при текущем темпе</small></div>{% endif %}
+  <section class="hero student-hero">
+    <div class="hero-copy">
+      <h1>Привет, {{ user.first_name|default:user.username }}!</h1>
+      {% if trajectory %}<p>Траектория {{ trajectory.title }} · {{ trajectory.weekly_load_hours }} ч/нед · прогноз при текущем темпе</p>{% else %}<p>Траектория появится после диагностики · прогноз при текущем темпе</p>{% endif %}
+    </div>
+    <div class="hero-streak"><span aria-hidden="true">🔥</span><strong>{{ gamification.streak_current }} дн. подряд</strong></div>
+    <div class="score-journey">
+      {% if has_diagnostic %}
+        <div class="journey-labels"><span>Старт {{ snapshot.start_score }}</span><strong>Прогноз {{ snapshot.predicted_score }}</strong><span>🎯 Цель {{ target_score }}</span></div>
+        <div class="journey-track"><span style="width: {{ journey_percent }}%"></span></div>
+      {% else %}
+        <button class="button hero-button" type="button">Пройти диагностику</button>
+      {% endif %}
+    </div>
   </section>
 
   {% if major_changes or trajectory_transitions %}
     <dialog class="app-dialog app-dialog-major" id="important-dialog" data-auto-open>
-      <div class="dialog-heading"><span class="dialog-icon">!</span><div><p class="eyebrow">Важное изменение</p><h2>Траектория и план обновлены</h2></div></div>
+      <div class="dialog-heading"><span class="dialog-icon">⚠️</span><div><p class="eyebrow">Важное изменение</p><h2>Траектория и план обновлены</h2></div></div>
       {% for transition in trajectory_transitions %}
         <article class="dialog-card" data-ack-url="/api/trajectory/transitions/{{ transition.id }}/ack/">
           <h3>{{ transition.from_trajectory.title|default:"Старт" }} → {{ transition.to_trajectory.title }}</h3>
@@ -28,53 +39,40 @@
   {% if week_items %}
     <dialog class="app-dialog" id="week-plan-dialog" {% if not major_changes and not trajectory_transitions %}data-auto-open{% endif %}>
       <p class="eyebrow">Твой ритм</p><h2>План на неделю</h2>
-      <ul class="check-list compact">{% for item in week_items %}<li class="{% if item.status == 'done' %}is-done{% endif %}"><span>{% if item.status == 'done' %}✓{% else %}{{ item.due_date|date:"D" }}{% endif %}</span><div><strong>{{ item.get_item_type_display }}</strong><small>{{ item.node.title }} · {{ item.due_date|date:"d.m" }}</small></div></li>{% endfor %}</ul>
+      <ul class="check-list compact">{% for item in week_items %}<li class="{% if item.status == 'done' %}is-done{% endif %}"><span>{% if item.status == 'done' %}✓{% else %}{{ item.due_date|date:"D" }}{% endif %}</span><div><strong>{{ item.ui_type_label }}</strong><small>{{ item.node.title }} · {{ item.due_date|date:"d.m" }}</small></div></li>{% endfor %}</ul>
       <button class="button button-primary" type="button" data-close-dialog>К занятиям</button>
     </dialog>
   {% endif %}
 
+  <section class="stat-grid" aria-label="Главные показатели">
+    <article class="stat-tile"><span class="stat-icon">📈</span><div><strong>{{ snapshot.predicted_score|default:"—" }}</strong><h2>Прогноз</h2><small>при текущем темпе</small></div></article>
+    <article class="stat-tile"><span class="stat-icon">🚀</span><div><strong>{{ forecast.ceiling_score|default:"—" }}</strong><h2>Потолок</h2><small>при {{ forecast.weekly_hours|default:student.weekly_hours }} ч/нед</small></div></article>
+    <article class="stat-tile"><span class="stat-icon">🔥</span><div><strong>{{ gamification.streak_current }} дн.</strong><h2>Стрик</h2><small>лучший {{ gamification.streak_best }}</small></div></article>
+    <article class="stat-tile"><span class="stat-icon">⭐</span><div><strong>{{ gamification.level }}</strong><h2>Уровень</h2><div class="xp-progress" aria-label="{{ gamification.xp }} XP"><span style="width: {{ gamification.xp_progress_percent }}%"></span></div><small>{{ gamification.xp }} / {{ gamification.level_end_xp }} XP</small></div></article>
+  </section>
+
   <div class="dashboard-grid">
-    <section class="card card-wide gamification-card" data-gamification-widget>
-      <div class="gamification-summary">
-        <div><p class="eyebrow">Ритм и прогресс</p><h2>Учебная серия</h2></div>
-        <div class="gamification-stat streak-stat">
-          <span aria-hidden="true">🔥</span><strong>{{ gamification.streak_current }}</strong>
-          <small>{% if gamification.streak_mode == "weekly" %}нед. подряд{% else %}дн. подряд{% endif %}</small>
-        </div>
-        <div class="gamification-stat"><strong>{{ gamification.xp }} XP</strong><small>уровень {{ gamification.level }}</small></div>
-      </div>
-      <div class="quest-grid">
+    <section class="card card-wide quest-card" data-gamification-widget>
+      <div class="section-heading"><div><p class="eyebrow">Учебная серия</p><h2>Квесты недели</h2></div></div>
+      <div class="quest-list">
         {% for quest in gamification.quests %}
           <article class="quest-item {% if quest.completed %}is-completed{% endif %}">
-            <div><strong>{{ quest.title }}</strong><small>+{{ quest.reward_xp }} XP</small></div>
+            <div class="quest-copy"><strong>{{ quest.title }}{% if quest.completed %} <span class="quest-check">✓</span>{% endif %}</strong><small>{{ quest.progress_count }} из {{ quest.target_count }}</small></div>
             <div class="quest-progress"><span style="width: {{ quest.progress_percent }}%"></span></div>
-            <small>{{ quest.progress_count }} из {{ quest.target_count }}{% if quest.completed %} · выполнено{% endif %}</small>
+            <span class="xp-chip">+{{ quest.reward_xp }} XP</span>
           </article>
         {% empty %}<p class="empty-copy">Квесты появятся вместе с активным учебным планом.</p>{% endfor %}
       </div>
     </section>
 
-    <section class="card card-wide">
-      <div class="section-heading"><div><p class="eyebrow">Прогресс</p><h2>От старта к цели</h2></div><a href="{% url 'forecast' %}">Подробнее</a></div>
-      {% if snapshot %}
-        <div class="score-path">
-          <div><small>Старт</small><strong>{{ snapshot.start_score|default:"—" }}</strong></div><span>→</span>
-          <div class="accent"><small>Прогноз</small><strong>{{ snapshot.predicted_score }}</strong></div><span>→</span>
-          <div><small>Цель</small><strong>{{ target_score }}</strong></div><span>→</span>
-          <div><small>Потолок</small><strong>{{ forecast.ceiling_score|default:"—" }}</strong></div>
-        </div>
-        <p class="disclaimer">Прогноз и потолок рассчитаны при текущем темпе и не являются гарантией результата.</p>
-      {% else %}<p>После входной диагностики здесь появится честный прогноз и траектория.</p>{% endif %}
-    </section>
-
-    <section class="card card-wide">
+    <section class="card card-wide today-card">
       <div class="section-heading"><div><p class="eyebrow">Сегодня</p><h2>План на сегодня</h2></div>{% if week_items %}<button class="link-button" type="button" data-open-dialog="week-plan-dialog">Показать неделю</button>{% endif %}</div>
-      {% if today_items %}<ul class="check-list">{% for item in today_items %}<li data-plan-item class="{% if item.status == 'done' %}is-done{% endif %}"><span class="check-mark">✓</span><div><strong>{{ item.get_item_type_display }} · {{ item.node.title }}</strong><small>{{ item.get_status_display }}</small></div>{% if item.status != 'done' %}<button class="button button-small" data-complete-plan="/api/plan/items/{{ item.id }}/complete/">Выполнено</button>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="empty-copy">На сегодня пунктов плана нет. Можно заглянуть в карту навыков.</p>{% endif %}
+      {% if today_items %}<ul class="check-list today-list">{% for item in today_items %}<li data-plan-item class="{% if item.status == 'done' %}is-done{% endif %}">{% if item.status != 'done' %}<button class="plan-check" type="button" aria-label="Отметить выполненным" data-complete-plan="/api/plan/items/{{ item.id }}/complete/">✓</button>{% endif %}<div><strong>{{ item.node.title }}</strong><small>{{ item.ui_status_label }}</small></div><span class="item-type-chip">{{ item.ui_type_label }}</span></li>{% endfor %}</ul>{% else %}<p class="empty-copy">На сегодня пунктов плана нет. Можно заглянуть в карту навыков.</p>{% endif %}
     </section>
 
     <section class="card">
-      <p class="eyebrow">Возврат ошибок</p><h2>Отработки на сегодня</h2>
-      {% if due_reviews %}<ul class="plain-list">{% for review in due_reviews %}<li><strong>{{ review.backlog_item.node.title }}</strong><small>{{ review.backlog_item.assignment.title }}</small></li>{% endfor %}</ul><a class="button" href="{% url 'practice_backlog' %}">Перейти к отработке</a>{% else %}<p>Повторов на сегодня нет — петли ошибок под контролем.</p>{% endif %}
+      <p class="eyebrow">Возврат ошибок</p><h2>Отработка на сегодня</h2>
+      {% if due_reviews %}<ul class="plain-list">{% for review in due_reviews %}<li><strong>{{ review.backlog_item.node.title }}</strong><small>{{ review.backlog_item.assignment.title }}</small></li>{% endfor %}</ul><a class="button button-secondary" href="{% url 'practice_backlog' %}">Перейти к отработке</a>{% else %}<p>Повторов на сегодня нет — петли ошибок под контролем.</p>{% endif %}
     </section>
     <section class="card quick-links"><p class="eyebrow">Разделы</p><h2>Куда дальше</h2><a href="{% url 'knowledge_map' %}">Карта навыков <span>→</span></a><a href="{% url 'track' %}">Дорожка <span>→</span></a><a href="{% url 'forecast' %}">Прогноз и потолок <span>→</span></a></section>
   </div>

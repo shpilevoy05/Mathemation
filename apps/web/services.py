@@ -42,6 +42,45 @@ BACKLOG_STATUS_LABELS = {
     "in_review": "на интервальных повторах",
     "resolved": "закрыта",
 }
+PLAN_STATUS_LABELS = {
+    StudyPlanItem.Status.PENDING: "Запланировано",
+    StudyPlanItem.Status.IN_PROGRESS: "В процессе",
+    StudyPlanItem.Status.DONE: "Выполнено",
+}
+
+
+def xp_progress_percent(xp, level):
+    level_start_xp = 100 * (level - 1) ** 2
+    level_end_xp = 100 * level**2
+    percent = round((xp - level_start_xp) * 100 / (level_end_xp - level_start_xp))
+    return max(0, min(100, percent))
+
+
+def journey_percent(start_score, predicted_score, target_score):
+    if start_score is None:
+        return 0
+    score_range = target_score - start_score
+    if not score_range:
+        return 100 if predicted_score >= target_score else 0
+    percent = round((predicted_score - start_score) * 100 / score_range)
+    return max(0, min(100, percent))
+
+
+def gauge_metrics(score):
+    gauge_dash = 251.2
+    clamped_score = max(0, min(100, score or 0))
+    return {
+        "dash": "251.2",
+        "offset": f"{gauge_dash * (1 - clamped_score / 100):.2f}",
+    }
+
+
+def _prepare_plan_items(items):
+    prepared = list(items)
+    for item in prepared:
+        item.ui_type_label = POINT_TYPE_LABELS[item.item_type]
+        item.ui_status_label = PLAN_STATUS_LABELS[item.status]
+    return prepared
 
 
 def dashboard_context(student):
@@ -50,11 +89,30 @@ def dashboard_context(student):
     week_start = today - timedelta(days=today.weekday())
     plan = get_active_plan(student)
     trajectory = plan.trajectory if plan and plan.trajectory_id else None
+    snapshot = ProgressSnapshot.objects.filter(student=student).first()
+    forecast = ceiling_forecast(student) if plan else None
+    gamification = gamification_snapshot(student)
+    level = gamification["level"]
+    level_start_xp = 100 * (level - 1) ** 2
+    level_end_xp = 100 * level**2
+    gamification = {
+        **gamification,
+        "level_start_xp": level_start_xp,
+        "level_end_xp": level_end_xp,
+        "xp_progress_percent": xp_progress_percent(gamification["xp"], level),
+    }
+    score_journey_percent = journey_percent(
+        snapshot.start_score if snapshot else None,
+        snapshot.predicted_score if snapshot else 0,
+        student.target_score,
+    )
     return {
-        "today_items": items_for_period(student, today, today),
-        "week_items": items_for_period(student, week_start, week_start + timedelta(days=6)),
+        "today_items": _prepare_plan_items(items_for_period(student, today, today)),
+        "week_items": _prepare_plan_items(
+            items_for_period(student, week_start, week_start + timedelta(days=6))
+        ),
         "due_reviews": due_reviews(student),
-        "snapshot": ProgressSnapshot.objects.filter(student=student).first(),
+        "snapshot": snapshot,
         "target_score": student.target_score,
         "has_plan": plan is not None,
         "trajectory": trajectory,
@@ -64,8 +122,10 @@ def dashboard_context(student):
         "trajectory_transitions": TrajectoryTransition.objects.filter(
             student=student, acknowledged=False
         ).select_related("from_trajectory", "to_trajectory"),
-        "forecast": ceiling_forecast(student) if plan else None,
-        "gamification": gamification_snapshot(student),
+        "forecast": forecast,
+        "gamification": gamification,
+        "has_diagnostic": snapshot is not None and snapshot.start_score is not None,
+        "journey_percent": score_journey_percent,
     }
 
 
@@ -91,7 +151,15 @@ def knowledge_map_context(student, overlay=False):
                     "decay_percent": state["decay_percent"],
                     "last_practiced_at": state["last_practiced_at"],
                     "reachable_by_exam": node.id not in unreachable,
-                    "unmet_conditions": state["unmet_conditions"],
+                    "unmet_conditions": [
+                        {
+                            **condition,
+                            "current_mastery_percent": max(
+                                0, min(100, round(float(condition["current_mastery"])))
+                            ),
+                        }
+                        for condition in state["unmet_conditions"]
+                    ],
                 }
             )
         clusters.append({"title": cluster.title, "color": cluster.color, "nodes": nodes})
@@ -380,13 +448,47 @@ def parent_context(parent):
         return {"child": None}
     report = build_parent_report(child)
     payload = report.payload
+    raw_distribution = payload.get("error_type_distribution", {})
+    max_error_count = max(raw_distribution.values(), default=0)
     distribution = [
-        {"label": ERROR_TYPE_LABELS.get(error_type, error_type), "count": count}
-        for error_type, count in payload.get("error_type_distribution", {}).items()
+        {
+            "label": ERROR_TYPE_LABELS.get(error_type, error_type),
+            "count": count,
+            "percent": round(count * 100 / max_error_count) if max_error_count else 0,
+        }
+        for error_type, count in raw_distribution.items()
     ]
+    risks = [
+        {
+            "text": risk,
+            "severity": (
+                "danger"
+                if "просроч" in risk.lower() or "пробник" in risk.lower()
+                else "warning"
+            ),
+        }
+        for risk in payload.get("risks", [])
+    ]
+    score = payload.get("dynamics", {}).get("current_predicted_score") or 0
+    delta = payload.get("dynamics", {}).get("delta")
+    if delta is None:
+        delta_label, delta_class = "без изменений", "muted"
+    elif delta > 0:
+        delta_label, delta_class = f"+{delta}", "success"
+    elif delta < 0:
+        delta_label, delta_class = f"−{abs(delta)}", "danger"
+    else:
+        delta_label, delta_class = "без изменений", "muted"
+    gauge = gauge_metrics(score)
     return {
         "child": child,
         "report": report,
         "report_data": payload,
         "error_distribution": distribution,
+        "risk_cards": risks,
+        "gauge_dash": gauge["dash"],
+        "gauge_offset": gauge["offset"],
+        "week_end": report.week_start + timedelta(days=6),
+        "delta_label": delta_label,
+        "delta_class": delta_class,
     }

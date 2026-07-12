@@ -230,11 +230,30 @@ def build_parent_report(student, week_start=None) -> ParentReport:
     ).count()
 
     snapshots = list(
-        ProgressSnapshot.objects.filter(student=student).order_by("-created_at")[:2]
+        ProgressSnapshot.objects.filter(student=student).order_by("-created_at")[:8]
     )
-    current = snapshots[0].predicted_score if snapshots else None
-    previous = snapshots[1].predicted_score if len(snapshots) > 1 else None
-    delta = (current - previous) if current is not None and previous is not None else None
+    scores = [snapshot.predicted_score for snapshot in reversed(snapshots)]
+    current = scores[-1] if scores else None
+    previous = scores[-2] if len(scores) > 1 else None
+    delta = (scores[-1] - scores[0]) if len(scores) > 1 else None
+    if len(scores) == 1:
+        sparkline_points = "50,20"
+        sparkline_last_x, sparkline_last_y = 50, 20
+    elif scores:
+        low, high = min(scores), max(scores)
+        score_range = high - low
+        points = [
+            (
+                round(index * 100 / (len(scores) - 1), 1),
+                round(20 if not score_range else 40 - (score - low) * 40 / score_range, 1),
+            )
+            for index, score in enumerate(scores)
+        ]
+        sparkline_points = " ".join(f"{x},{y}" for x, y in points)
+        sparkline_last_x, sparkline_last_y = points[-1]
+    else:
+        sparkline_points = ""
+        sparkline_last_x, sparkline_last_y = None, None
 
     open_mistakes = (
         MistakeBacklogItem.objects.filter(student=student)
@@ -299,6 +318,9 @@ def build_parent_report(student, week_start=None) -> ParentReport:
             "current_predicted_score": current,
             "previous_predicted_score": previous,
             "delta": delta,
+            "sparkline_points": sparkline_points,
+            "sparkline_last_x": sparkline_last_x,
+            "sparkline_last_y": sparkline_last_y,
             "start_score": student.start_score,
             "target_score": student.target_score,
         },

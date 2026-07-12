@@ -4,16 +4,52 @@
 {% if not parent %}<section class="empty-state"><h1>Родительский кабинет</h1><p>Для этого аккаунта родительский кабинет недоступен.</p></section>
 {% elif not child %}<section class="empty-state"><h1>Родительский кабинет</h1><p>К профилю пока не привязан ученик.</p></section>
 {% else %}
-  <section class="hero"><div><p class="eyebrow">Родительский кабинет</p><h1>{{ child.user.get_full_name|default:child.user.username }}</h1><p>Короткая и честная сводка без лишнего контроля.</p></div></section>
-  <div class="dashboard-grid">
-    <section class="card card-wide"><h2>Реальный балл</h2><div class="score-path"><div><small>Старт</small><strong>{{ report_data.dynamics.start_score|default:"—" }}</strong></div><span>→</span><div class="accent"><small>Прогноз</small><strong>{{ report_data.dynamics.current_predicted_score|default:"—" }}</strong></div><span>→</span><div><small>Цель</small><strong>{{ report_data.dynamics.target_score }}</strong></div></div><p class="disclaimer">Прогноз рассчитан при текущем темпе и не является гарантией.</p></section>
-    <section class="card"><h2>Факт недели</h2><ul class="plain-list"><li>Занятия по плану — {{ report_data.week_fact.plan_items_done }}</li><li>Решено задач — {{ report_data.week_fact.attempts }}</li><li>Пробники — {{ report_data.week_fact.mocks_completed }}</li></ul></section>
-    <section class="card"><h2>Динамика</h2><p>Изменение прогноза: {{ report_data.dynamics.delta|default:"нет данных" }}</p><p>Подсказок наставника: <strong>{{ report_data.week_fact.hints_used }}</strong></p><button class="button" type="button" data-parent-ai-log="/api/parent/ai-log/">Показать переписку</button></section>
-    <section class="card"><h2>Риски</h2>{% if report_data.risks %}<ul>{% for risk in report_data.risks %}<li>{{ risk }}</li>{% endfor %}</ul>{% else %}<p>Критичных рисков сейчас нет.</p>{% endif %}</section>
-    <section class="card"><h2>Слабые темы</h2><ul class="plain-list">{% for topic in report_data.weak_topics %}<li>{{ topic.title }} <small>{{ topic.mastery|floatformat:0 }}% освоения</small></li>{% empty %}<li>Нет данных</li>{% endfor %}</ul></section>
-    <section class="card"><h2>Распределение ошибок</h2><ul class="plain-list">{% for item in error_distribution %}<li>{{ item.label }} — {{ item.count }}</li>{% empty %}<li>Открытых ошибок нет.</li>{% endfor %}</ul></section>
-    <section class="card"><h2>Что дальше</h2><p>{{ report_data.next_step }}</p></section>
+  <section class="parent-hero card">
+    <div><p class="eyebrow">Родительский отчёт</p><h1>Как дела у {{ child.user.get_full_name|default:child.user.username }}</h1><p>Неделя {{ report.week_start|date:"d.m" }}–{{ week_end|date:"d.m.Y" }}</p></div>
+    <div class="gauge-wrap">
+      <svg class="gauge gauge-svg" viewBox="0 0 200 110" width="200" height="110" role="img" aria-label="Прогноз {{ report_data.dynamics.current_predicted_score|default:0 }} из 100">
+        <defs><linearGradient id="gaugeGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3D6BE5"/><stop offset="1" stop-color="#7C9BF5"/></linearGradient></defs>
+        <path class="gauge-base" d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="#E8EEFC" stroke-width="14" stroke-linecap="round" pathLength="{{ gauge_dash }}"/>
+        <path class="gauge-value" d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round" pathLength="{{ gauge_dash }}" stroke-dasharray="{{ gauge_dash }}" stroke-dashoffset="{{ gauge_offset }}"/>
+        <text class="gauge-score" x="100" y="72" text-anchor="middle">{{ report_data.dynamics.current_predicted_score|default:"—" }}</text>
+        <text class="gauge-caption" x="100" y="92" text-anchor="middle">из 100 · при текущем темпе</text>
+      </svg>
+      <p>Старт {{ report_data.dynamics.start_score|default:"—" }} → Цель {{ report_data.dynamics.target_score }}</p>
+    </div>
+  </section>
+
+  <section class="parent-section">
+    <h2>Факт недели</h2>
+    <div class="parent-fact-grid">
+      <article class="fact-tile"><span>📚</span><strong>{{ report_data.week_fact.plan_items_done }}</strong><small>занятий</small></article>
+      <article class="fact-tile"><span>✏️</span><strong>{{ report_data.week_fact.attempts }}</strong><small>задач решено</small></article>
+      <article class="fact-tile"><span>🏆</span><strong>{{ report_data.week_fact.mocks_completed }}</strong><small>пробников</small></article>
+    </div>
+  </section>
+
+  <div class="parent-grid">
+    <section class="card dynamics-card">
+      <div class="section-heading"><h2>Динамика</h2><strong class="delta delta-{{ delta_class }}">{{ delta_label }}</strong></div>
+      <svg class="sparkline sparkline-svg" viewBox="0 0 100 48" preserveAspectRatio="none" width="100%" height="48" role="img" aria-label="Динамика прогноза">
+        {% if report_data.dynamics.sparkline_points %}
+          <polyline points="{{ report_data.dynamics.sparkline_points }}" fill="none" stroke="var(--primary)" stroke-width="2"/>
+          <circle cx="{{ report_data.dynamics.sparkline_last_x }}" cy="{{ report_data.dynamics.sparkline_last_y }}" r="3" fill="var(--primary)"/>
+        {% endif %}
+      </svg>
+      {% if not report_data.dynamics.sparkline_points %}<p class="empty-copy">Динамика появится после новых замеров.</p>{% endif %}
+    </section>
+
+    <section class="card risks-card"><h2>Риски</h2>{% if risk_cards %}<div class="risk-list">{% for risk in risk_cards %}<article class="risk-item risk-{{ risk.severity }}"><span>⚠️</span><p>{{ risk.text }}</p></article>{% endfor %}</div>{% else %}<p>Критичных рисков сейчас нет.</p>{% endif %}</section>
+
+    <section class="card"><h2>Слабые темы</h2><div class="topic-chips">{% for topic in report_data.weak_topics %}<span>{{ topic.title }} · {{ topic.mastery|floatformat:0 }}%</span>{% empty %}<span>Нет данных</span>{% endfor %}</div></section>
+
+    <section class="card error-card"><h2>Ошибки по типам <span class="visually-hidden">Распределение ошибок</span></h2>{% for item in error_distribution %}<div class="error-row"><span>{{ item.label }}</span><div class="error-track"><i style="width: {{ item.percent }}%"></i></div><strong>{{ item.count }}</strong></div>{% empty %}<p>Открытых ошибок нет.</p>{% endfor %}</section>
+
+    <section class="card mentor-card"><p class="eyebrow">Наставник</p><h2>Подсказок за неделю: <strong>{{ report_data.week_fact.hints_used }}</strong><span class="visually-hidden"> Подсказок наставника</span></h2><button class="button button-secondary" type="button" data-parent-ai-log="/api/parent/ai-log/">Показать переписку</button></section>
+
+    <section class="card next-step-card"><h2>Что дальше</h2><p>{{ report_data.next_step }}</p></section>
   </div>
+  <p class="disclaimer parent-disclaimer">Прогноз рассчитан при текущем темпе и не является гарантией результата.</p>
   <dialog class="app-dialog" id="parent-ai-log"><div class="section-heading"><h2>Переписка с наставником</h2><button class="link-button" type="button" data-close-dialog>Закрыть</button></div><div data-parent-ai-content><p>Загрузка…</p></div></dialog>
 {% endif %}
 {% endblock %}
