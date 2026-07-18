@@ -7,7 +7,8 @@ services:
       POSTGRES_USER: mathemation
       POSTGRES_PASSWORD: mathemation
     ports:
-      - "5432:5432"
+      # Хост-порт настраивается: POSTGRES_HOST_PORT=5433, если 5432 занят нативным Postgres.
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
