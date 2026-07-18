@@ -27,11 +27,33 @@ Django + DRF (модульный монолит), PostgreSQL (dev/tests — SQLi
 .\.venv\Scripts\python.exe manage.py seed_demo  # граф, задачи, траектории, пользователи
 .\.venv\Scripts\python.exe manage.py runserver
 # фоновые задачи (забывание, weekly-отчёты/квесты, простой, просроченные повторы):
-celery -A config worker -B
+.\scripts\worker.ps1
 ```
 После `seed_demo` доступны пользователи `student`, `parent`, `expert`, `methodist`
 (пароль `demo12345`). PostgreSQL включается переменными
 `POSTGRES_DB/USER/PASSWORD/HOST/PORT`.
+
+## PostgreSQL и Redis
+
+PostgreSQL и Redis запускаются в Docker, а Django и Celery — локально в Windows:
+
+```powershell
+docker compose -f infra/docker-compose.yml up -d
+Copy-Item .env.example .env  # если локального .env ещё нет
+```
+
+В `.env` раскомментируйте переменные `POSTGRES_*`. Для фонового worker также
+задайте `CELERY_EAGER=0`; `REDIS_URL` можно не задавать, если Redis доступен по
+дефолтному адресу `redis://localhost:6379/0`.
+
+```powershell
+.\.venv\Scripts\python.exe manage.py migrate
+.\.venv\Scripts\python.exe manage.py seed_demo
+.\scripts\worker.ps1
+```
+
+Без `POSTGRES_DB` проект продолжает использовать SQLite. С `CELERY_EAGER=1`
+задачи выполняются синхронно и отдельный Redis/worker для разработки не нужен.
 
 ## Роли бэкофиса
 

@@ -1,4 +1,3 @@
-@'
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot
@@ -62,4 +61,3 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Local environment is ready."
-'@ | Set-Content -Encoding utf8 .\scripts\bootstrap.ps1

@@ -4,5 +4,5 @@ celery>=5.4
 redis>=5.0
 # Символьная проверка утверждений наставника (гардрейл, Matemation.md §8):
 sympy>=1.13
-# Production DB (dev/tests fall back to SQLite):
-# psycopg[binary]>=3.1
+# PostgreSQL driver; SQLite остаётся дефолтом без POSTGRES_DB.
+psycopg[binary]>=3.1

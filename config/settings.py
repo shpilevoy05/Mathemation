@@ -1,7 +1,38 @@
 import os
 from pathlib import Path
 
+
+def _load_env(path: Path) -> None:
+    try:
+        if not path.exists():
+            return
+        with path.open(encoding="utf-8-sig") as env_file:
+            for raw_line in env_file:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip()
+                if not key:
+                    continue
+                is_quoted = (
+                    len(value) >= 2
+                    and value[0] == value[-1]
+                    and value[0] in {"'", '"'}
+                )
+                if is_quoted:
+                    value = value[1:-1]
+                try:
+                    os.environ.setdefault(key, value)
+                except (OSError, ValueError):
+                    continue
+    except (OSError, UnicodeError):
+        return
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+_load_env(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-insecure-key")
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
