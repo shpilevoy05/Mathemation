@@ -5,7 +5,31 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from config.settings import _load_env
+from config.settings import _env_bool, _load_env
+
+
+class EnvBoolTests(SimpleTestCase):
+    def test_true_values(self):
+        for value in ("True", "true", "1", "yes"):
+            with self.subTest(value=value):
+                with patch.dict(os.environ, {"TEST_BOOL": value}, clear=True):
+                    self.assertTrue(_env_bool("TEST_BOOL", default=False))
+
+    def test_false_values(self):
+        for value in ("False", "0", "off"):
+            with self.subTest(value=value):
+                with patch.dict(os.environ, {"TEST_BOOL": value}, clear=True):
+                    self.assertFalse(_env_bool("TEST_BOOL", default=True))
+
+    def test_unknown_value_uses_default(self):
+        with patch.dict(os.environ, {"TEST_BOOL": "banana"}, clear=True):
+            self.assertTrue(_env_bool("TEST_BOOL", default=True))
+            self.assertFalse(_env_bool("TEST_BOOL", default=False))
+
+    def test_missing_value_uses_default(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertTrue(_env_bool("TEST_BOOL", default=True))
+            self.assertFalse(_env_bool("TEST_BOOL", default=False))
 
 
 class LoadEnvTests(SimpleTestCase):
