@@ -1,0 +1,73 @@
+# Реестр вендорных скиллов (Матемация).
+# Источник правды по контенту: agent-skills/vendor/<vendor>/<skill>/.
+# Обновление: клонировать репозиторий на новом коммите, пройти аудит
+# (scripts/audit-skills.ps1 + ручной просмотр диффа), обновить commit и reviewed_at.
+# Скиллы деплоя/миграций/платежей/секретов запускаются только с явным подтверждением человека.
+
+skills:
+  - name: anthropic-core            # skill-creator, frontend-design, webapp-testing, mcp-builder
+    repository: anthropics/skills
+    commit: "fa0fa64bdc967915dc8399e803be67759e1e62b8"
+    reviewed_at: "2026-07-19"
+    audit: "чисто; grep-аудит prompt-injection/exfiltration"
+    enabled_for: [claude, codex]
+  - name: trailofbits-security      # audit-context-building, differential-review, insecure-defaults,
+                                    # static-analysis(+semgrep), semgrep-rule-creator, property-based-testing,
+                                    # variant-analysis, sharp-edges, modern-python
+    repository: trailofbits/skills
+    commit: "cfe5d7b1619e47fb5b38b7e2561dad7e5f1e89af"
+    reviewed_at: "2026-07-19"
+    audit: "чисто; примеры атак в референсах — обучающий контент; modern-python содержит curl|sh инструкции установки uv (не исполнять вслепую)"
+    enabled_for: [claude, codex]
+  - name: openai-plugins            # codex-security (8 скиллов), github/gh-fix-ci/gh-address-comments,
+                                    # frontend-app-builder, frontend-testing-debugging, shadcn-best-practices,
+                                    # figma-*, expo-*, posthog-*
+    repository: openai/plugins
+    commit: "11c74d6ba24d3a6d48f54a194cd00ef3beea18f9"
+    reviewed_at: "2026-07-19"
+    audit: "чисто"
+    enabled_for: [claude, codex]
+  - name: sentry-skills             # skill-scanner, sentry-security-review*, sentry-code-review*,
+                                    # find-bugs, django-access-review, django-perf-review
+                                    # (*переименованы: конфликт со встроенными командами Claude Code)
+    repository: getsentry/skills
+    commit: "412f2368ee3ec90ce042826b57533f080d531aaf"
+    reviewed_at: "2026-07-19"
+    audit: "чисто"
+    enabled_for: [claude, codex]
+  - name: supabase-postgres         # supabase-postgres-best-practices — СПРАВОЧНИК, не безусловный стандарт
+    repository: supabase/agent-skills
+    commit: "1ad9aaeb49caafd9e95c0a91116f71890eebbc53"
+    reviewed_at: "2026-07-19"
+    audit: "чисто; известны спорные рекомендации — сверять вручную"
+    enabled_for: [claude, codex]
+  - name: huggingface-ml            # datasets, community-evals, trackio, llm-trainer, vision-trainer
+    repository: huggingface/skills
+    commit: "86cdeee824b73e504198b6005bb113552cdfa7ba"
+    reviewed_at: "2026-07-19"
+    audit: "чисто"
+    enabled_for: [claude, codex]
+  - name: duckdb-analytics          # duckdb-query, duckdb-read-file (анализ event-лога и ML-датасетов)
+    repository: duckdb/duckdb-skills
+    commit: "7feda8e01e22bc0886c86123f3884947e36d8c69"
+    reviewed_at: "2026-07-19"
+    audit: "чисто"
+    enabled_for: [claude, codex]
+  - name: clickhouse-analytics      # architecture-advisor, best-practices (P2 — при росте событий)
+    repository: ClickHouse/agent-skills
+    commit: "65ce71fce803014afb69279535c82c72dc55d9ba"
+    reviewed_at: "2026-07-19"
+    audit: "чисто"
+    enabled_for: [claude, codex]
+  - name: vercel-react              # react-best-practices, react-native-skills (для будущих клиентов)
+    repository: vercel-labs/agent-skills
+    commit: "f8a72b9603728bb92a217a879b7e62e43ad76c81"
+    reviewed_at: "2026-07-19"
+    audit: "чисто"
+    enabled_for: [claude, codex]
+
+not_found:                          # из целевого документа, репозитории не существуют/не найдены
+  - gstack (plan-eng-review, investigate, review, qa)  # подключать только после аудита, источник не найден
+  - TestMu testing pack (Playwright/API/pytest/Vitest/Detox/SmartUI)
+  - OpenAI playwright, jupyter-notebook               # отсутствуют в openai/plugins на пине
+  - Sentry sentry-workflow/fix-issues/create-alert/sdk-скиллы  # отсутствуют в getsentry/skills на пине
