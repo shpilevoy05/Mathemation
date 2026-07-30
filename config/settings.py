@@ -47,9 +47,24 @@ def _load_env(path: Path) -> None:
 BASE_DIR = Path(__file__).resolve().parent.parent
 _load_env(BASE_DIR / ".env")
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-insecure-key")
+from .security import (  # noqa: E402 — после загрузки .env
+    DEV_SECRET_KEY,
+    hardening_settings,
+    validate_production_config,
+)
+
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", DEV_SECRET_KEY)
 DEBUG = _env_bool("DJANGO_DEBUG", default=True)
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "*" if DEBUG else "").split(",")
+    if host.strip()
+]
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -81,6 +96,8 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    # Без этого middleware настройка X_FRAME_OPTIONS не действует.
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -149,6 +166,30 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# --- Приватные файлы (работы учеников) ---
+# Каталог намеренно вне MEDIA_ROOT: у файлов нет публичного URL, они отдаются
+# только через apps.expert_review.api.SolutionFileView с проверкой прав.
+PRIVATE_MEDIA_ROOT = Path(
+    os.environ.get("PRIVATE_MEDIA_ROOT", BASE_DIR / "private-media")
+)
+# Internal-location nginx для X-Accel-Redirect (например "/private-media").
+PRIVATE_MEDIA_NGINX_LOCATION = os.environ.get("PRIVATE_MEDIA_NGINX_LOCATION", "")
+
+# Загрузка решений второй части: белый список типов и лимит размера.
+SOLUTION_UPLOAD_MAX_BYTES = int(
+    os.environ.get("SOLUTION_UPLOAD_MAX_BYTES") or 10 * 1024 * 1024
+)
+SOLUTION_ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "heic", "pdf"]
+SOLUTION_ALLOWED_CONTENT_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/heic",
+    "image/heif",
+    "application/pdf",
+]
+DATA_UPLOAD_MAX_MEMORY_SIZE = SOLUTION_UPLOAD_MAX_BYTES + 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -245,3 +286,18 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(day_of_week="mon", hour=8, minute=0),
     },
 }
+
+# --- Security ---
+# Значения зависят от режима; логика и её тесты — в config/security.py.
+SECURE_HTTPS_BEHIND_PROXY = _env_bool("DJANGO_BEHIND_PROXY", default=True)
+globals().update(hardening_settings(debug=DEBUG, behind_proxy=SECURE_HTTPS_BEHIND_PROXY))
+
+# Fail-fast: прод-процесс не поднимается с dev-ключом, ALLOWED_HOSTS='*'
+# или приватным каталогом внутри публичного MEDIA_ROOT.
+validate_production_config(
+    debug=DEBUG,
+    secret_key=SECRET_KEY,
+    allowed_hosts=ALLOWED_HOSTS,
+    private_media_root=PRIVATE_MEDIA_ROOT,
+    media_root=MEDIA_ROOT,
+)

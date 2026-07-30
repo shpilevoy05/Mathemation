@@ -1,6 +1,9 @@
 from django.conf import settings
 from django.db import models
 
+from .storage import private_media_storage, solution_upload_path
+from .validators import validate_solution_upload
+
 
 class ExpertReviewRequest(models.Model):
     """Загрузка решения второй части на экспертную проверку.
@@ -26,7 +29,13 @@ class ExpertReviewRequest(models.Model):
         "mocks.MockExamResult", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="expert_reviews",
     )
-    solution_file = models.FileField(upload_to="solutions/%Y/%m/")
+    # Приватное хранилище вне MEDIA_ROOT: публичного URL у файла нет,
+    # содержимое отдаётся только SolutionFileView с проверкой прав.
+    solution_file = models.FileField(
+        upload_to=solution_upload_path,
+        storage=private_media_storage,
+        validators=[validate_solution_upload],
+    )
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.SUBMITTED)
     sla_hours = models.PositiveSmallIntegerField(default=settings.EXPERT_REVIEW_SLA_HOURS)
     reviewer = models.ForeignKey(

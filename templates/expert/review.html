@@ -8,8 +8,10 @@
   <div class="expert-review-layout">
     <div class="review-column">
       <section class="card"><h2>Решение ученика</h2>
-        {% if solution_is_image %}<a href="{{ review.solution_file.url }}" target="_blank" rel="noopener"><img class="solution-image" src="{{ review.solution_file.url }}" alt="Решение ученика"></a>
-        {% else %}<a class="button" href="{{ review.solution_file.url }}" target="_blank" rel="noopener">Скачать файл</a>{% endif %}
+        {# Публичного URL у работы нет: отдаём через маршрут с проверкой прав. #}
+        {% url 'expert-review-file' review.id as solution_url %}
+        {% if solution_is_image %}<a href="{{ solution_url }}" target="_blank" rel="noopener"><img class="solution-image" src="{{ solution_url }}" alt="Решение ученика"></a>
+        {% else %}<a class="button" href="{{ solution_url }}" target="_blank" rel="noopener">Скачать файл</a>{% endif %}
       </section>
       <section class="card"><h2>Условие задачи</h2><div class="prose">{{ review.assignment.statement|linebreaks }}</div>
         <details><summary>Эталонный разбор</summary><div class="prose">{{ review.assignment.reference_solution|linebreaks }}</div></details>

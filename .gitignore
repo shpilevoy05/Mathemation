@@ -8,3 +8,6 @@ staticfiles/
 .mcp.json
 .claude/
 .agents/
+
+# Работы учеников: приватное хранилище вне MEDIA_ROOT.
+private-media/

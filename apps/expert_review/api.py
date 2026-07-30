@@ -1,6 +1,11 @@
+import os
 from datetime import timedelta
 
+from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from rest_framework import permissions, serializers, status
 from rest_framework import views
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -13,7 +18,9 @@ from apps.practice.models import MistakeBacklogItem
 from apps.web.permissions import is_expert
 
 from .models import ExpertReviewRequest
+from .permissions import can_view_solution
 from .services import finish_review, submit_solution
+from .validators import validate_solution_upload
 
 
 class IsExpert(permissions.BasePermission):
@@ -69,6 +76,8 @@ def _payload(r: ExpertReviewRequest) -> dict:
         "created_at": r.created_at,
         "sla_deadline": r.created_at + timedelta(hours=r.sla_hours),
         "reviewed_at": r.reviewed_at,
+        # Прямой ссылки на файл не существует: только маршрут с проверкой прав.
+        "file_url": reverse("expert-review-file", args=[r.id]) if r.solution_file else None,
     }
 
 
@@ -94,6 +103,10 @@ class SubmitSolutionView(views.APIView):
         solution = request.FILES.get("file")
         if solution is None:
             return Response({"detail": "Файл решения обязателен."}, status=400)
+        try:
+            validate_solution_upload(solution)
+        except DjangoValidationError as exc:
+            return Response({"detail": " ".join(exc.messages)}, status=400)
         mock_result = None
         if request.data.get("mock_result"):
             from apps.mocks.models import MockExamResult
@@ -103,6 +116,41 @@ class SubmitSolutionView(views.APIView):
             )
         review = submit_solution(student, assignment, solution, mock_result=mock_result)
         return Response(_payload(review), status=201)
+
+
+class SolutionFileView(views.APIView):
+    """Отдаёт работу ученика только тому, кому она положена.
+
+    GET /api/expert-reviews/<id>/file/
+
+    Доступ проверяется на уровне объекта (`can_view_solution`); всем
+    остальным — 404, чтобы не подтверждать существование работы. Если задан
+    `PRIVATE_MEDIA_NGINX_LOCATION`, файл отдаёт nginx по X-Accel-Redirect.
+    """
+
+    def get(self, request, review_id: int):
+        review = ExpertReviewRequest.objects.filter(pk=review_id).first()
+        if review is None or not review.solution_file:
+            raise Http404
+        if not can_view_solution(request.user, review):
+            raise Http404
+
+        filename = os.path.basename(review.solution_file.name)
+        nginx_location = settings.PRIVATE_MEDIA_NGINX_LOCATION
+        if nginx_location:
+            response = HttpResponse(status=200)
+            response["X-Accel-Redirect"] = "%s/%s" % (
+                nginx_location.rstrip("/"), review.solution_file.name
+            )
+            del response["Content-Type"]  # тип подставит nginx
+        else:
+            response = FileResponse(
+                review.solution_file.open("rb"), as_attachment=False, filename=filename
+            )
+        response["Content-Disposition"] = 'inline; filename="%s"' % filename
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
 
 
 class ExpertReviewFinishView(views.APIView):

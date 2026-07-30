@@ -8,7 +8,12 @@ from apps.accounts.api import MeView, TargetScoreView
 from apps.ai_mentor.api import HintView, ParentAiLogView
 from apps.content.api import AssignmentViewSet, LessonViewSet, TrackView
 from apps.diagnostics.api import DiagnosticListView, StartDiagnosticView, SubmitDiagnosticView
-from apps.expert_review.api import ExpertReviewFinishView, ExpertReviewListView, SubmitSolutionView
+from apps.expert_review.api import (
+    ExpertReviewFinishView,
+    ExpertReviewListView,
+    SolutionFileView,
+    SubmitSolutionView,
+)
 from apps.gamification.api import GamificationView
 from apps.knowledge.api import KnowledgeMapView, NodeDetailView
 from apps.mocks.api import MockListView, StartMockView, SubmitMockView
@@ -69,6 +74,11 @@ api_urls = [
     path("expert-reviews/", ExpertReviewListView.as_view()),
     path("expert-reviews/submit/", SubmitSolutionView.as_view()),
     path("expert-reviews/<int:review_id>/finish/", ExpertReviewFinishView.as_view()),
+    path(
+        "expert-reviews/<int:review_id>/file/",
+        SolutionFileView.as_view(),
+        name="expert-review-file",
+    ),
     path("progress/", ProgressView.as_view()),
     path("forecast/", ForecastView.as_view()),
     path("parent/report/", ParentReportView.as_view()),

@@ -32,7 +32,7 @@ class ExpertErrorTagTests(TestCase):
         review = submit_solution(
             self.student,
             self.assignment,
-            SimpleUploadedFile("solution.jpg", b"scan"),
+            SimpleUploadedFile("solution.jpg", (b"\xff\xd8\xff\xe0" + b"\x00" * 64)),
         )
         finish_review(
             review,
@@ -61,7 +61,7 @@ class ExpertErrorTagTests(TestCase):
         review = submit_solution(
             self.student,
             self.assignment,
-            SimpleUploadedFile("admin-solution.jpg", b"scan"),
+            SimpleUploadedFile("admin-solution.jpg", (b"\xff\xd8\xff\xe0" + b"\x00" * 64)),
         )
         form = FinishExpertReviewForm(
             data={
@@ -115,7 +115,7 @@ class FinishExpertReviewApiTests(TestCase):
         self.review = submit_solution(
             self.student,
             self.assignment,
-            SimpleUploadedFile("api-solution.png", b"scan"),
+            SimpleUploadedFile("api-solution.png", (b"\x89PNG\r\n\x1a\n" + b"\x00" * 64)),
         )
         self.expert = get_user_model().objects.create_user(
             username="api-expert", role="expert"
@@ -177,3 +177,152 @@ class FinishExpertReviewApiTests(TestCase):
         self.payload["score_by_criteria"] = {"К1": 2}
         response = self.client.post(self.url, self.payload, content_type="application/json")
         self.assertEqual(response.status_code, 400)
+
+
+# --- Приватность работ учеников (перенесено из ветки service-implementation) ---
+
+import shutil  # noqa: E402
+import tempfile  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+from django.core.exceptions import ValidationError  # noqa: E402
+from django.test import override_settings  # noqa: E402
+from django.urls import reverse  # noqa: E402
+
+from apps.accounts.models import ParentProfile, User  # noqa: E402
+
+from .validators import validate_solution_upload  # noqa: E402
+
+JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+EXE = b"MZ\x90\x00" + b"\x00" * 64
+
+
+def _upload(name="solution.jpg", content=JPEG, content_type="image/jpeg"):
+    return SimpleUploadedFile(name, content, content_type=content_type)
+
+
+class SolutionPrivacyTestCase(TestCase):
+    """Приватное хранилище и временные каталоги вместо рабочего дерева."""
+
+    def setUp(self):
+        self.private_root = Path(tempfile.mkdtemp())
+        self.public_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.private_root, True)
+        self.addCleanup(shutil.rmtree, self.public_root, True)
+        patch = override_settings(
+            PRIVATE_MEDIA_ROOT=self.private_root, MEDIA_ROOT=self.public_root
+        )
+        patch.enable()
+        self.addCleanup(patch.disable)
+
+        self.student = make_student("privacy-student")
+        self.node = make_node("privacy-node")
+        self.assignment = make_assignment(self.node, answer="", part=Assignment.Part.PART2)
+
+    def _review(self, student=None):
+        return submit_solution(
+            student or self.student, self.assignment,
+            SimpleUploadedFile("solution.jpg", JPEG, content_type="image/jpeg"),
+        )
+
+
+class SolutionUploadValidationTests(SolutionPrivacyTestCase):
+    def _post(self, upload):
+        self.client.force_login(self.student.user)
+        return self.client.post(
+            "/api/expert-reviews/submit/",
+            {"assignment": self.assignment.pk, "file": upload},
+        )
+
+    def test_upload_is_stored_privately_with_random_name(self):
+        response = self._post(_upload())
+        self.assertEqual(response.status_code, 201)
+        review = ExpertReviewRequest.objects.get(pk=response.json()["id"])
+        self.assertTrue(review.solution_file.name.startswith("solutions/%d/" % self.student.pk))
+        self.assertNotIn("solution.jpg", review.solution_file.name)
+        self.assertTrue((self.private_root / review.solution_file.name).exists())
+        self.assertFalse((self.public_root / review.solution_file.name).exists())
+
+    def test_file_has_no_public_url(self):
+        with self.assertRaises(ValueError):
+            self._review().solution_file.url  # noqa: B018
+
+    def test_forged_content_type_is_rejected(self):
+        self.assertEqual(self._post(_upload(content=EXE)).status_code, 400)
+        self.assertEqual(ExpertReviewRequest.objects.count(), 0)
+
+    def test_unknown_extension_is_rejected(self):
+        response = self._post(_upload("payload.exe", EXE, "application/octet-stream"))
+        self.assertEqual(response.status_code, 400)
+
+    def test_oversized_upload_is_rejected(self):
+        with self.settings(SOLUTION_UPLOAD_MAX_BYTES=32):
+            self.assertEqual(self._post(_upload()).status_code, 400)
+
+    def test_validator_rejects_png_bytes_in_jpg(self):
+        with self.assertRaises(ValidationError):
+            validate_solution_upload(_upload("s.jpg", PNG, "image/jpeg"))
+
+
+class SolutionAccessTests(SolutionPrivacyTestCase):
+    def setUp(self):
+        super().setUp()
+        self.review = self._review()
+        self.url = reverse("expert-review-file", args=[self.review.pk])
+        self.other_student = make_student("privacy-other")
+        self.parent = ParentProfile.objects.create(
+            user=get_user_model().objects.create_user("privacy-parent", role=User.Role.PARENT)
+        )
+        self.parent.children.add(self.student)
+        self.expert = get_user_model().objects.create_user(
+            "privacy-expert", role=User.Role.EXPERT
+        )
+        self.other_expert = get_user_model().objects.create_user(
+            "privacy-expert-2", role=User.Role.EXPERT
+        )
+        self.methodist = get_user_model().objects.create_user(
+            "privacy-methodist", role=User.Role.METHODIST
+        )
+
+    def _get(self, user=None):
+        if user is not None:
+            self.client.force_login(user)
+        return self.client.get(self.url)
+
+    def test_owner_can_download(self):
+        response = self._get(self.student.user)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(b"".join(response.streaming_content), JPEG)
+
+    def test_anonymous_denied(self):
+        self.assertIn(self._get().status_code, (401, 403))
+
+    def test_other_student_gets_404(self):
+        self.assertEqual(self._get(self.other_student.user).status_code, 404)
+
+    def test_parent_of_owner_can_download(self):
+        self.assertEqual(self._get(self.parent.user).status_code, 200)
+
+    def test_methodist_can_download(self):
+        self.assertEqual(self._get(self.methodist).status_code, 200)
+
+    def test_unassigned_review_visible_to_any_expert(self):
+        self.assertEqual(self._get(self.expert).status_code, 200)
+
+    def test_assigned_review_hidden_from_other_expert(self):
+        self.review.reviewer = self.expert
+        self.review.save(update_fields=["reviewer"])
+        self.assertEqual(self._get(self.other_expert).status_code, 404)
+
+    def test_headers_forbid_caching_and_sniffing(self):
+        response = self._get(self.student.user)
+        self.assertEqual(response["Cache-Control"], "private, no-store")
+        self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+
+    def test_nginx_accel_redirect_when_configured(self):
+        with self.settings(PRIVATE_MEDIA_NGINX_LOCATION="/private-media"):
+            response = self._get(self.student.user)
+        self.assertEqual(
+            response["X-Accel-Redirect"], "/private-media/%s" % self.review.solution_file.name
+        )

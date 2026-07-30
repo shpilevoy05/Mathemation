@@ -15,7 +15,7 @@ from apps.practice.tests import make_assignment
 
 
 def _solution_file():
-    return SimpleUploadedFile("solution.jpg", b"scan")
+    return SimpleUploadedFile("solution.jpg", (b"\xff\xd8\xff\xe0" + b"\x00" * 64))
 
 
 class MockLifecycleTests(TestCase):
