@@ -32,3 +32,57 @@ class ParentProfile(models.Model):
 
     def __str__(self):
         return f"Parent {self.user.username}"
+
+
+class StudentGroup(models.Model):
+    """Поток или класс: методист выдаёт домашку и следит за группой целиком."""
+
+    title = models.CharField(max_length=200)
+    curator = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="curated_groups"
+    )
+    students = models.ManyToManyField(StudentProfile, related_name="groups", blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["title"]
+
+    def __str__(self):
+        return self.title
+
+
+class Invite(models.Model):
+    """Одноразовый код приглашения.
+
+    Учеников не заводят вручную с паролем: методист выдаёт код, человек
+    регистрируется сам. Код одноразовый и со сроком — иначе он утекает и по
+    нему в группу попадают посторонние.
+    """
+
+    code = models.CharField(max_length=32, unique=True)
+    role = models.CharField(
+        max_length=16, choices=User.Role.choices, default=User.Role.STUDENT
+    )
+    group = models.ForeignKey(
+        StudentGroup, on_delete=models.SET_NULL, null=True, blank=True, related_name="invites"
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_invites"
+    )
+    expires_at = models.DateTimeField()
+    used_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="used_invites"
+    )
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.code} ({self.get_role_display()})"
+
+    @property
+    def is_used(self) -> bool:
+        return self.used_by_id is not None

@@ -14,6 +14,11 @@ class Attempt(models.Model):
     assignment = models.ForeignKey(
         "content.Assignment", on_delete=models.CASCADE, related_name="attempts"
     )
+    # Версия задания, которую видел ученик: условие правится, история — нет.
+    assignment_version = models.ForeignKey(
+        "content.AssignmentVersion", on_delete=models.PROTECT,
+        null=True, blank=True, related_name="attempts",
+    )
     context = models.CharField(max_length=16, choices=Context.choices, default=Context.LESSON)
     submitted_answer = models.CharField(max_length=500, blank=True)
     # None for part-2 attempts until expert review resolves them.

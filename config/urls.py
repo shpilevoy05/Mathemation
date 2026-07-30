@@ -7,6 +7,11 @@ from rest_framework.routers import DefaultRouter
 from apps.accounts.api import MeView, TargetScoreView
 from apps.ai_mentor.api import HintView, ParentAiLogView
 from apps.content.api import AssignmentViewSet, LessonViewSet, TrackView
+from apps.content.student_api import (
+    DailyChallengeView,
+    MyHomeworkView,
+    SubmitHomeworkView,
+)
 from apps.diagnostics.api import DiagnosticListView, StartDiagnosticView, SubmitDiagnosticView
 from apps.expert_review.api import (
     ExpertReviewFinishView,
@@ -79,6 +84,9 @@ api_urls = [
         SolutionFileView.as_view(),
         name="expert-review-file",
     ),
+    path("homework/", MyHomeworkView.as_view()),
+    path("homework/<int:submission_id>/submit/", SubmitHomeworkView.as_view()),
+    path("daily/", DailyChallengeView.as_view()),
     path("progress/", ProgressView.as_view()),
     path("forecast/", ForecastView.as_view()),
     path("parent/report/", ParentReportView.as_view()),

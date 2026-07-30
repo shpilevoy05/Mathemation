@@ -39,18 +39,31 @@ def _engine_params() -> EngineParams:
 @transaction.atomic
 def submit_attempt(student, assignment: Assignment, answer: str, context: str,
                    diagnostic_result=None, mock_result=None) -> Attempt:
-    """Create an attempt; auto-check part 1, leave part 2 for expert review."""
+    """Create an attempt; auto-check part 1, leave part 2 for expert review.
+
+    Попытка привязывается к версии задания: после правки условия видно, что
+    именно решал ученик.
+    """
+    from apps.content.services import current_version
+
     is_correct = None
     if assignment.exam_part == Assignment.Part.PART1:
         is_correct = assignment.check_answer(answer)
 
     attempt = Attempt.objects.create(
-        student=student, assignment=assignment, context=context,
+        student=student, assignment=assignment,
+        assignment_version=current_version(assignment), context=context,
         submitted_answer=answer, is_correct=is_correct,
         diagnostic_result=diagnostic_result, mock_result=mock_result,
     )
     from apps.events.models import Event
     from apps.events.services import log_event
+
+    if is_correct:
+        # Домашка закрывается сама, как только решены все её задачи.
+        from apps.content.services import close_completed_homework
+
+        close_completed_homework(attempt)
 
     node_ids = list(assignment.skill_tags.values_list("node_id", flat=True))
     log_event(
