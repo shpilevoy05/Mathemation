@@ -94,8 +94,12 @@ api_urls = [
     path("gamification/", GamificationView.as_view()),
 ]
 
+from apps.adminpanel.urls import api_urls as panel_api_urls, page_urls as panel_page_urls
+
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/admin/", include(panel_api_urls)),
+    path("panel/", include(panel_page_urls)),
     path("api/", include(api_urls)),
     path("api-auth/", include("rest_framework.urls")),
     path("accounts/", include("django.contrib.auth.urls")),

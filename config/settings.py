@@ -85,6 +85,7 @@ INSTALLED_APPS = [
     "apps.progress",
     "apps.ai_mentor",
     "apps.gamification",
+    "apps.adminpanel",
     "apps.economy",
     "apps.billing",
     "apps.events",

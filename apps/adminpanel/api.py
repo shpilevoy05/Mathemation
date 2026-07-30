@@ -1,0 +1,311 @@
+"""API панели администратора.
+
+Всё под `IsPlatformAdmin`. Простые справочники редактируются как есть; всё,
+что меняет деньги, подписку, баланс или выдачу домашки, вынесено в явные
+действия — правила домена не должны обходиться правкой поля в таблице.
+"""
+
+from __future__ import annotations
+
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+
+from apps.accounts.models import Invite, StudentGroup, StudentProfile
+from apps.accounts.permissions import IsPlatformAdmin
+from apps.accounts.services import create_invite, deactivate_student, reactivate_student
+from apps.billing.models import Payment, Subscription, Tariff
+from apps.billing.services import new_tariff_version, refund_payment
+from apps.content.models import (
+    Assignment,
+    AssignmentVersion,
+    DailyChallenge,
+    Homework,
+    HomeworkTask,
+    Lesson,
+    TheoryBlock,
+)
+from apps.content.services import (
+    assign_homework,
+    assign_homework_to_group,
+    publish_assignment_version,
+)
+from apps.economy.models import InventoryItem, LedgerEntry, ShopCategory, ShopItem, Wallet
+from apps.economy.services import grant
+from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
+from apps.planning.models import PlanChangeLog, StudyPlan, StudyPlanItem
+from apps.planning.services import log_plan_change
+
+from . import serializers as panel
+
+
+def _domain_errors(function, *args, **kwargs):
+    """Ошибки домена показываем в форме панели, а не 500."""
+    try:
+        return function(*args, **kwargs)
+    except DjangoValidationError as exc:
+        raise ValidationError({"detail": " ".join(exc.messages)}) from exc
+
+
+class PanelViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsPlatformAdmin]
+
+
+class LessonViewSet(PanelViewSet):
+    queryset = Lesson.objects.select_related("node")
+    serializer_class = panel.LessonSerializer
+
+
+class TheoryBlockViewSet(PanelViewSet):
+    queryset = TheoryBlock.objects.select_related("lesson")
+    serializer_class = panel.TheoryBlockSerializer
+
+
+class AssignmentViewSet(PanelViewSet):
+    queryset = Assignment.objects.prefetch_related("versions")
+    serializer_class = panel.AssignmentSerializer
+
+    @action(detail=True, methods=["post"], url_path="new-version")
+    def new_version(self, request, pk=None):
+        """Правка условия или ответа — новой версией, чтобы история попыток
+        осталась верной."""
+        version = _domain_errors(
+            publish_assignment_version,
+            self.get_object(),
+            change_note=request.data.get("change_note", ""),
+            created_by=request.user,
+            **{
+                field: request.data[field]
+                for field in (
+                    "statement", "correct_answer", "reference_solution",
+                    "max_score", "difficulty",
+                )
+                if field in request.data
+            },
+        )
+        return Response(
+            panel.AssignmentVersionSerializer(version).data, status=status.HTTP_201_CREATED
+        )
+
+
+class AssignmentVersionViewSet(PanelViewSet):
+    """История версий: только чтение, правки идут новой версией."""
+
+    queryset = AssignmentVersion.objects.select_related("assignment")
+    serializer_class = panel.AssignmentVersionSerializer
+    http_method_names = ["get", "head", "options"]
+
+
+class HomeworkViewSet(PanelViewSet):
+    queryset = Homework.objects.prefetch_related("tasks")
+    serializer_class = panel.HomeworkSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def assign(self, request, pk=None):
+        """Выдать домашку ученикам или группе целиком."""
+        homework = self.get_object()
+        group_id = request.data.get("group")
+        student_ids = request.data.get("students") or []
+        if group_id:
+            group = StudentGroup.objects.filter(pk=group_id).first()
+            if group is None:
+                raise ValidationError({"group": "Группа не найдена."})
+            submissions = _domain_errors(assign_homework_to_group, homework, group)
+        else:
+            students = StudentProfile.objects.filter(
+                pk__in=student_ids, user__is_active=True
+            )
+            if not students:
+                raise ValidationError({"students": "Не выбран ни один активный ученик."})
+            submissions = _domain_errors(assign_homework, homework, list(students))
+        return Response({"assigned": len(submissions)}, status=status.HTTP_201_CREATED)
+
+
+class HomeworkTaskViewSet(PanelViewSet):
+    queryset = HomeworkTask.objects.select_related("homework", "assignment")
+    serializer_class = panel.HomeworkTaskSerializer
+
+
+class DailyChallengeViewSet(PanelViewSet):
+    queryset = DailyChallenge.objects.select_related("assignment")
+    serializer_class = panel.DailyChallengeSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class StudentViewSet(PanelViewSet):
+    queryset = StudentProfile.objects.select_related("user", "wallet")
+    serializer_class = panel.StudentSerializer
+    http_method_names = ["get", "patch", "post", "head", "options"]
+
+    @action(detail=True, methods=["post"])
+    def deactivate(self, request, pk=None):
+        # Удаление увело бы за собой попытки, ошибки и работы второй части.
+        return Response(self.get_serializer(deactivate_student(self.get_object())).data)
+
+    @action(detail=True, methods=["post"])
+    def reactivate(self, request, pk=None):
+        return Response(self.get_serializer(reactivate_student(self.get_object())).data)
+
+    @action(detail=True, methods=["post"], url_path="grant-coins")
+    def grant_coins(self, request, pk=None):
+        student = self.get_object()
+        try:
+            amount = int(request.data.get("amount", 0))
+        except (TypeError, ValueError):
+            raise ValidationError({"amount": "Нужно число."})
+        comment = request.data.get("comment", "")
+        reference = request.data.get("reference") or f"manual:{timezone.now().isoformat()}"
+        entry = _domain_errors(
+            grant, student, amount, LedgerEntry.Reason.ADMIN_GRANT, reference,
+            comment=comment, created_by=request.user,
+        )
+        return Response({"balance": entry.balance_after})
+
+
+class StudentGroupViewSet(PanelViewSet):
+    queryset = StudentGroup.objects.prefetch_related("students")
+    serializer_class = panel.StudentGroupSerializer
+
+
+class InviteViewSet(PanelViewSet):
+    queryset = Invite.objects.select_related("group")
+    serializer_class = panel.InviteSerializer
+    http_method_names = ["get", "post", "delete", "head", "options"]
+
+    def create(self, request, *args, **kwargs):
+        invite = create_invite(
+            request.user,
+            role=request.data.get("role", "student"),
+            group=StudentGroup.objects.filter(pk=request.data.get("group")).first(),
+        )
+        return Response(self.get_serializer(invite).data, status=status.HTTP_201_CREATED)
+
+
+class ShopCategoryViewSet(PanelViewSet):
+    queryset = ShopCategory.objects.all()
+    serializer_class = panel.ShopCategorySerializer
+
+
+class ShopItemViewSet(PanelViewSet):
+    queryset = ShopItem.objects.select_related("category")
+    serializer_class = panel.ShopItemSerializer
+
+
+class WalletViewSet(PanelViewSet):
+    queryset = Wallet.objects.select_related("student__user")
+    serializer_class = panel.WalletSerializer
+    http_method_names = ["get", "head", "options"]
+
+
+class LedgerEntryViewSet(PanelViewSet):
+    """Реестр только для чтения: движения не редактируются задним числом."""
+
+    queryset = LedgerEntry.objects.select_related("wallet__student__user")
+    serializer_class = panel.LedgerEntrySerializer
+    http_method_names = ["get", "head", "options"]
+
+
+class InventoryItemViewSet(PanelViewSet):
+    queryset = InventoryItem.objects.select_related("student__user", "item")
+    serializer_class = panel.InventoryItemSerializer
+    http_method_names = ["get", "head", "options"]
+
+
+class TariffViewSet(PanelViewSet):
+    queryset = Tariff.objects.all()
+    serializer_class = panel.TariffSerializer
+
+    @action(detail=True, methods=["post"], url_path="new-version")
+    def new_version(self, request, pk=None):
+        """Изменение цены — новая версия тарифа, старая уходит в архив."""
+        price = request.data.get("price_rub")
+        if price in (None, ""):
+            raise ValidationError({"price_rub": "Укажите цену."})
+        updated = _domain_errors(
+            new_tariff_version, self.get_object(), price_rub=price,
+            title=request.data.get("title", self.get_object().title),
+        )
+        return Response(self.get_serializer(updated).data, status=status.HTTP_201_CREATED)
+
+
+class SubscriptionViewSet(PanelViewSet):
+    queryset = Subscription.objects.select_related("student__user", "tariff")
+    serializer_class = panel.SubscriptionSerializer
+    http_method_names = ["get", "head", "options"]
+
+
+class PaymentViewSet(PanelViewSet):
+    queryset = Payment.objects.select_related("student__user", "payer", "tariff")
+    serializer_class = panel.PaymentSerializer
+    http_method_names = ["get", "post", "head", "options"]
+
+    @action(detail=True, methods=["post"])
+    def refund(self, request, pk=None):
+        payment = _domain_errors(refund_payment, self.get_object())
+        return Response(self.get_serializer(payment).data)
+
+
+class TopicClusterViewSet(PanelViewSet):
+    queryset = TopicCluster.objects.all()
+    serializer_class = panel.TopicClusterSerializer
+
+
+class KnowledgeNodeViewSet(PanelViewSet):
+    queryset = KnowledgeNode.objects.select_related("cluster")
+    serializer_class = panel.KnowledgeNodeSerializer
+
+
+class KnowledgeDependencyViewSet(PanelViewSet):
+    queryset = KnowledgeDependency.objects.select_related("node", "prerequisite")
+    serializer_class = panel.KnowledgeDependencySerializer
+
+
+class StudyPlanViewSet(PanelViewSet):
+    queryset = StudyPlan.objects.select_related("student__user")
+    serializer_class = panel.StudyPlanSerializer
+    http_method_names = ["get", "head", "options"]
+
+
+class StudyPlanItemViewSet(PanelViewSet):
+    queryset = StudyPlanItem.objects.select_related("plan__student__user", "node")
+    serializer_class = panel.StudyPlanItemSerializer
+
+    def _log_manual_change(self, item: StudyPlanItem, text: str) -> None:
+        log_plan_change(
+            item.plan.student,
+            reason=PlanChangeLog.Reason.MANUAL,
+            description=text,
+            node=item.node,
+        )
+
+    def perform_create(self, serializer):
+        item = serializer.save()
+        self._log_manual_change(
+            item, f"Куратор добавил в план пункт «{item.node or item.item_type}»."
+        )
+
+    def perform_update(self, serializer):
+        item = serializer.save()
+        self._log_manual_change(
+            item, f"Куратор изменил пункт плана «{item.node or item.item_type}»."
+        )
+
+    def perform_destroy(self, instance):
+        self._log_manual_change(
+            instance, f"Куратор убрал из плана пункт «{instance.node or instance.item_type}»."
+        )
+        instance.delete()
+
+
+class PlanChangeLogViewSet(PanelViewSet):
+    queryset = PlanChangeLog.objects.select_related("plan__student__user", "node")
+    serializer_class = panel.PlanChangeLogSerializer
+    http_method_names = ["get", "head", "options"]
