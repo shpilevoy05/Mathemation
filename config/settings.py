@@ -85,6 +85,8 @@ INSTALLED_APPS = [
     "apps.progress",
     "apps.ai_mentor",
     "apps.gamification",
+    "apps.economy",
+    "apps.billing",
     "apps.events",
     "apps.web",
 ]
@@ -231,6 +233,25 @@ AI_MENTOR_LLM_MAX_TOKENS = int(os.environ.get("AI_MENTOR_LLM_MAX_TOKENS") or "40
 AI_MENTOR_LLM_TEMPERATURE = float(
     os.environ.get("AI_MENTOR_LLM_TEMPERATURE") or "0.3"
 )
+
+# --- Внутренняя валюта и магазин ---
+# Монеты идут за тем же событием, что и XP: XP отвечает за прогресс, монеты —
+# за покупки в магазине косметики. Ноль отключает выдачу монет.
+COINS_PER_XP = 1
+COIN_REWARDS = {
+    "daily_challenge": 15,
+    "homework_done": 20,
+    "mock_completed": 50,
+    "mistake_resolved": 5,
+    "lesson_done": 5,
+}
+
+# --- Платежи ---
+# Провайдер эквайринга (dotted path). Боевой провайдер подключается сюда;
+# он же отвечает за фискализацию чека по 54-ФЗ.
+BILLING_PROVIDER = os.environ.get(
+    "BILLING_PROVIDER", "apps.billing.providers.MockPaymentProvider"
+) or "apps.billing.providers.MockPaymentProvider"
 
 # --- Forgetting curve (индикатор забывания) ---
 # Days after the last practice before a skill starts to decay.

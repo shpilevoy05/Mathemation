@@ -62,6 +62,11 @@ def award_xp(student, amount: int, source: str, **event_payload) -> Gamification
         level=profile.level,
         **event_payload,
     )
+    # Монеты магазина идут за тем же событием: XP — прогресс и стрики,
+    # монеты — покупки. Один коэффициент, чтобы курсы не разъезжались.
+    from apps.economy.services import reward_for_xp
+
+    reward_for_xp(student, source=source, amount_xp=amount, total_xp=profile.xp)
     return profile
 
 
