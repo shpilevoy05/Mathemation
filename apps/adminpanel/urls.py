@@ -30,6 +30,12 @@ router.register("payments", api.PaymentViewSet, basename="panel-payment")
 router.register("clusters", api.TopicClusterViewSet, basename="panel-cluster")
 router.register("nodes", api.KnowledgeNodeViewSet, basename="panel-node")
 router.register("dependencies", api.KnowledgeDependencyViewSet, basename="panel-dependency")
+router.register("exam-profiles", api.ExamProfileViewSet, basename="panel-exam-profile")
+router.register("exam-tasks", api.ExamTaskViewSet, basename="panel-exam-task")
+router.register(
+    "forecast-observations", api.ForecastObservationViewSet,
+    basename="panel-forecast-observation",
+)
 router.register("plans", api.StudyPlanViewSet, basename="panel-plan")
 router.register("plan-items", api.StudyPlanItemViewSet, basename="panel-plan-item")
 router.register("plan-changes", api.PlanChangeLogViewSet, basename="panel-plan-change")

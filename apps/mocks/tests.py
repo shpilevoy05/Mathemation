@@ -47,7 +47,7 @@ class MockLifecycleTests(TestCase):
         self.assertEqual(result.primary_score, 1)
         # Калибровка не трогается, пока вторая часть у эксперта.
         self.student.refresh_from_db()
-        self.assertEqual(self.student.forecast_calibration, 0)
+        self.assertEqual(self.student.calibration_samples, 0)
 
     def test_expert_verdict_completes_mock_and_calibrates(self):
         result = self._run_part1()
@@ -61,7 +61,7 @@ class MockLifecycleTests(TestCase):
         self.assertEqual(result.total_primary_score, 3)
         self.assertIsNotNone(result.scaled_score)
         self.student.refresh_from_db()
-        self.assertNotEqual(self.student.forecast_calibration, 0)
+        self.assertEqual(self.student.calibration_samples, 1)
 
     def test_exam_without_part2_completes_immediately(self):
         self.exam.assignments.set([self.a1])

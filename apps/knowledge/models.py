@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
@@ -34,6 +35,9 @@ class KnowledgeNode(models.Model):
     exam_part = models.PositiveSmallIntegerField(choices=Part.choices, default=Part.PART1)
     # К каким номерам ЕГЭ относится навык, например [6, 12].
     ege_task_numbers = models.JSONField(default=list, blank=True)
+    # Часы на освоение узла. 0 — дефолт по части экзамена: тема второй части
+    # дороже короткой задачи первой. Используется планом и потолком.
+    hours_estimate = models.FloatField(default=0)
     order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -41,6 +45,15 @@ class KnowledgeNode(models.Model):
 
     def __str__(self):
         return f"{self.code}: {self.title}"
+
+    @property
+    def effective_hours(self) -> float:
+        """Оценка часов: своя, иначе дефолт по части экзамена."""
+        if self.hours_estimate and self.hours_estimate > 0:
+            return float(self.hours_estimate)
+        return float(
+            settings.HOURS_PER_NODE_BY_PART.get(self.exam_part, settings.HOURS_PER_NODE)
+        )
 
 
 class KnowledgeDependency(models.Model):

@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     "apps.ai_mentor",
     "apps.gamification",
     "apps.adminpanel",
+    "apps.exams",
     "apps.economy",
     "apps.billing",
     "apps.events",
@@ -279,7 +280,13 @@ PRIMARY_TO_SCALED = [
 # Ceiling simulation: сколько часов нужно на освоение одного узла и до какого
 # уровня mastery реалистично довести узел до экзамена.
 HOURS_PER_NODE = 2
+# Дефолт по части экзамена; конкретный узел может задать hours_estimate.
+HOURS_PER_NODE_BY_PART = {1: 2, 2: 4}
 ATTAINABLE_MASTERY = 85
+# Интервал прогноза: пока пробников нет, разброс берётся отсюда (первичные
+# баллы). Одно число выглядит точнее, чем прогноз есть на самом деле.
+FORECAST_PRIOR_SIGMA_PRIMARY = 3.0
+FORECAST_INTERVAL_Z = 1.0
 # Дней без активности, после которых план перестраивается под сжатое время.
 INACTIVITY_REBUILD_DAYS = 14
 

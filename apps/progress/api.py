@@ -7,7 +7,14 @@ from apps.accounts.api import get_student
 from apps.accounts.models import ParentProfile, StudentProfile
 
 from .models import ParentReport, ProgressSnapshot
-from .services import build_parent_report, ceiling_forecast
+from .services import (
+    build_parent_report,
+    calibration_report,
+    ceiling_forecast,
+    forecast_breakdown,
+    forecast_interval,
+    profile_coverage,
+)
 
 
 class ForecastView(views.APIView):
@@ -33,7 +40,13 @@ class ForecastView(views.APIView):
                 return Response({"detail": "exam_date в формате YYYY-MM-DD."}, status=400)
         forecast = ceiling_forecast(student, weekly_hours=weekly_hours, exam_date=exam_date)
         forecast["target_score"] = student.target_score
-        forecast["forecast_calibration"] = student.forecast_calibration
+        # Интервал: ученику честнее видеть «68–74», чем «71».
+        forecast["interval"] = forecast_interval(student)
+        forecast["calibration"] = calibration_report(student, limit=5)
+        # Разбор по заданиям: «задача 13 даёт +0.8 балла при p=0.4».
+        forecast["tasks"] = forecast_breakdown(student)
+        # Недоразмеченный профиль занижает прогноз — это видно явно.
+        forecast["exam_profile_coverage"] = profile_coverage()
         return Response(forecast)
 
 

@@ -36,7 +36,9 @@ from apps.content.services import (
 from apps.economy.models import InventoryItem, LedgerEntry, ShopCategory, ShopItem, Wallet
 from apps.economy.services import grant
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
+from apps.exams.models import ExamProfile, ExamTask
 from apps.planning.models import PlanChangeLog, StudyPlan, StudyPlanItem
+from apps.progress.models import ForecastObservation
 from apps.planning.services import log_plan_change
 
 from . import serializers as panel
@@ -308,4 +310,24 @@ class StudyPlanItemViewSet(PanelViewSet):
 class PlanChangeLogViewSet(PanelViewSet):
     queryset = PlanChangeLog.objects.select_related("plan__student__user", "node")
     serializer_class = panel.PlanChangeLogSerializer
+    http_method_names = ["get", "head", "options"]
+
+
+class ExamProfileViewSet(PanelViewSet):
+    """Профиль экзамена на год: по нему считается прогноз."""
+
+    queryset = ExamProfile.objects.prefetch_related("tasks")
+    serializer_class = panel.ExamProfileSerializer
+
+
+class ExamTaskViewSet(PanelViewSet):
+    queryset = ExamTask.objects.select_related("profile")
+    serializer_class = panel.ExamTaskSerializer
+
+
+class ForecastObservationViewSet(PanelViewSet):
+    """Пары «прогноз — факт»: по ним видно, калиброван ли прогноз."""
+
+    queryset = ForecastObservation.objects.select_related("student__user")
+    serializer_class = panel.ForecastObservationSerializer
     http_method_names = ["get", "head", "options"]

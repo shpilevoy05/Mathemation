@@ -12,7 +12,20 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
+from django.conf import settings
+
 from apps.accounts.models import ParentProfile, StudentProfile, User
+
+# Профиль экзамена: (номер задания, часть, максимальный балл, сложность 1..5).
+# Первая часть — 12 заданий по 1 баллу, вторая — 20 баллов; итого 32.
+EXAM_TASKS = [
+    (1, 1, 1, 2), (2, 1, 1, 2), (3, 1, 1, 2), (4, 1, 1, 2),
+    (5, 1, 1, 3), (6, 1, 1, 3), (7, 1, 1, 2), (8, 1, 1, 3),
+    (9, 1, 1, 3), (10, 1, 1, 3), (11, 1, 1, 4), (12, 1, 1, 4),
+    (13, 2, 2, 4), (14, 2, 3, 4), (15, 2, 2, 4),
+    (16, 2, 2, 4), (17, 2, 3, 5), (18, 2, 4, 5), (19, 2, 4, 5),
+]
+EXAM_YEAR = 2027
 from apps.content.models import Assignment, AssignmentSkillTag, Lesson, TheoryBlock
 from apps.diagnostics.models import DiagnosticTest
 from apps.expert_review.models import ExpertReviewRequest
@@ -291,8 +304,43 @@ class Command(BaseCommand):
             },
         )
 
+        profile = self._seed_exam_profile(nodes)
+
         self.stdout.write(self.style.SUCCESS(
             f"Демо-данные готовы: {KnowledgeNode.objects.count()} узлов, "
-            f"{Assignment.objects.count()} задач. "
+            f"{Assignment.objects.count()} задач, профиль экзамена {profile.year} "
+            f"({profile.tasks.count()} заданий). "
             "Пользователи: student / parent / expert / methodist (пароль demo12345)."
         ))
+
+    def _seed_exam_profile(self, nodes: dict[str, KnowledgeNode]):
+        """Профиль экзамена: по нему считается прогноз.
+
+        Без профиля прогноз считался бы по банку задач и зависел от того, что
+        загрузил методист.
+        """
+        from apps.exams.models import ExamProfile, ExamTask, ExamTaskSkill
+
+        max_primary = sum(max_score for _n, _p, max_score, _d in EXAM_TASKS)
+        profile, _ = ExamProfile.objects.update_or_create(
+            year=EXAM_YEAR,
+            defaults={
+                "title": "ЕГЭ, профильная математика",
+                "max_primary_score": max_primary,
+                "primary_to_scaled": settings.PRIMARY_TO_SCALED[: max_primary + 1],
+                "is_active": True,
+            },
+        )
+        ExamProfile.objects.exclude(pk=profile.pk).update(is_active=False)
+
+        for number, part, max_score, difficulty in EXAM_TASKS:
+            task, _ = ExamTask.objects.update_or_create(
+                profile=profile, number=number,
+                defaults={
+                    "exam_part": part, "max_score": max_score, "difficulty": difficulty
+                },
+            )
+            for node in nodes.values():
+                if number in (node.ege_task_numbers or []):
+                    ExamTaskSkill.objects.get_or_create(task=task, node=node)
+        return profile

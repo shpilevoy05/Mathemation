@@ -17,6 +17,32 @@ class ProgressSnapshot(models.Model):
         ordering = ["-created_at"]
 
 
+class ForecastObservation(models.Model):
+    """Пара «прогноз — факт» по пробнику: на ней держится калибровка.
+
+    Без истории нельзя ни проверить калибровку, ни объяснить ученику, почему
+    прогноз сдвинулся.
+    """
+
+    student = models.ForeignKey(
+        "accounts.StudentProfile", on_delete=models.CASCADE,
+        related_name="forecast_observations",
+    )
+    mock_result = models.ForeignKey(
+        "mocks.MockExamResult", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="forecast_observations",
+    )
+    # Первичные баллы: и прогноз, и факт — до перевода в тестовые.
+    predicted_primary = models.FloatField()
+    actual_primary = models.FloatField()
+    error = models.FloatField()
+    calibration_after = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
 class ParentReport(models.Model):
     """Weekly pulse для родителя: факт недели, динамика, риски, слабые темы, следующий шаг."""
 

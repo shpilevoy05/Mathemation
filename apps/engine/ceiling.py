@@ -14,16 +14,16 @@ def simulate_ceiling(
 ) -> CeilingResult:
     """Simulate which pending nodes fit and return the resulting profile.
 
-    The current production model allocates a fixed number of hours per node and
-    raises every reachable node to its configured attainable mastery. Returning
-    the profile keeps score-table conversion outside this module.
+    Каждый узел тратит свои часы (`NodeState.hours`, иначе `hours_per_node`):
+    тема второй части дороже короткой задачи первой, и потолок обязан это
+    учитывать, иначе он обещает больше, чем ученик успеет. Возврат профиля
+    оставляет перевод в баллы за пределами модуля.
     """
     pending = greedy_pending_nodes(node_states, edges, params)
-    if days_left is None:
-        can_take = len(pending)
-    else:
-        budget_hours = max(days_left, 0) / 7.0 * max(weekly_hours, 0.0)
-        can_take = int(budget_hours // params.hours_per_node)
+    unlimited = days_left is None
+    budget_hours = (
+        0.0 if unlimited else max(days_left, 0) / 7.0 * max(weekly_hours, 0.0)
+    )
 
     profile = {node.node_id: node.mastery for node in node_states}
     prerequisites = {node.node_id: [] for node in pending}
@@ -33,15 +33,19 @@ def simulate_ceiling(
 
     reachable = []
     unreachable = []
+    spent_hours = 0.0
     for node in pending:
         requirements_met = all(
             profile.get(edge.from_node_id, 0.0) >= edge.min_mastery
             for edge in prerequisites[node.node_id]
         )
-        if len(reachable) >= can_take or not requirements_met:
+        cost = node.study_hours(params.hours_per_node)
+        fits = unlimited or spent_hours + cost <= budget_hours
+        if not fits or not requirements_met:
             unreachable.append(node)
             continue
         reachable.append(node)
+        spent_hours += cost
         profile[node.node_id] = max(node.mastery, params.attainable_mastery)
     return CeilingResult(
         mastery_profile=profile,

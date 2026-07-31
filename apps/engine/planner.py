@@ -112,6 +112,7 @@ def greedy_plan(
                 last_practiced_at=node.last_practiced_at,
                 weight=node.weight,
                 cluster_weight=node.cluster_weight,
+                hours=node.hours,
             )
             for node in node_states
         ]
@@ -129,12 +130,15 @@ def greedy_plan(
                     last_practiced_at=state.last_practiced_at,
                     weight=state.weight,
                     cluster_weight=state.cluster_weight,
+                    hours=state.hours,
                 )
                 for state in current_states
             ]
             gain = expected_primary(candidate_states, task_weights, params) - baseline
-            hours = params.hours_per_node if params.hours_per_node > 0 else 1.0
             node = by_id[node_id]
+            hours = node.study_hours(params.hours_per_node)
+            if hours <= 0:
+                hours = 1.0
             return (
                 -(gain / hours),
                 -(node.weight * node.cluster_weight),

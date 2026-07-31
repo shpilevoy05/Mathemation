@@ -105,7 +105,8 @@ def maybe_complete_mock(result: MockExamResult) -> MockExamResult:
 
 def _finalize(result: MockExamResult) -> None:
     """Пробник — механизм пересчёта траектории: калибровка, снапшот, план."""
-    calibrate_forecast(result.student, result.scaled_score or 0)
+    # Калибруем в первичных баллах: это то, что реально измерил пробник.
+    calibrate_forecast(result.student, result.total_primary_score, mock_result=result)
     create_snapshot(result.student)
     weakest = weak_topics(result.student, limit=3)
     maybe_transition(

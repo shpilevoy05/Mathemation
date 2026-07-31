@@ -48,6 +48,7 @@ def _node_dto(node, mastery: float = 0.0) -> NodeState:
         last_practiced_at=None,
         weight=float(node.weight),
         cluster_weight=float(node.cluster.exam_weight),
+        hours=float(node.effective_hours),
     )
 
 

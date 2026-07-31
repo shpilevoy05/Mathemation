@@ -21,7 +21,9 @@ from apps.content.models import (
 )
 from apps.economy.models import InventoryItem, LedgerEntry, ShopCategory, ShopItem, Wallet
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
+from apps.exams.models import ExamProfile, ExamTask
 from apps.planning.models import PlanChangeLog, StudyPlan, StudyPlanItem
+from apps.progress.models import ForecastObservation
 
 
 class LessonSerializer(serializers.ModelSerializer):
@@ -81,7 +83,8 @@ class StudentSerializer(serializers.ModelSerializer):
         model = StudentProfile
         fields = [
             "id", "username", "is_active", "target_score", "start_score",
-            "weekly_hours", "exam_date", "forecast_calibration", "balance",
+            "weekly_hours", "exam_date", "primary_calibration",
+            "primary_error_variance", "calibration_samples", "balance",
         ]
 
     def get_balance(self, obj) -> int:
@@ -211,3 +214,26 @@ class PlanChangeLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlanChangeLog
         fields = "__all__"
+
+
+class ExamProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamProfile
+        fields = "__all__"
+
+
+class ExamTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamTask
+        fields = "__all__"
+
+
+class ForecastObservationSerializer(serializers.ModelSerializer):
+    student = serializers.CharField(source="student.user.username", read_only=True)
+
+    class Meta:
+        model = ForecastObservation
+        fields = [
+            "id", "student", "mock_result", "predicted_primary", "actual_primary",
+            "error", "calibration_after", "created_at",
+        ]

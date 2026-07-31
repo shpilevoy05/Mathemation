@@ -30,7 +30,14 @@ def expected_primary(
     task_weights: Sequence[TaskWeight],
     params: EngineParams,
 ) -> float:
-    """Return normalized Σ P(correct | mastery, IRT) × assignment max score."""
+    """Return Σ P(correct | mastery, IRT) × task max score.
+
+    With `normalize_by_task_weights` the sum is rescaled to the maximum primary
+    score, which is the only sane reading when the tasks come from an arbitrary
+    assignment bank. When the tasks describe the exam itself, normalization is
+    switched off: their scores already add up to the maximum, and dividing by
+    them would make the forecast depend on the size of the bank.
+    """
     mastery_by_id = {state.node_id: state.mastery for state in node_states}
     if task_weights:
         total_weight = sum(max(task.max_score, 0.0) for task in task_weights)
@@ -65,8 +72,9 @@ def expected_primary(
             * max(state.weight * state.cluster_weight, 0.0)
             for state in node_states
         )
-    normalized = expected_score / total_weight * params.max_primary_score
-    return min(max(normalized, 0.0), params.max_primary_score)
+    if params.normalize_by_task_weights:
+        expected_score = expected_score / total_weight * params.max_primary_score
+    return min(max(expected_score, 0.0), params.max_primary_score)
 
 
 def scaled_score(primary: float, primary_to_scaled_table: Sequence[int]) -> int:

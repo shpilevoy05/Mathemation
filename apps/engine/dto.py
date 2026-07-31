@@ -10,6 +10,13 @@ class NodeState:
     last_practiced_at: datetime | None
     weight: float
     cluster_weight: float
+    # Часы на освоение узла. 0 — взять hours_per_node из параметров: тема
+    # второй части дороже короткой задачи первой, и планировщик обязан это
+    # видеть, иначе «баллы за час» вырождаются в «баллы».
+    hours: float = 0.0
+
+    def study_hours(self, default_hours: float) -> float:
+        return float(self.hours) if self.hours and self.hours > 0 else float(default_hours)
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +60,12 @@ class EngineParams:
     review_ease: float
     min_review_interval_days: int
     max_review_interval_days: int
+    # Нормировать ли сумму ожидаемых баллов на суммарный балл переданных
+    # заданий. Так считается прогноз по банку задач, где набор произвольный.
+    # Для профиля экзамена нормировка выключается: сумма баллов заданий и есть
+    # максимальный первичный балл, а деление сделало бы прогноз зависимым от
+    # того, сколько задач методист загрузил в банк.
+    normalize_by_task_weights: bool = True
 
 
 @dataclass(frozen=True, slots=True)

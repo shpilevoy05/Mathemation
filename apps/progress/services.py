@@ -8,25 +8,38 @@ from django.utils import timezone
 from apps.engine.ceiling import simulate_ceiling
 from apps.engine.dto import EdgeDTO, EngineParams, NodeState, TaskWeight
 from apps.engine.forecast import expected_primary as engine_expected_primary
-from apps.engine.forecast import scaled_score
+from apps.engine.forecast import probability_correct, scaled_score
 from apps.content.models import Assignment
+from apps.exams.models import ExamProfile
 from apps.knowledge.models import KnowledgeNode, SkillMastery
 from apps.knowledge.models import KnowledgeDependency
 from apps.planning.models import StudyPlanItem
 from apps.planning.services import get_active_plan
 from apps.practice.models import Attempt, MistakeBacklogItem
 
-from .models import ParentReport, ProgressSnapshot
+from .models import ForecastObservation, ParentReport, ProgressSnapshot
 
 WEAK_TOPIC_LIMIT = 5
 
 
-def _engine_params() -> EngineParams:
+def active_exam_profile() -> ExamProfile | None:
+    return ExamProfile.active()
+
+
+def max_primary_score(profile: ExamProfile | None = None) -> float:
+    """Максимум первичных баллов: из профиля, иначе из настроек."""
+    profile = profile if profile is not None else active_exam_profile()
+    if profile is not None:
+        return float(profile.max_primary_score)
+    return float(settings.MAX_PRIMARY_SCORE)
+
+
+def _engine_params(profile: ExamProfile | None = None) -> EngineParams:
     return EngineParams(
         mastery_threshold=settings.MASTERY_THRESHOLD,
         decay_grace_days=settings.DECAY_GRACE_DAYS,
         decay_rate_per_day=settings.DECAY_RATE_PER_DAY,
-        max_primary_score=settings.MAX_PRIMARY_SCORE,
+        max_primary_score=max_primary_score(profile),
         hours_per_node=settings.HOURS_PER_NODE,
         attainable_mastery=settings.ATTAINABLE_MASTERY,
         bkt_alpha=settings.BKT_ALPHA,
@@ -39,7 +52,35 @@ def _engine_params() -> EngineParams:
         review_ease=settings.REVIEW_EASE,
         min_review_interval_days=settings.MIN_REVIEW_INTERVAL_DAYS,
         max_review_interval_days=settings.MAX_REVIEW_INTERVAL_DAYS,
+        # Профиль экзамена уже описывает весь экзамен: его баллы в сумме дают
+        # максимум, нормировать не на что.
+        normalize_by_task_weights=profile is None,
     )
+
+
+def _profile_task_weights(profile: ExamProfile) -> list[TaskWeight]:
+    """Задания экзамена как веса для движка.
+
+    Задание без связанных узлов пропускается: методист ещё не разметил его,
+    и приписывать ему вероятность по нулевому mastery — значит выдумывать
+    баллы. В разборе такое задание видно с нулевым вкладом.
+    """
+    weights = []
+    for task in profile.tasks.prefetch_related("skills").all():
+        skills = list(task.skills.all())
+        if not skills:
+            continue
+        weights.append(
+            TaskWeight(
+                assignment_id=task.id,
+                node_ids=tuple(skill.node_id for skill in skills),
+                node_weights=tuple(float(skill.weight) for skill in skills),
+                max_score=float(task.max_score),
+                difficulty=float(task.difficulty),
+                discrimination=settings.IRT_DEFAULT_DISCRIMINATION,
+            )
+        )
+    return weights
 
 
 def _forecast_dtos(
@@ -61,9 +102,19 @@ def _forecast_dtos(
             last_practiced_at=practiced_at.get(node.id),
             weight=float(node.weight),
             cluster_weight=float(node.cluster.exam_weight),
+            hours=float(node.effective_hours),
         )
         for node in nodes
     ]
+
+    # Профиль экзамена — приоритетный источник: прогноз описывает экзамен, а
+    # не содержимое банка задач.
+    profile = active_exam_profile()
+    if profile is not None:
+        profile_weights = _profile_task_weights(profile)
+        if profile_weights:
+            return states, profile_weights
+
     assignments = list(
         Assignment.objects.filter(skill_tags__node_id__in=[node.id for node in nodes])
         .prefetch_related("skill_tags")
@@ -97,38 +148,189 @@ def _forecast_dtos(
 
 
 def primary_to_scaled(primary: float) -> int:
-    """Перевод первичных баллов в тестовые по таблице (конфиг на каждый год)."""
+    """Перевод первичных баллов в тестовые по таблице активного профиля.
+
+    Пока профиля нет, используется таблица из настроек — так работает свежая
+    установка.
+    """
+    profile = active_exam_profile()
+    if profile is not None:
+        return profile.scaled_for(primary)
     return scaled_score(primary, settings.PRIMARY_TO_SCALED)
 
 
 def expected_primary(student, mastery_override: dict[int, float] | None = None) -> float:
-    """Ожидаемый первичный балл: взвешенное среднее mastery → доля от максимума.
+    """Ожидаемый первичный балл: Σ P(верно | mastery, IRT) · балл задания.
 
-    TODO: заменить на Σ P(верно | mastery, IRT-сложность) по профилю экзамена,
-    когда накопятся реальные логи попыток.
+    Задания берутся из профиля экзамена, если он заполнен, иначе — из банка
+    задач с нормировкой (прежнее поведение).
     """
     states, weights = _forecast_dtos(student, mastery_override)
-    return engine_expected_primary(states, weights, _engine_params())
+    return engine_expected_primary(states, weights, _engine_params(active_exam_profile()))
+
+
+def profile_coverage(profile: ExamProfile | None = None) -> dict:
+    """Насколько профиль размечен узлами графа.
+
+    Незамапленные задания дают ноль и занижают прогноз — методист должен
+    видеть это как задачу, а не гадать, почему прогноз низкий.
+    """
+    profile = profile if profile is not None else active_exam_profile()
+    if profile is None:
+        return {"profile": None, "tasks": 0, "mapped": 0, "unmapped_numbers": []}
+    tasks = list(profile.tasks.prefetch_related("skills").all())
+    unmapped = [task.number for task in tasks if not task.skills.all()]
+    return {
+        "profile": str(profile),
+        "tasks": len(tasks),
+        "mapped": len(tasks) - len(unmapped),
+        "unmapped_numbers": unmapped,
+        "unmapped_score": sum(
+            task.max_score for task in tasks if not task.skills.all()
+        ),
+    }
+
+
+def forecast_breakdown(student, mastery_override: dict[int, float] | None = None) -> list[dict]:
+    """Разбор прогноза по заданиям экзамена: «задача 13 даёт +0.8 балла».
+
+    Пусто, пока методисты не описали профиль экзамена. Задание без узлов
+    показывается с нулевым вкладом — так видно, что профиль недоразмечен.
+    """
+    profile = active_exam_profile()
+    if profile is None:
+        return []
+    states, _ = _forecast_dtos(student, mastery_override)
+    params = _engine_params(profile)
+    mastery_by_id = {state.node_id: state.mastery for state in states}
+
+    breakdown = []
+    for task in profile.tasks.prefetch_related("skills").all():
+        skills = list(task.skills.all())
+        weights = [max(float(skill.weight), 0.0) for skill in skills]
+        total_weight = sum(weights)
+        mastery = (
+            sum(
+                mastery_by_id.get(skill.node_id, 0.0) * weight
+                for skill, weight in zip(skills, weights)
+            )
+            / total_weight
+            if total_weight
+            else 0.0
+        )
+        probability = (
+            probability_correct(mastery, float(task.difficulty), params)
+            if skills
+            else 0.0
+        )
+        breakdown.append({
+            "number": task.number,
+            "exam_part": task.exam_part,
+            "max_score": task.max_score,
+            "difficulty": task.difficulty,
+            "probability": round(probability, 3),
+            "expected_points": round(probability * task.max_score, 2),
+            "node_ids": [skill.node_id for skill in skills],
+        })
+    return breakdown
+
+
+def calibrated_primary(student, mastery_override: dict[int, float] | None = None) -> float:
+    """Ожидаемый первичный балл с поправкой по прошлым пробникам."""
+    primary = expected_primary(student, mastery_override) + student.primary_calibration
+    return min(max(primary, 0.0), max_primary_score())
 
 
 def predict_score(student, mastery_override: dict[int, float] | None = None) -> tuple[int, float]:
-    """(прогнозный тестовый балл с калибровкой, средний взвешенный mastery)."""
-    primary = expected_primary(student, mastery_override)
-    scaled = primary_to_scaled(primary) + student.forecast_calibration
-    avg = primary / settings.MAX_PRIMARY_SCORE * 100
-    return int(min(max(round(scaled), 0), 100)), round(avg, 2)
+    """(прогнозный тестовый балл с калибровкой, доля ожидаемых первичных).
+
+    Поправка применяется до таблицы перевода: таблица нелинейна, и один и тот
+    же сдвиг в тестовых баллах означал бы разную ошибку на разных участках
+    шкалы.
+    """
+    primary = calibrated_primary(student, mastery_override)
+    avg = primary / (max_primary_score() or 1) * 100
+    return int(min(max(primary_to_scaled(primary), 0), 100)), round(avg, 2)
 
 
-def calibrate_forecast(student, actual_scaled: int) -> None:
-    """После пробника сверяем предсказание с фактом и подтягиваем модель."""
-    raw_predicted = primary_to_scaled(expected_primary(student))
-    error = actual_scaled - raw_predicted
-    student.forecast_calibration = round(
-        (1 - settings.FORECAST_CALIBRATION_ALPHA) * student.forecast_calibration
-        + settings.FORECAST_CALIBRATION_ALPHA * error,
-        2,
+def forecast_sigma(student) -> float:
+    """Стандартное отклонение ошибки прогноза в первичных баллах."""
+    if student.calibration_samples == 0:
+        return float(settings.FORECAST_PRIOR_SIGMA_PRIMARY)
+    return max(student.primary_error_variance, 0.0) ** 0.5
+
+
+def forecast_interval(student, mastery_override: dict[int, float] | None = None) -> dict:
+    """Прогноз интервалом: одно число выглядит точнее, чем прогноз есть."""
+    primary = calibrated_primary(student, mastery_override)
+    half_width = settings.FORECAST_INTERVAL_Z * forecast_sigma(student)
+    low = max(primary - half_width, 0.0)
+    high = min(primary + half_width, max_primary_score())
+    return {
+        "primary": round(primary, 2),
+        "scaled": int(min(max(primary_to_scaled(primary), 0), 100)),
+        "low_scaled": int(min(max(primary_to_scaled(low), 0), 100)),
+        "high_scaled": int(min(max(primary_to_scaled(high), 0), 100)),
+        "sigma_primary": round(forecast_sigma(student), 2),
+        "samples": student.calibration_samples,
+        "calibration_primary": round(student.primary_calibration, 2),
+    }
+
+
+def calibrate_forecast(student, actual_primary: float, mock_result=None) -> ForecastObservation:
+    """Сверить прогноз с фактом пробника и подтянуть модель.
+
+    Всё считается в первичных баллах: и поправка, и разброс. Разброс копится
+    как EMA квадрата остаточной ошибки — по нему строится интервал.
+    """
+    alpha = settings.FORECAST_CALIBRATION_ALPHA
+    raw_predicted = expected_primary(student)
+    error = float(actual_primary) - raw_predicted
+
+    student.primary_calibration = round(
+        (1 - alpha) * student.primary_calibration + alpha * error, 3
     )
-    student.save(update_fields=["forecast_calibration"])
+    residual = error - student.primary_calibration
+    variance = (
+        residual ** 2
+        if student.calibration_samples == 0
+        else (1 - alpha) * student.primary_error_variance + alpha * residual ** 2
+    )
+    student.primary_error_variance = round(variance, 3)
+    student.calibration_samples += 1
+    student.save(
+        update_fields=[
+            "primary_calibration", "primary_error_variance", "calibration_samples"
+        ]
+    )
+    return ForecastObservation.objects.create(
+        student=student, mock_result=mock_result,
+        predicted_primary=round(raw_predicted, 2), actual_primary=float(actual_primary),
+        error=round(error, 2), calibration_after=student.primary_calibration,
+    )
+
+
+def calibration_report(student, limit: int = 20) -> dict:
+    """Пары «прогноз — факт» и средняя ошибка: по ним видно, калиброван ли прогноз."""
+    observations = list(student.forecast_observations.all()[:limit])
+    errors = [observation.error for observation in observations]
+    return {
+        "samples": len(observations),
+        "mean_error": round(sum(errors) / len(errors), 2) if errors else 0.0,
+        "mean_absolute_error": (
+            round(sum(abs(error) for error in errors) / len(errors), 2) if errors else 0.0
+        ),
+        "sigma_primary": round(forecast_sigma(student), 2),
+        "observations": [
+            {
+                "predicted_primary": observation.predicted_primary,
+                "actual_primary": observation.actual_primary,
+                "error": observation.error,
+                "created_at": observation.created_at,
+            }
+            for observation in observations
+        ],
+    }
 
 
 def ceiling_forecast(student, weekly_hours: int | None = None, exam_date=None) -> dict:

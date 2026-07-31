@@ -19,8 +19,13 @@ class StudentProfile(models.Model):
     # Filled from the entry diagnostic; None until diagnostics are completed.
     start_score = models.PositiveSmallIntegerField(null=True, blank=True)
     weekly_hours = models.PositiveSmallIntegerField(default=6)
-    # Поправка прогноза, калибруется по факту каждого пробника (EMA ошибки).
-    forecast_calibration = models.FloatField(default=0)
+    # Поправка прогноза в ПЕРВИЧНЫХ баллах: таблица перевода нелинейна, поэтому
+    # сдвиг в тестовых означал разную ошибку на разных участках шкалы.
+    primary_calibration = models.FloatField(default=0)
+    # Дисперсия ошибки прогноза (первичные баллы²) — из неё считается интервал.
+    primary_error_variance = models.FloatField(default=0)
+    # Сколько пробников уже сверено с прогнозом.
+    calibration_samples = models.PositiveSmallIntegerField(default=0)
 
     def __str__(self):
         return f"Student {self.user.username}"
