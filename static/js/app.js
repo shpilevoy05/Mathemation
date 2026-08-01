@@ -5,7 +5,21 @@
     return document.cookie.split(";").map(v => v.trim()).find(v => v.startsWith(name + "="))?.slice(name.length + 1) || "";
   }
 
-  async function apiFetch(url, options = {}) {
+
+  function renderProgress(task, progress) {
+    if (!Array.isArray(progress) || !progress.length) return;
+    const output = task.querySelector("[data-task-progress]");
+    if (!output) return;
+    output.hidden = false;
+    output.replaceChildren(...progress.map(node => {
+      const line = document.createElement("p");
+      const done = node.completed_plan_items || [];
+      const planNote = done.length ? ` · пункт плана закрыт` : "";
+      line.textContent = `${node.node}: освоение ${node.mastery}% · решено ${node.solved} из ${node.total}${planNote}`;
+      return line;
+    }));
+  }
+\n\n  async function apiFetch(url, options = {}) {
     const headers = new Headers(options.headers || {});
     headers.set("Accept", "application/json");
     if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
@@ -157,10 +171,22 @@
         window.location.assign(mockForm.dataset.resultUrl);
       } catch (error) { errorOutput.hidden = false; errorOutput.textContent = error.message; button.disabled = false; mockForm.dataset.submitting = "false"; }
     }
-    const attemptForm = event.target.closest("[data-attempt-form]");
+
+    const shopButton = event.target.closest("[data-shop-action]");
+    if (shopButton) {
+      const row = shopButton.closest("[data-shop-item]"), error = document.querySelector("[data-shop-error]");
+      shopButton.disabled = true; error.hidden = true;
+      try {
+        const data = await apiFetch(shopButton.dataset.shopUrl, { method: "POST", body: "{}" });
+        if (typeof data.balance === "number") document.querySelector("[data-shop-balance]").textContent = data.balance;
+        if (shopButton.dataset.shopAction === "buy") { row.classList.add("is-owned"); shopButton.dataset.shopAction = "equip"; shopButton.dataset.shopUrl = shopButton.dataset.shopUrl.replace("/buy/", "/equip/"); shopButton.textContent = "Надеть"; shopButton.disabled = false; }
+        else { document.querySelectorAll("[data-shop-item] [data-shop-state]").forEach(node => { if (node.textContent === "Надето") node.remove(); }); const state = document.createElement("span"); state.className = "quest-check"; state.dataset.shopState = ""; state.textContent = "Надето"; shopButton.replaceWith(state); }
+      } catch (exception) { error.hidden = false; error.textContent = exception.message; shopButton.disabled = false; }
+    }
+\n    const attemptForm = event.target.closest("[data-attempt-form]");
     if (attemptForm) {
       event.preventDefault(); const task = attemptForm.closest("[data-task]"), button = attemptForm.querySelector("button"), verdict = task.querySelector("[data-verdict]"); button.disabled = true;
-      try { const data = await apiFetch(`/api/assignments/${task.dataset.assignmentId}/attempt/`, { method: "POST", body: JSON.stringify({ answer: new FormData(attemptForm).get("answer"), context: attemptForm.dataset.context }) }); verdict.hidden = false; verdict.className = `verdict ${data.is_correct ? "is-correct" : "is-wrong"}`; verdict.textContent = data.is_correct === null ? "Решение отправлено на экспертную проверку." : (data.is_correct ? "Верно! Можно двигаться дальше." : "Пока неверно. Ошибка сохранена для отработки."); task.querySelector("[data-next-task]").hidden = false; }
+      try { const data = await apiFetch(`/api/assignments/${task.dataset.assignmentId}/attempt/`, { method: "POST", body: JSON.stringify({ answer: new FormData(attemptForm).get("answer"), context: attemptForm.dataset.context }) }); verdict.hidden = false; verdict.className = `verdict ${data.is_correct ? "is-correct" : "is-wrong"}`; verdict.textContent = data.is_correct === null ? "Решение отправлено на экспертную проверку." : (data.is_correct ? "Верно! Можно двигаться дальше." : "Пока неверно. Ошибка сохранена для отработки."); task.querySelector("[data-next-task]").hidden = false; renderProgress(task, data.progress); }
       catch (error) { verdict.hidden = false; verdict.className = "verdict is-wrong"; verdict.textContent = error.message; button.disabled = false; }
     }
     const hintForm = event.target.closest("[data-hint-form]");

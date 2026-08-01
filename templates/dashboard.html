@@ -74,7 +74,7 @@
       <p class="eyebrow">Возврат ошибок</p><h2>Отработка на сегодня</h2>
       {% if due_reviews %}<ul class="plain-list">{% for review in due_reviews %}<li><strong>{{ review.backlog_item.node.title }}</strong><small>{{ review.backlog_item.assignment.title }}</small></li>{% endfor %}</ul><a class="button button-secondary" href="{% url 'practice_backlog' %}">Перейти к отработке</a>{% else %}<p>Повторов на сегодня нет — петли ошибок под контролем.</p>{% endif %}
     </section>
-    <section class="card quick-links"><p class="eyebrow">Разделы</p><h2>Куда дальше</h2><a href="{% url 'knowledge_map' %}">Карта навыков <span>→</span></a><a href="{% url 'track' %}">Дорожка <span>→</span></a><a href="{% url 'forecast' %}">Прогноз и потолок <span>→</span></a></section>
+    <section class="card quick-links"><p class="eyebrow">Разделы</p><h2>Куда дальше</h2><a href="{% url 'knowledge_map' %}">Карта навыков <span>→</span></a><a href="{% url 'track' %}">Дорожка <span>→</span></a><a href="{% url 'forecast' %}">Прогноз и потолок <span>→</span></a><a href="{% url 'shop' %}">Магазин <span>→</span></a></section>
   </div>
 {% endif %}
 {% endblock %}

@@ -88,10 +88,16 @@ def process_attempt_result(attempt: Attempt) -> None:
 
     Also called by expert review once a part-2 verdict arrives.
     """
+    from apps.planning.services import autocomplete_items_for_node
+
     for tag in attempt.assignment.skill_tags.select_related("node"):
         update_mastery(attempt.student, tag.node, bool(attempt.is_correct), tag.weight)
         if attempt.is_correct is False:
             register_mistake(attempt.student, attempt.assignment, tag.node)
+        else:
+            # Верная задача закрывает соответствующие пункты плана сама:
+            # ученик уже сделал работу, отмечать её руками незачем.
+            autocomplete_items_for_node(attempt.student, tag.node)
 
 
 def register_mistake(
@@ -215,6 +221,11 @@ def complete_review(review: ReviewSchedule, success: bool) -> None:
     from apps.gamification.services import record_review_activity
 
     record_review_activity(item.student)
+    if success:
+        # Успешный повтор закрывает пункт «отработка» в плане.
+        from apps.planning.services import autocomplete_review_items
+
+        autocomplete_review_items(item.student, item.node)
 
 
 def practice_queue(student, node) -> dict:

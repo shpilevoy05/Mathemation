@@ -545,3 +545,44 @@ def items_for_period(student, start, end):
     if plan is None:
         return StudyPlanItem.objects.none()
     return plan.items.filter(due_date__gte=start, due_date__lte=end).select_related("node")
+
+
+def autocomplete_items_for_node(student, node) -> list[StudyPlanItem]:
+    """Закрыть пункты плана, которые ученик уже фактически выполнил.
+
+    План — обещание сервиса, а не ручной чек-лист: если ученик решил задачу
+    темы, пункт «пройти урок» закрывается сам, а «практика» — когда тема
+    освоена до порога. Иначе выполненная работа висит невыполненной, а квесты
+    и карточка плана врут.
+    """
+    plan = get_active_plan(student)
+    if plan is None or node is None:
+        return []
+
+    from apps.knowledge.models import SkillMastery
+
+    mastery = (
+        SkillMastery.objects.filter(student=student, node=node)
+        .values_list("mastery", flat=True)
+        .first()
+        or 0.0
+    )
+    finished_types = [StudyPlanItem.ItemType.LESSON]
+    if mastery >= settings.MASTERY_THRESHOLD:
+        finished_types.append(StudyPlanItem.ItemType.PRACTICE)
+
+    pending = plan.items.filter(
+        node=node, item_type__in=finished_types
+    ).exclude(status=StudyPlanItem.Status.DONE)
+    return [complete_item(item) for item in pending]
+
+
+def autocomplete_review_items(student, node) -> list[StudyPlanItem]:
+    """Закрыть пункты отработки после успешного повтора по теме."""
+    plan = get_active_plan(student)
+    if plan is None or node is None:
+        return []
+    pending = plan.items.filter(
+        node=node, item_type=StudyPlanItem.ItemType.REVIEW
+    ).exclude(status=StudyPlanItem.Status.DONE)
+    return [complete_item(item) for item in pending]

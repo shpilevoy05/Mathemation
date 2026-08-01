@@ -348,3 +348,99 @@ class PlanChangeLogDeduplicationTests(TestCase):
         for _ in range(5):
             submit_attempt(self.student, assignment, "неверно", Attempt.Context.LESSON)
         self.assertLessEqual(self._logs(self.first_node).count(), 1)
+
+
+class PlanAutocompleteTests(TestCase):
+    """План закрывается сам по факту работы ученика."""
+
+    def setUp(self):
+        from apps.knowledge.services import set_mastery
+        from apps.practice.tests import make_assignment
+
+        self.student = make_student("autocomplete-student")
+        self.cluster = TopicCluster.objects.create(title="Алгебра")
+        self.node = make_node("auto-node", cluster=self.cluster)
+        self.assignment = make_assignment(self.node, answer="42")
+        self.plan = build_study_plan(self.student)
+        self.set_mastery = set_mastery
+
+    def _items(self, item_type):
+        return self.plan.items.filter(node=self.node, item_type=item_type)
+
+    def test_correct_answer_closes_the_lesson_item(self):
+        from apps.practice.models import Attempt
+        from apps.practice.services import submit_attempt
+
+        lesson_item = self._items(StudyPlanItem.ItemType.LESSON).first()
+        self.assertEqual(lesson_item.status, StudyPlanItem.Status.PENDING)
+
+        submit_attempt(self.student, self.assignment, "42", Attempt.Context.LESSON)
+
+        lesson_item.refresh_from_db()
+        self.assertEqual(lesson_item.status, StudyPlanItem.Status.DONE)
+
+    def test_practice_item_waits_for_mastery_threshold(self):
+        from apps.practice.models import Attempt
+        from apps.practice.services import submit_attempt
+
+        submit_attempt(self.student, self.assignment, "42", Attempt.Context.LESSON)
+        practice_item = self._items(StudyPlanItem.ItemType.PRACTICE).first()
+        practice_item.refresh_from_db()
+        self.assertEqual(practice_item.status, StudyPlanItem.Status.PENDING)
+
+        self.set_mastery(self.student, self.node, 90)
+        submit_attempt(self.student, self.assignment, "42", Attempt.Context.LESSON)
+
+        practice_item.refresh_from_db()
+        self.assertEqual(practice_item.status, StudyPlanItem.Status.DONE)
+
+    def test_wrong_answer_does_not_close_anything(self):
+        from apps.practice.models import Attempt
+        from apps.practice.services import submit_attempt
+
+        submit_attempt(self.student, self.assignment, "неверно", Attempt.Context.LESSON)
+        statuses = set(
+            self.plan.items.filter(node=self.node).values_list("status", flat=True)
+        )
+        self.assertEqual(statuses, {StudyPlanItem.Status.PENDING})
+
+    def test_autocompletion_advances_the_weekly_quest(self):
+        from apps.gamification.models import WeeklyQuest
+        from apps.practice.models import Attempt
+        from apps.practice.services import submit_attempt
+
+        submit_attempt(self.student, self.assignment, "42", Attempt.Context.LESSON)
+        quest = WeeklyQuest.objects.filter(
+            student=self.student, quest_type=WeeklyQuest.QuestType.FINISH_PLAN_ITEMS
+        ).first()
+        self.assertIsNotNone(quest)
+        self.assertGreaterEqual(quest.progress_count, 1)
+
+    def test_successful_review_closes_the_review_item(self):
+        from apps.practice.models import Attempt, ReviewSchedule
+        from apps.practice.services import complete_review, submit_attempt
+
+        submit_attempt(self.student, self.assignment, "неверно", Attempt.Context.LESSON)
+        review_item = StudyPlanItem.objects.create(
+            plan=self.plan, node=self.node,
+            item_type=StudyPlanItem.ItemType.REVIEW, order=999,
+        )
+        for review in ReviewSchedule.objects.filter(backlog_item__node=self.node):
+            complete_review(review, success=True)
+
+        review_item.refresh_from_db()
+        self.assertEqual(review_item.status, StudyPlanItem.Status.DONE)
+
+    def test_completion_is_idempotent(self):
+        from apps.planning.services import autocomplete_items_for_node
+        from apps.practice.models import Attempt
+        from apps.practice.services import submit_attempt
+
+        submit_attempt(self.student, self.assignment, "42", Attempt.Context.LESSON)
+        first = self._items(StudyPlanItem.ItemType.LESSON).first()
+        first.refresh_from_db()
+        completed_at_first = first.status
+
+        self.assertEqual(autocomplete_items_for_node(self.student, self.node), [])
+        first.refresh_from_db()
+        self.assertEqual(first.status, completed_at_first)

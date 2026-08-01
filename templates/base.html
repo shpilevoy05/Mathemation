@@ -30,6 +30,7 @@
             <a class="{% if request.resolver_match.url_name == 'practice_backlog' %}is-active{% endif %}" href="{% url 'practice_backlog' %}"><span class="nav-icon">🔁</span><span>Отработка</span></a>
             <a class="{% if request.resolver_match.url_name == 'mocks' or request.resolver_match.url_name == 'mock_run' or request.resolver_match.url_name == 'mock_result' %}is-active{% endif %}" href="{% url 'mocks' %}"><span class="nav-icon">🏆</span><span>Пробники</span></a>
             <a class="{% if request.resolver_match.url_name == 'forecast' %}is-active{% endif %}" href="{% url 'forecast' %}"><span class="nav-icon">📈</span><span>Прогноз</span></a>
+            <a class="{% if request.resolver_match.url_name == 'shop' %}is-active{% endif %}" href="{% url 'shop' %}"><span class="nav-icon">🛒</span><span>Магазин</span></a>
           {% elif not expert_access and not methodist_access and user.parent_profile %}
             <a class="{% if request.resolver_match.url_name == 'parent_dashboard' %}is-active{% endif %}" href="{% url 'parent_dashboard' %}"><span class="nav-icon">📋</span><span>Отчёт</span></a>
           {% endif %}

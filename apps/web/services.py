@@ -352,6 +352,7 @@ def track_context(student):
     clusters = []
     current_assigned = False
     position = 0
+    task_progress = node_task_progress(student)
     for cluster in TopicCluster.objects.prefetch_related(_published_lessons_prefetch()):
         points = []
         cluster_has_mistakes = False
@@ -359,7 +360,8 @@ def track_context(student):
             state_data = states[node.id]
             for lesson in node.lessons.all():
                 point = _track_point(
-                    "lesson", lesson.title, state_data, position, node.id
+                    "lesson", lesson.title, state_data, position, node.id,
+                    task_progress,
                 )
                 if not current_assigned and state_data["state"] in {
                     "available", "in_progress", "decayed"
@@ -369,7 +371,8 @@ def track_context(student):
                 points.append(point)
                 position += 1
             point = _track_point(
-                "practice", f"Практика: {node.title}", state_data, position, node.id
+                "practice", f"Практика: {node.title}", state_data, position, node.id,
+                task_progress,
             )
             if not current_assigned and state_data["state"] in {
                 "available", "in_progress", "decayed"
@@ -404,9 +407,68 @@ def track_context(student):
     return {"track_clusters": clusters, "mock_points": mocks}
 
 
-def _track_point(point_type, title, state_data, position, node_id=None):
+def shop_context(student) -> dict:
+    """Витрина косметики: баланс, товары и что уже куплено или надето."""
+    from apps.economy.models import InventoryItem
+    from apps.economy.services import get_wallet, storefront
+
+    inventory = list(
+        InventoryItem.objects.filter(student=student).select_related("item")
+    )
+    owned = {entry.item_id for entry in inventory}
+    equipped = {entry.item_id for entry in inventory if entry.is_equipped}
+    wallet = get_wallet(student)
+    items = [
+        {
+            "item": item,
+            "owned": item.id in owned,
+            "equipped": item.id in equipped,
+            "affordable": wallet.balance >= item.price_coins,
+        }
+        for item in storefront()
+    ]
+    return {
+        "balance": wallet.balance,
+        "shop_items": items,
+        "owned_count": len(owned),
+        "recent_entries": list(wallet.entries.all()[:10]),
+    }
+
+
+def node_task_progress(student) -> dict[int, dict]:
+    """Сколько задач темы решено верно — по всем узлам сразу.
+
+    Ученик видит на дорожке не только состояние узла, но и движение внутри
+    темы: без этого верный ответ не отражается нигде, пока не сменится статус.
+    """
+    totals = dict(
+        KnowledgeNode.objects.annotate(
+            total=Count("assignments", distinct=True)
+        ).values_list("id", "total")
+    )
+    solved = dict(
+        KnowledgeNode.objects.filter(
+            assignments__attempts__student=student,
+            assignments__attempts__is_correct=True,
+        )
+        .annotate(solved=Count("assignments", distinct=True))
+        .values_list("id", "solved")
+    )
+    return {
+        node_id: {
+            "solved": solved.get(node_id, 0),
+            "total": total,
+            "percent": round(solved.get(node_id, 0) * 100 / total) if total else 0,
+        }
+        for node_id, total in totals.items()
+    }
+
+
+def _track_point(point_type, title, state_data, position, node_id=None,
+                 task_progress=None):
     state = state_data["state"]
     mastery_percent = max(0, min(100, round(float(state_data.get("mastery", 0)))))
+    progress = (task_progress or {}).get(node_id, {"solved": 0, "total": 0, "percent": 0})
     unlock_conditions = [
         {
             **condition,
@@ -440,6 +502,10 @@ def _track_point(point_type, title, state_data, position, node_id=None):
         "marker": marker,
         "mastery_percent": mastery_percent,
         "progress_style": f"--track-progress: {mastery_percent}%",
+        # Прогресс по задачам темы: «решено 3 из 5» видно сразу после ответа.
+        "tasks_solved": progress["solved"],
+        "tasks_total": progress["total"],
+        "tasks_percent": progress["percent"],
         "position": position % 5,
         "position_class": f"track-pos-{position % 5}",
         "unlock_conditions": unlock_conditions,

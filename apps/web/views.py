@@ -57,6 +57,11 @@ def lesson(request, node_id):
 
 
 @login_required
+def shop(request):
+    return _render_student_page(request, "shop.html", services.shop_context)
+
+
+@login_required
 def practice_backlog(request):
     return _render_student_page(
         request, "practice_backlog.html", services.practice_backlog_context

@@ -27,7 +27,52 @@ class SubmitAttemptView(views.APIView):
         attempt = submit_attempt(
             student, assignment, request.data.get("answer", ""), context
         )
-        return Response(AttemptSerializer(attempt).data, status=201)
+        payload = AttemptSerializer(attempt).data
+        # Ученик должен видеть, что ответ что-то изменил: рост освоения темы,
+        # закрытые пункты плана и прогресс по задачам узла.
+        payload["progress"] = attempt_progress(student, assignment)
+        return Response(payload, status=201)
+
+
+def attempt_progress(student, assignment) -> list[dict]:
+    """Прогресс по темам задачи: освоение, статус и решённые задачи узла."""
+    from apps.knowledge.models import SkillMastery
+    from apps.planning.models import StudyPlanItem
+    from apps.planning.services import get_active_plan
+
+    plan = get_active_plan(student)
+    progress = []
+    for tag in assignment.skill_tags.select_related("node"):
+        node = tag.node
+        mastery = SkillMastery.objects.filter(student=student, node=node).first()
+        solved = (
+            Attempt.objects.filter(
+                student=student, assignment__skill_tags__node=node, is_correct=True
+            )
+            .values("assignment_id")
+            .distinct()
+            .count()
+        )
+        total = Assignment.objects.filter(skill_tags__node=node).distinct().count()
+        completed_items = (
+            list(
+                plan.items.filter(
+                    node=node, status=StudyPlanItem.Status.DONE
+                ).values_list("item_type", flat=True)
+            )
+            if plan
+            else []
+        )
+        progress.append({
+            "node_id": node.id,
+            "node": node.title,
+            "mastery": round(float(mastery.mastery), 1) if mastery else 0.0,
+            "status": mastery.status if mastery else "not_started",
+            "solved": solved,
+            "total": total,
+            "completed_plan_items": completed_items,
+        })
+    return progress
 
 
 class BacklogView(views.APIView):

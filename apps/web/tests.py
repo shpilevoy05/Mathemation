@@ -330,3 +330,83 @@ class StudentCabinetTests(TestCase):
         response = self.client.get(reverse("login"))
         self.assertContains(response, "logo--lg")
         self.assertContains(response, "ценит время")
+
+
+class ShopPageTests(TestCase):
+    """Магазин доступен из кабинета, а не только через API."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", verbosity=0)
+        cls.user = User.objects.get(username="student")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_shop_page_lists_items_and_balance(self):
+        response = self.client.get(reverse("shop"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Магазин")
+        self.assertContains(response, "Аватар «Сова»")
+
+    def test_navigation_and_dashboard_link_to_shop(self):
+        for url in (reverse("dashboard"), reverse("track")):
+            with self.subTest(url=url):
+                self.assertContains(self.client.get(url), reverse("shop"))
+
+    def test_shop_page_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("shop"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response.url)
+
+
+class ProgressFeedbackTests(TestCase):
+    """Ответ ученика сразу показывает движение по теме."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", verbosity=0)
+        cls.user = User.objects.get(username="student")
+        cls.node = KnowledgeNode.objects.get(code="frac-powers")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_attempt_response_carries_node_progress(self):
+        from apps.content.models import Assignment
+
+        assignment = Assignment.objects.filter(skill_tags__node=self.node).first()
+        response = self.client.post(
+            f"/api/assignments/{assignment.id}/attempt/",
+            {"answer": assignment.correct_answer, "context": "lesson"},
+            "application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        progress = response.json()["progress"]
+        self.assertTrue(progress)
+        entry = next(item for item in progress if item["node_id"] == self.node.id)
+        self.assertGreater(entry["mastery"], 0)
+        self.assertGreaterEqual(entry["solved"], 1)
+        self.assertLessEqual(entry["solved"], entry["total"])
+        self.assertIn("lesson", entry["completed_plan_items"])
+
+    def test_track_shows_solved_task_counter(self):
+        from apps.content.models import Assignment
+
+        assignment = Assignment.objects.filter(skill_tags__node=self.node).first()
+        self.client.post(
+            f"/api/assignments/{assignment.id}/attempt/",
+            {"answer": assignment.correct_answer, "context": "lesson"},
+            "application/json",
+        )
+        context = track_context(self.user.student_profile)
+        point = next(
+            item
+            for cluster in context["track_clusters"]
+            for item in cluster["points"]
+            if item.get("node_id") == self.node.id
+        )
+        self.assertGreaterEqual(point["tasks_solved"], 1)
+        self.assertGreater(point["tasks_total"], 0)
+        self.assertContains(self.client.get(reverse("track")), "задачи")

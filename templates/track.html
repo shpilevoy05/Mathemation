@@ -14,7 +14,7 @@
             {% else %}<div class="track-node-link is-locked" tabindex="0" title="{{ point.unlock_tooltip }}" aria-label="{{ point.title }}. {{ point.unlock_tooltip }}">
             {% endif %}
               <span class="track-progress-ring" style="{{ point.progress_style }}"><span class="track-node-button" aria-hidden="true">{{ point.marker }}</span></span>
-              <span class="track-node-copy"><strong>{{ point.title }}</strong><small>{{ point.type_label }} · {{ point.state_label }} · {{ point.mastery_percent }}%</small></span>
+              <span class="track-node-copy"><strong>{{ point.title }}</strong><small>{{ point.type_label }} · {{ point.state_label }} · {{ point.mastery_percent }}%{% if point.tasks_total %} · задачи {{ point.tasks_solved }}/{{ point.tasks_total }}{% endif %}</small></span>
               {% if point.unlock_tooltip %}<span class="track-tooltip" role="tooltip">{{ point.unlock_tooltip }}</span>{% endif %}
             {% if point.is_clickable %}</a>{% else %}</div>{% endif %}
           </div>

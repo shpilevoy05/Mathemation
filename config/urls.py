@@ -114,6 +114,7 @@ urlpatterns = [
     path("track/", web_views.track, name="track"),
     path("lesson/<int:node_id>/", web_views.lesson, name="lesson"),
     path("practice/backlog/", web_views.practice_backlog, name="practice_backlog"),
+    path("shop/", web_views.shop, name="shop"),
     path("forecast/", web_views.forecast, name="forecast"),
     path("mocks/", web_views.mocks, name="mocks"),
     path("mocks/run/<int:result_id>/", web_views.mock_run, name="mock_run"),

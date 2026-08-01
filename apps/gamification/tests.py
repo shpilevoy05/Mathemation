@@ -91,23 +91,27 @@ class XpIntegrationTests(TestCase):
     def test_xp_and_level_for_each_activity_point(self):
         award_xp(self.student, 90, "test_setup")
         assignment = make_assignment(self.node)
+        # Верный ответ платит 10 XP за попытку и 5 XP за пункт плана, который
+        # закрылся сам: работа сделана, отмечать её руками ученику не нужно.
         submit_attempt(self.student, assignment, "42", Attempt.Context.LESSON)
         profile = GamificationProfile.objects.get(student=self.student)
-        self.assertEqual((profile.xp, profile.level), (100, level_for_xp(100)))
+        self.assertEqual((profile.xp, profile.level), (105, level_for_xp(105)))
 
         submit_attempt(self.student, assignment, "wrong", Attempt.Context.LESSON)
         profile.refresh_from_db()
-        self.assertEqual((profile.xp, profile.level), (102, level_for_xp(102)))
+        self.assertEqual((profile.xp, profile.level), (107, level_for_xp(107)))
 
         backlog = MistakeBacklogItem.objects.get(student=self.student)
         review = backlog.reviews.first()
         complete_review(review, success=True)
         profile.refresh_from_db()
-        self.assertEqual((profile.xp, profile.level), (117, level_for_xp(117)))
-
-        complete_item(self.plan.items.first())
-        profile.refresh_from_db()
         self.assertEqual((profile.xp, profile.level), (122, level_for_xp(122)))
+
+        # Оставшийся пункт закрывается вручную и платит один раз.
+        remaining = self.plan.items.exclude(status=StudyPlanItem.Status.DONE).first()
+        complete_item(remaining)
+        profile.refresh_from_db()
+        self.assertEqual((profile.xp, profile.level), (127, level_for_xp(127)))
 
     def test_completed_review_and_item_are_not_rewarded_twice(self):
         item = self.plan.items.first()
