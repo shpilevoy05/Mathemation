@@ -201,18 +201,38 @@ def reinsert_node(student, node, reason: str, description: str = "",
     else:
         item = None
     log_plan_change(
-        student, reason=reason, description=description, is_major=is_major
+        student, reason=reason, description=description, is_major=is_major, node=node
     )
     return item
 
 
 def log_plan_change(student, reason: str, description: str = "",
-                    is_major: bool = False) -> PlanChangeLog | None:
+                    is_major: bool = False, node=None) -> PlanChangeLog | None:
+    """Записать изменение плана без повторного шума.
+
+    `reinsert_node` вызывается на каждой ошибке ученика, поэтому запись с той
+    же причиной и тем же узлом переиспользуется в пределах
+    `PLAN_CHANGE_LOG_DEDUP_HOURS`. Мажорные изменения не дедуплицируются: их
+    подтверждает ученик, и каждое должно дойти до него.
+    """
     plan = get_active_plan(student)
     if plan is None:
         return None
+
+    if not is_major:
+        cutoff = timezone.now() - timedelta(hours=settings.PLAN_CHANGE_LOG_DEDUP_HOURS)
+        existing = (
+            PlanChangeLog.objects.filter(
+                plan=plan, node=node, reason=reason, is_major=False, created_at__gt=cutoff
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if existing is not None:
+            return existing
+
     change = PlanChangeLog.objects.create(
-        plan=plan, reason=reason, description=description, is_major=is_major
+        plan=plan, node=node, reason=reason, description=description, is_major=is_major
     )
     from apps.events.models import Event
     from apps.events.services import log_event

@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
@@ -71,8 +72,36 @@ class KnowledgeDependency(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["node", "prerequisite"], name="uniq_dependency")
+            models.UniqueConstraint(fields=["node", "prerequisite"], name="uniq_dependency"),
+            models.CheckConstraint(
+                condition=~models.Q(node=models.F("prerequisite")),
+                name="no_self_dependency",
+            ),
         ]
+
+    def clean(self):
+        """Не дать замкнуть граф.
+
+        Цикл раньше проходил молча: топологический порядок дописывал остаток
+        в конец, а планировщик и потолок считали по искажённому порядку без
+        единой ошибки.
+        """
+        if self.node_id is None or self.prerequisite_id is None:
+            return
+        if self.node_id == self.prerequisite_id:
+            raise ValidationError(f"Узел «{self.node}» не может зависеть сам от себя.")
+
+        from .services import would_create_cycle
+
+        if would_create_cycle(self.node, self.prerequisite, exclude_dependency_id=self.pk):
+            raise ValidationError(
+                f"Зависимость «{self.prerequisite}» → «{self.node}» создаёт цикл."
+            )
+
+    def save(self, *args, **kwargs):
+        # Граф проверяется при любом сохранении, а не только через формы.
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
 
 class SkillMastery(models.Model):

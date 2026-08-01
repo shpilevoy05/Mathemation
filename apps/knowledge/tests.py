@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
 
@@ -191,3 +192,45 @@ class KnowledgeMapApiTests(TestCase):
                 "current_mastery": 55.0,
             },
         )
+
+
+class GraphAcyclicityTests(TestCase):
+    """Цикл в графе ломал план молча — теперь он не создаётся."""
+
+    def setUp(self):
+        from apps.knowledge.models import TopicCluster
+
+        self.cluster = TopicCluster.objects.create(title="Алгебра")
+        self.a = make_node("cycle-a", cluster=self.cluster)
+        self.b = make_node("cycle-b", cluster=self.cluster)
+        self.c = make_node("cycle-c", cluster=self.cluster)
+
+    def test_self_dependency_rejected(self):
+        with self.assertRaises(ValidationError) as caught:
+            KnowledgeDependency.objects.create(node=self.a, prerequisite=self.a)
+        self.assertIn("сам", str(caught.exception).lower())
+
+    def test_two_node_cycle_rejected(self):
+        KnowledgeDependency.objects.create(node=self.b, prerequisite=self.a)
+        with self.assertRaises(ValidationError):
+            KnowledgeDependency.objects.create(node=self.a, prerequisite=self.b)
+
+    def test_three_node_cycle_rejected(self):
+        KnowledgeDependency.objects.create(node=self.b, prerequisite=self.a)
+        KnowledgeDependency.objects.create(node=self.c, prerequisite=self.b)
+        with self.assertRaises(ValidationError):
+            KnowledgeDependency.objects.create(node=self.a, prerequisite=self.c)
+
+    def test_valid_chain_is_allowed(self):
+        KnowledgeDependency.objects.create(node=self.b, prerequisite=self.a)
+        KnowledgeDependency.objects.create(node=self.c, prerequisite=self.b)
+        self.assertEqual(KnowledgeDependency.objects.count(), 2)
+
+    def test_diamond_is_allowed(self):
+        # a → b, a → c, b → d, c → d: не цикл, а ромб.
+        d = make_node("cycle-d", cluster=self.cluster)
+        KnowledgeDependency.objects.create(node=self.b, prerequisite=self.a)
+        KnowledgeDependency.objects.create(node=self.c, prerequisite=self.a)
+        KnowledgeDependency.objects.create(node=d, prerequisite=self.b)
+        KnowledgeDependency.objects.create(node=d, prerequisite=self.c)
+        self.assertEqual(KnowledgeDependency.objects.count(), 4)

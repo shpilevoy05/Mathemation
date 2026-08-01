@@ -7,7 +7,38 @@ from apps.engine.decay import decayed_mastery
 from apps.engine.dto import EngineParams
 from apps.engine.mastery import bkt_update
 
-from .models import KnowledgeNode, SkillMastery
+from .models import KnowledgeDependency, KnowledgeNode, SkillMastery
+
+
+def would_create_cycle(
+    node: KnowledgeNode,
+    prerequisite: KnowledgeNode,
+    *,
+    exclude_dependency_id: int | None = None,
+) -> bool:
+    """Замкнёт ли новая зависимость граф.
+
+    Идём вверх по рёбрам от предполагаемого пререквизита: если оттуда
+    достижим сам узел, связь создаёт цикл. Обход итеративный — граф ведут
+    методисты, и рекурсия на большой цепочке была бы лишним риском.
+    """
+    if node.pk is None or prerequisite.pk is None:
+        return node is prerequisite
+
+    target_id = node.pk
+    frontier = {prerequisite.pk}
+    visited: set[int] = set()
+    while frontier:
+        if target_id in frontier:
+            return True
+        visited.update(frontier)
+        prerequisite_ids = set(
+            KnowledgeDependency.objects.filter(node_id__in=frontier)
+            .exclude(pk=exclude_dependency_id)
+            .values_list("prerequisite_id", flat=True)
+        )
+        frontier = prerequisite_ids - visited
+    return False
 
 
 def _engine_params() -> EngineParams:

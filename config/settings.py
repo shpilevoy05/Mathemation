@@ -289,6 +289,8 @@ FORECAST_PRIOR_SIGMA_PRIMARY = 3.0
 FORECAST_INTERVAL_Z = 1.0
 # Дней без активности, после которых план перестраивается под сжатое время.
 INACTIVITY_REBUILD_DAYS = 14
+# Повторное изменение по той же причине и узлу не зашумляет карточку плана.
+PLAN_CHANGE_LOG_DEDUP_HOURS = 24
 
 # Periodic jobs (celery -A config worker -B).
 from celery.schedules import crontab  # noqa: E402

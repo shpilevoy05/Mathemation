@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.knowledge.models import KnowledgeDependency, TopicCluster
 from apps.knowledge.services import set_mastery
@@ -14,7 +17,9 @@ from apps.planning.services import (
     assign_trajectory,
     build_study_plan,
     get_active_plan,
+    log_plan_change,
     maybe_transition,
+    reinsert_node,
 )
 
 
@@ -271,3 +276,75 @@ class TrajectoryTests(TestCase):
                 )
                 self.assertEqual(response.status_code, 400)
                 self.assertIn("target_score", response.json())
+
+
+class PlanChangeLogDeduplicationTests(TestCase):
+    """Карточка изменений плана не зашумляется повторами."""
+
+    def setUp(self):
+        from apps.knowledge.models import TopicCluster
+        from apps.knowledge.tests import make_node, make_student
+
+        self.student = make_student("dedup-student")
+        self.cluster = TopicCluster.objects.create(title="Алгебра")
+        self.first_node = make_node("dedup-first", cluster=self.cluster)
+        self.second_node = make_node("dedup-second", cluster=self.cluster)
+        self.plan = build_study_plan(self.student)
+
+    def _reinsert(self, node, is_major=False):
+        return reinsert_node(
+            self.student, node,
+            reason=PlanChangeLog.Reason.FREQUENT_MISTAKES,
+            description=f"Ошибка по узлу {node.title}.",
+            is_major=is_major,
+        )
+
+    def _logs(self, node=None):
+        query = PlanChangeLog.objects.filter(
+            plan=self.plan, reason=PlanChangeLog.Reason.FREQUENT_MISTAKES
+        )
+        return query.filter(node=node) if node is not None else query
+
+    def test_same_node_within_a_day_does_not_duplicate(self):
+        self._reinsert(self.first_node)
+        self._reinsert(self.first_node)
+        self.assertEqual(self._logs(self.first_node).count(), 1)
+
+    def test_other_node_gets_its_own_entry(self):
+        self._reinsert(self.first_node)
+        self._reinsert(self.second_node)
+        self.assertEqual(self._logs().count(), 2)
+
+    def test_entry_older_than_a_day_does_not_block_a_new_one(self):
+        self._reinsert(self.first_node)
+        PlanChangeLog.objects.update(
+            created_at=timezone.now() - timedelta(days=1, seconds=1)
+        )
+        self._reinsert(self.first_node)
+        self.assertEqual(self._logs(self.first_node).count(), 2)
+
+    def test_major_change_always_creates_an_entry(self):
+        log_plan_change(
+            self.student, reason=PlanChangeLog.Reason.INACTIVITY,
+            description="Перестроил план.", is_major=True,
+        )
+        log_plan_change(
+            self.student, reason=PlanChangeLog.Reason.INACTIVITY,
+            description="Перестроил план.", is_major=True,
+        )
+        self.assertEqual(
+            PlanChangeLog.objects.filter(
+                reason=PlanChangeLog.Reason.INACTIVITY, is_major=True
+            ).count(),
+            2,
+        )
+
+    def test_repeated_mistakes_do_not_flood_the_card(self):
+        from apps.practice.models import Attempt
+        from apps.practice.services import submit_attempt
+        from apps.practice.tests import make_assignment
+
+        assignment = make_assignment(self.first_node, answer="42")
+        for _ in range(5):
+            submit_attempt(self.student, assignment, "неверно", Attempt.Context.LESSON)
+        self.assertLessEqual(self._logs(self.first_node).count(), 1)

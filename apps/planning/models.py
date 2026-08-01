@@ -79,6 +79,11 @@ class PlanChangeLog(models.Model):
         MANUAL = "manual"
 
     plan = models.ForeignKey(StudyPlan, on_delete=models.CASCADE, related_name="change_logs")
+    # Узел, из-за которого изменился план: по нему же гасится повторный шум.
+    node = models.ForeignKey(
+        "knowledge.KnowledgeNode", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="plan_changes",
+    )
     reason = models.CharField(max_length=32, choices=Reason.choices)
     description = models.TextField(blank=True)
     is_major = models.BooleanField(default=False)
