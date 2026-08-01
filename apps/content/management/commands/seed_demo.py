@@ -314,6 +314,7 @@ class Command(BaseCommand):
         )
 
         profile = self._seed_exam_profile(nodes)
+        self._seed_engagement(nodes, part1, student)
 
         self.stdout.write(self.style.SUCCESS(
             f"Демо-данные готовы: {KnowledgeNode.objects.count()} узлов, "
@@ -321,6 +322,57 @@ class Command(BaseCommand):
             f"({profile.tasks.count()} заданий). "
             "Пользователи: student / parent / expert / methodist (пароль demo12345)."
         ))
+
+    def _seed_engagement(self, nodes, part1, student):
+        """Домашка, задание дня и витрина магазина.
+
+        Без них кабинет ученика выглядит пустым, и пройти сценарии роли
+        (в том числе по docs/test_launch.md) нельзя.
+        """
+        from apps.content.models import DailyChallenge, Homework
+        from apps.content.services import assign_homework
+        from apps.economy.models import ShopCategory, ShopItem
+
+        homework, _ = Homework.objects.get_or_create(
+            title="Домашка: вычисления и уравнения",
+            defaults={
+                "lesson": nodes["frac-powers"].lessons.first(),
+                "description": "Три задачи на разогрев перед новой темой.",
+                "status": Homework.Status.PUBLISHED,
+                "due_at": timezone.now() + timedelta(days=7),
+            },
+        )
+        for order, assignment in enumerate(part1[:3]):
+            homework.tasks.get_or_create(assignment=assignment, defaults={"order": order})
+        assign_homework(homework, [student])
+
+        DailyChallenge.objects.update_or_create(
+            date=timezone.localdate(),
+            defaults={
+                "assignment": part1[0],
+                "title": "Разминка дня",
+                "reward_xp": 15,
+                "is_active": True,
+            },
+        )
+
+        cosmetics, _ = ShopCategory.objects.update_or_create(
+            title="Косметика", defaults={"order": 0}
+        )
+        for title, slot, price in [
+            ("Аватар «Сова»", ShopItem.Slot.AVATAR, 40),
+            ("Аватар «Лис»", ShopItem.Slot.AVATAR, 60),
+            ("Рамка «Золото»", ShopItem.Slot.FRAME, 80),
+            ("Тема «Ночь»", ShopItem.Slot.THEME, 120),
+            ("Значок «Стрик 7»", ShopItem.Slot.BADGE, 30),
+        ]:
+            ShopItem.objects.update_or_create(
+                title=title,
+                defaults={
+                    "category": cosmetics, "slot": slot,
+                    "price_coins": price, "is_active": True,
+                },
+            )
 
     def _seed_exam_profile(self, nodes: dict[str, KnowledgeNode]):
         """Профиль экзамена: по нему считается прогноз.

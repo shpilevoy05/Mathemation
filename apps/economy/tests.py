@@ -169,3 +169,44 @@ class ShopTests(TestCase):
         purchase(self.student, self.avatar)
         self.assertFalse(hasattr(self.avatar, "node"))
         self.assertEqual(self.student.masteries.count(), 0)
+
+
+class ShopApiTests(TestCase):
+    """Витрина ученика: баланс, покупка и примерка."""
+
+    def setUp(self):
+        self.student = make_student("shop-api-student")
+        self.client.force_login(self.student.user)
+        self.item = ShopItem.objects.create(
+            title="Аватар «Сова»", slot=ShopItem.Slot.AVATAR, price_coins=30
+        )
+        grant(self.student, 50, LedgerEntry.Reason.ADMIN_GRANT, "seed")
+
+    def test_storefront_shows_balance_and_ownership(self):
+        payload = self.client.get("/api/shop/").json()
+        self.assertEqual(payload["balance"], 50)
+        self.assertFalse(payload["items"][0]["owned"])
+
+    def test_buy_then_equip(self):
+        bought = self.client.post(f"/api/shop/items/{self.item.pk}/buy/")
+        self.assertEqual(bought.status_code, 201)
+        self.assertEqual(bought.json()["balance"], 20)
+
+        equipped = self.client.post(f"/api/shop/items/{self.item.pk}/equip/")
+        self.assertEqual(equipped.status_code, 200)
+        self.assertEqual(equipped.json()["equipped"][ShopItem.Slot.AVATAR], self.item.pk)
+
+    def test_buy_without_coins_returns_readable_error(self):
+        expensive = ShopItem.objects.create(title="Тема", price_coins=999)
+        response = self.client.post(f"/api/shop/items/{expensive.pk}/buy/")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Недостаточно", response.json()["detail"])
+
+    def test_wallet_shows_recent_entries(self):
+        payload = self.client.get("/api/wallet/").json()
+        self.assertEqual(payload["balance"], 50)
+        self.assertEqual(payload["entries"][0]["amount"], 50)
+
+    def test_shop_requires_login(self):
+        self.client.logout()
+        self.assertIn(self.client.get("/api/shop/").status_code, (401, 403))

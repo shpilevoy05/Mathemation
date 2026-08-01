@@ -13,6 +13,7 @@ from apps.content.student_api import (
     SubmitHomeworkView,
 )
 from apps.diagnostics.api import DiagnosticListView, StartDiagnosticView, SubmitDiagnosticView
+from apps.economy.api import BuyItemView, EquipItemView, ShopView, WalletView
 from apps.expert_review.api import (
     ExpertReviewFinishView,
     ExpertReviewListView,
@@ -87,6 +88,10 @@ api_urls = [
     path("homework/", MyHomeworkView.as_view()),
     path("homework/<int:submission_id>/submit/", SubmitHomeworkView.as_view()),
     path("daily/", DailyChallengeView.as_view()),
+    path("wallet/", WalletView.as_view()),
+    path("shop/", ShopView.as_view()),
+    path("shop/items/<int:item_id>/buy/", BuyItemView.as_view()),
+    path("shop/items/<int:item_id>/equip/", EquipItemView.as_view()),
     path("progress/", ProgressView.as_view()),
     path("forecast/", ForecastView.as_view()),
     path("parent/report/", ParentReportView.as_view()),
