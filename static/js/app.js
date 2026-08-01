@@ -8,7 +8,7 @@
 
   function renderProgress(task, progress) {
     if (!Array.isArray(progress) || !progress.length) return;
-    const output = task.querySelector("[data-task-progress]");
+    const output = task.querySelector("[data-answer-progress]");
     if (!output) return;
     output.hidden = false;
     output.replaceChildren(...progress.map(node => {
@@ -19,7 +19,8 @@
       return line;
     }));
   }
-\n\n  async function apiFetch(url, options = {}) {
+
+  async function apiFetch(url, options = {}) {
     const headers = new Headers(options.headers || {});
     headers.set("Accept", "application/json");
     if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
@@ -172,6 +173,14 @@
       } catch (error) { errorOutput.hidden = false; errorOutput.textContent = error.message; button.disabled = false; mockForm.dataset.submitting = "false"; }
     }
 
+
+    const submitHomework = event.target.closest("[data-submit-homework]");
+    if (submitHomework) {
+      const card = submitHomework.closest("[data-homework]"), error = card.querySelector("[data-homework-error]");
+      submitHomework.disabled = true; error.hidden = true;
+      try { await apiFetch(submitHomework.dataset.submitHomework, { method: "POST", body: "{}" }); const chip = document.createElement("span"); chip.className = "item-type-chip"; chip.textContent = "Сдано"; submitHomework.replaceWith(chip); }
+      catch (exception) { error.hidden = false; error.textContent = exception.message; submitHomework.disabled = false; }
+    }
     const shopButton = event.target.closest("[data-shop-action]");
     if (shopButton) {
       const row = shopButton.closest("[data-shop-item]"), error = document.querySelector("[data-shop-error]");
@@ -183,7 +192,7 @@
         else { document.querySelectorAll("[data-shop-item] [data-shop-state]").forEach(node => { if (node.textContent === "Надето") node.remove(); }); const state = document.createElement("span"); state.className = "quest-check"; state.dataset.shopState = ""; state.textContent = "Надето"; shopButton.replaceWith(state); }
       } catch (exception) { error.hidden = false; error.textContent = exception.message; shopButton.disabled = false; }
     }
-\n    const attemptForm = event.target.closest("[data-attempt-form]");
+    const attemptForm = event.target.closest("[data-attempt-form]");
     if (attemptForm) {
       event.preventDefault(); const task = attemptForm.closest("[data-task]"), button = attemptForm.querySelector("button"), verdict = task.querySelector("[data-verdict]"); button.disabled = true;
       try { const data = await apiFetch(`/api/assignments/${task.dataset.assignmentId}/attempt/`, { method: "POST", body: JSON.stringify({ answer: new FormData(attemptForm).get("answer"), context: attemptForm.dataset.context }) }); verdict.hidden = false; verdict.className = `verdict ${data.is_correct ? "is-correct" : "is-wrong"}`; verdict.textContent = data.is_correct === null ? "Решение отправлено на экспертную проверку." : (data.is_correct ? "Верно! Можно двигаться дальше." : "Пока неверно. Ошибка сохранена для отработки."); task.querySelector("[data-next-task]").hidden = false; renderProgress(task, data.progress); }

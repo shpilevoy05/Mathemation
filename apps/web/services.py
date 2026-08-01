@@ -407,6 +407,66 @@ def track_context(student):
     return {"track_clusters": clusters, "mock_points": mocks}
 
 
+def homework_context(student) -> dict:
+    """Выданные домашки с прогрессом и ссылкой на занятие по теме."""
+    from apps.content.models import HomeworkSubmission
+    from apps.content.services import homework_progress, is_overdue
+
+    submissions = (
+        HomeworkSubmission.objects.filter(student=student)
+        .select_related("homework", "homework__lesson__node")
+        .prefetch_related("homework__tasks__assignment__skill_tags__node")
+    )
+    rows = []
+    for submission in submissions:
+        tasks = []
+        for task in submission.homework.tasks.all():
+            tag = task.assignment.skill_tags.first()
+            tasks.append({
+                "assignment": task.assignment,
+                "node": tag.node if tag else None,
+                "url": reverse("lesson", args=[tag.node_id]) if tag else None,
+            })
+        progress = homework_progress(submission)
+        rows.append({
+            "submission": submission,
+            "homework": submission.homework,
+            "progress": progress,
+            "percent": (
+                round(progress["solved"] * 100 / progress["total"])
+                if progress["total"] else 0
+            ),
+            "overdue": is_overdue(submission),
+            "tasks": tasks,
+        })
+    return {
+        "homework_rows": rows,
+        "open_count": sum(
+            1 for row in rows
+            if row["submission"].status != HomeworkSubmission.Status.CHECKED
+        ),
+    }
+
+
+def daily_challenge_context(student) -> dict:
+    """Задание дня: сама задача, награда и статус."""
+    from apps.content.services import challenge_state
+
+    state = challenge_state(student)
+    challenge = state.get("challenge")
+    node = None
+    if challenge is not None:
+        tag = challenge.assignment.skill_tags.select_related("node").first()
+        node = tag.node if tag else None
+    return {
+        "challenge": challenge,
+        "solved": state.get("solved", False),
+        "reward_xp": state.get("reward_xp", 0),
+        "node": node,
+        "attempt_context": Attempt.Context.LESSON,
+    }
+
+
 def shop_context(student) -> dict:
     """Витрина косметики: баланс, товары и что уже куплено или надето."""
     from apps.economy.models import InventoryItem

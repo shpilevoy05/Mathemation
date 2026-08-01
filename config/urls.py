@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from apps.accounts import views as account_views
 from apps.accounts.api import MeView, TargetScoreView
 from apps.ai_mentor.api import HintView, ParentAiLogView
 from apps.content.api import AssignmentViewSet, LessonViewSet, TrackView
@@ -108,6 +109,8 @@ urlpatterns = [
     path("api/", include(api_urls)),
     path("api-auth/", include("rest_framework.urls")),
     path("accounts/", include("django.contrib.auth.urls")),
+    path("invite/", account_views.register_by_invite, name="register"),
+    path("invite/<str:code>/", account_views.register_by_invite, name="register_by_invite"),
     path("", web_views.dashboard, name="dashboard"),
     path("map/", web_views.knowledge_map, name="knowledge_map"),
     path("map/node/<int:node_id>/", web_views.knowledge_node, name="knowledge_node"),
@@ -115,6 +118,8 @@ urlpatterns = [
     path("lesson/<int:node_id>/", web_views.lesson, name="lesson"),
     path("practice/backlog/", web_views.practice_backlog, name="practice_backlog"),
     path("shop/", web_views.shop, name="shop"),
+    path("homework/", web_views.homework, name="homework"),
+    path("daily/", web_views.daily_challenge, name="daily_challenge"),
     path("forecast/", web_views.forecast, name="forecast"),
     path("mocks/", web_views.mocks, name="mocks"),
     path("mocks/run/<int:result_id>/", web_views.mock_run, name="mock_run"),

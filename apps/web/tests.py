@@ -7,10 +7,11 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.ai_mentor.models import AiHintMessage, AiHintSession
-from apps.content.models import Assignment, Lesson
+from apps.content.models import Assignment, DailyChallenge, Lesson
 from apps.expert_review.models import ExpertReviewRequest
 from apps.mocks.models import MockExam
-from apps.practice.models import MistakeBacklogItem
+from apps.practice.models import Attempt, MistakeBacklogItem
+from apps.practice.services import submit_attempt
 from apps.progress.models import ProgressSnapshot
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.knowledge.services import set_mastery
@@ -359,6 +360,74 @@ class ShopPageTests(TestCase):
         response = self.client.get(reverse("shop"))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response.url)
+
+
+class HomeworkAndDailyPageTests(TestCase):
+    """Домашки и задание дня видны ученику в кабинете, а не только в API."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", verbosity=0)
+        cls.user = User.objects.get(username="student")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_homework_page_shows_assigned_work_with_progress(self):
+        response = self.client.get(reverse("homework"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Домашка: вычисления и уравнения")
+        self.assertContains(response, "решено")
+        self.assertEqual(response.context["open_count"], 1)
+        row = response.context["homework_rows"][0]
+        self.assertEqual(row["progress"]["total"], 3)
+        self.assertEqual(row["percent"], 0)
+
+    def test_homework_task_links_to_lesson_of_its_node(self):
+        row = self.client.get(reverse("homework")).context["homework_rows"][0]
+        task = row["tasks"][0]
+
+        self.assertIsNotNone(task["node"])
+        self.assertEqual(task["url"], reverse("lesson", args=[task["node"].id]))
+
+    def test_daily_page_shows_todays_challenge_with_answer_form(self):
+        response = self.client.get(reverse("daily_challenge"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(response.context["challenge"])
+        self.assertFalse(response.context["solved"])
+        self.assertContains(response, "data-attempt-form")
+        self.assertContains(response, "data-answer-progress")
+
+    def test_daily_page_reports_solved_state_after_correct_attempt(self):
+        challenge = DailyChallenge.objects.get(date=timezone.localdate())
+        submit_attempt(
+            self.user.student_profile,
+            challenge.assignment,
+            challenge.assignment.correct_answer,
+            Attempt.Context.LESSON,
+        )
+
+        response = self.client.get(reverse("daily_challenge"))
+
+        self.assertTrue(response.context["solved"])
+        self.assertNotContains(response, "data-attempt-form")
+
+    def test_navigation_links_to_homework_and_daily(self):
+        response = self.client.get(reverse("dashboard"))
+
+        for url in (reverse("homework"), reverse("daily_challenge")):
+            with self.subTest(url=url):
+                self.assertContains(response, url)
+
+    def test_pages_require_login(self):
+        self.client.logout()
+        for name in ("homework", "daily_challenge"):
+            with self.subTest(name=name):
+                response = self.client.get(reverse(name))
+                self.assertEqual(response.status_code, 302)
+                self.assertIn(reverse("login"), response.url)
 
 
 class ProgressFeedbackTests(TestCase):

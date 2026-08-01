@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    # Проект разрабатывается и запускается на Windows, поэтому и проверяем там:
+    # различия в путях и в PowerShell иначе всплывают только у разработчика.
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Create virtualenv
+        run: |
+          python -m venv .venv
+          .venv\Scripts\python.exe -m pip install --upgrade pip
+          .venv\Scripts\python.exe -m pip install -r requirements.txt
+      - name: Migrations, checks and tests
+        run: .\scripts\test.ps1
+
+  skills:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Validate skill structure and metadata
+        run: .\scripts\validate-skills.ps1 -Strict
+      - name: Skill system integrity and supply-chain audit
+        # Установленные каталоги (.claude\skills, .agents\skills) собираются
+        # install-skills.ps1 локально и в репозиторий не коммитятся.
+        run: .\scripts\skills-ci.ps1 -SkipInstallChecks

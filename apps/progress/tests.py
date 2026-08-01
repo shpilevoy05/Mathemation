@@ -1,8 +1,10 @@
 from datetime import timedelta
 
+from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
+from apps.accounts.models import StudentProfile
 from apps.knowledge.services import set_mastery
 from apps.knowledge.tests import make_node, make_student
 from apps.planning.services import build_study_plan
@@ -227,6 +229,40 @@ class ExamProfileForecastTests(TestCase):
             set_mastery(self.student, self.part2_node, mastery)
             scores.append(predict_score(self.student)[0])
         self.assertEqual(scores, sorted(scores))
+
+
+class DemoProfileCoverageTests(TestCase):
+    """Демо-граф должен покрывать весь профиль экзамена.
+
+    Дырка в разметке молча занижает прогноз, поэтому она ловится тестом, а не
+    глазами методиста.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", verbosity=0)
+
+    def test_every_exam_task_is_mapped_to_a_node(self):
+        from apps.progress.services import profile_coverage
+
+        coverage = profile_coverage()
+
+        self.assertEqual(coverage["unmapped_numbers"], [])
+        self.assertEqual(coverage["mapped"], coverage["tasks"])
+        self.assertEqual(coverage["unmapped_score"], 0)
+
+    def test_full_mastery_reaches_the_maximum_primary_score(self):
+        from apps.knowledge.models import KnowledgeNode
+        from apps.progress.services import max_primary_score
+
+        student = StudentProfile.objects.get(user__username="student")
+        for node in KnowledgeNode.objects.all():
+            set_mastery(student, node, 100)
+
+        # 2PL никогда не даёт единицу: даже при mastery 100 сложные задания
+        # второй части остаются вероятностными. Важно, что все 19 номеров
+        # вносят вклад — потолок ~80% первичного балла, а не 60%.
+        self.assertGreater(expected_primary(student), 0.8 * max_primary_score())
 
 
 class CalibrationTests(TestCase):

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Задание дня — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Задание дня</h1><p>Раздел доступен ученику.</p></section>
+{% else %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Каждый день одна задача</p>
+      <h1>Задание дня</h1>
+      <p>Короткая привычка возвращаться. Задание не отменяет план — оно рядом с ним.</p>
+    </div>
+    {% if challenge %}<span class="xp-chip">+{{ reward_xp }} XP</span>{% endif %}
+  </div>
+
+  {% if not challenge %}
+    <section class="empty-state">
+      <h2>Сегодня задания нет</h2>
+      <p>Методист ставит его на конкретную дату. Загляни завтра или возьми пункт плана.</p>
+      <a class="button button-primary" href="{% url 'dashboard' %}">В кабинет</a>
+    </section>
+  {% else %}
+    <div class="lesson-layout">
+      <section class="task-stage">
+        <article class="card task-card" data-task data-assignment-id="{{ challenge.assignment_id }}">
+          <span class="phase-pill phase-new">{{ challenge.title|default:"Задание дня" }}</span>
+          {% if node %}<h2>{{ node.title }}</h2>{% endif %}
+          {% if challenge.description %}<p>{{ challenge.description }}</p>{% endif %}
+          <div class="statement">{{ challenge.assignment.statement|linebreaksbr }}</div>
+
+          {% if solved %}
+            <div class="verdict is-correct">Решено сегодня. Награда начислена.</div>
+            <a class="button button-primary" href="{% url 'track' %}">К дорожке</a>
+          {% else %}
+            <form data-attempt-form data-context="{{ attempt_context }}">
+              <label for="answer-daily">Твой ответ</label>
+              <div class="answer-row">
+                <input id="answer-daily" name="answer" autocomplete="off" required>
+                <button class="button button-primary" type="submit">Проверить</button>
+              </div>
+            </form>
+            <div class="verdict" data-verdict hidden aria-live="polite"></div>
+            <div class="answer-progress" data-answer-progress hidden aria-live="polite"></div>
+            <button class="button" type="button" data-next-task hidden>Готово</button>
+          {% endif %}
+        </article>
+      </section>
+    </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

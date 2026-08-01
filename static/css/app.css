@@ -225,6 +225,10 @@ input:focus { border-color: var(--primary); outline: 3px solid var(--primary-sof
 .verdict { padding: 12px 14px; margin: 14px 0; border-radius: var(--radius-sm); }
 .verdict.is-correct { color: var(--success); background: var(--success-soft); }
 .verdict.is-wrong { color: var(--danger); background: var(--danger-soft); }
+.answer-progress { margin: 0 0 14px; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--gray-soft); color: var(--muted); font-size: 0.92rem; }
+.answer-progress p { margin: 2px 0; }
+.homework-card + .homework-card { margin-top: 18px; }
+.homework-card .plain-list a { margin-left: auto; }
 .mentor-panel { margin-top: 26px; padding: 19px; border: 1px solid var(--primary-soft); border-radius: var(--radius); background: var(--gray-soft); }
 .mentor-heading { display: flex; gap: 10px; margin-bottom: 14px; }
 .mentor-heading > span, .success-icon, .count-badge { display: grid; place-items: center; color: var(--card); background: var(--primary); font-weight: 800; }

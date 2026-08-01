@@ -62,6 +62,18 @@ def shop(request):
 
 
 @login_required
+def homework(request):
+    return _render_student_page(request, "homework.html", services.homework_context)
+
+
+@login_required
+def daily_challenge(request):
+    return _render_student_page(
+        request, "daily_challenge.html", services.daily_challenge_context
+    )
+
+
+@login_required
 def practice_backlog(request):
     return _render_student_page(
         request, "practice_backlog.html", services.practice_backlog_context
