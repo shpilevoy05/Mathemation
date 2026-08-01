@@ -1,0 +1,38 @@
+suite: skill-golden-task-runner
+kind: negative
+version: 1.0.0
+cases:
+  - id: GR-N-001
+    kind: negative
+    prompt: "Добавь эндпоинт /api/plan/changes/ и тесты"
+    must_not_activate:
+      - skill-golden-task-runner
+    expect: обычная разработка, не измерение
+
+  - id: GR-N-002
+    kind: negative
+    prompt: "Посчитай метрики по уже записанным прогонам"
+    must_not_activate:
+      - skill-golden-task-runner
+    expect: работает skill-routing-evaluation
+
+  - id: GR-N-003
+    kind: negative
+    prompt: "Проверь структуру нового скилла"
+    must_not_activate:
+      - skill-golden-task-runner
+    expect: работает skill-structure-validator
+
+  - id: GR-N-004
+    kind: negative
+    prompt: "Дай вердикт приёмки системы навыков"
+    must_not_activate:
+      - skill-golden-task-runner
+    expect: работает skill-acceptance-suite
+
+  - id: GR-N-005
+    kind: negative
+    prompt: "Сколько раз за месяц активировался adaptive-planner?"
+    must_not_activate:
+      - skill-golden-task-runner
+    expect: работает skill-observability-and-usage-analytics

@@ -1,0 +1,38 @@
+suite: skill-observability-and-usage-analytics
+kind: positive
+version: 1.0.0
+cases:
+  - id: OB-P-001
+    kind: positive
+    prompt: "Сделай ежемесячный отчёт по использованию скиллов за июль"
+    expected:
+      - skill-observability-and-usage-analytics
+    expect: метрики за период, кандидаты на объединение и удаление
+
+  - id: OB-P-002
+    kind: positive
+    prompt: "Какие скиллы активируются ошибочно чаще всего?"
+    expected:
+      - skill-observability-and-usage-analytics
+    expect: список с false positive rate и рекомендациями по описаниям
+
+  - id: OB-P-003
+    kind: positive
+    prompt: "Расход токенов на задачу вырос вдвое, разберись"
+    expected:
+      - skill-observability-and-usage-analytics
+    expect: сравнение периодов с оговоркой о составе навыков
+
+  - id: OB-P-004
+    kind: positive
+    prompt: "Какие скиллы не использовались ни разу за квартал?"
+    expected:
+      - skill-observability-and-usage-analytics
+    expect: список кандидатов, проверка зависимостей перед удалением
+
+  - id: OB-P-005
+    kind: positive
+    prompt: "Нужно включить детальные логи по задачам планировщика"
+    expected:
+      - skill-observability-and-usage-analytics
+    expect: срок и причина зафиксированы, персональные данные не пишутся

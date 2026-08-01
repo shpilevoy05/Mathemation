@@ -1,0 +1,39 @@
+suite: skill-cross-agent-consistency
+kind: positive
+version: 1.0.0
+cases:
+  - id: CA-P-001
+    kind: positive
+    prompt: "В Codex наставник выдал ответ, в Claude Code — нет"
+    expected:
+      - skill-cross-agent-consistency
+    expect: недопустимое расхождение, BLOCK, причина в описании скилла
+
+  - id: CA-P-002
+    kind: positive
+    prompt: "Проверь, что оба агента одинаково понимают object permissions"
+    expected:
+      - skill-cross-agent-consistency
+    expect: результат по обоим агентам, классификация расхождений
+
+  - id: CA-P-003
+    kind: positive
+    prompt: "Сверь наборы установленных скиллов у Claude Code и Codex"
+    expected:
+      - skill-cross-agent-consistency
+      - skills-ci-integrity
+    expect: сравнение составов и версий до сравнения поведения
+
+  - id: CA-P-004
+    kind: positive
+    prompt: "После обновления скиллов агенты по-разному реагируют на prompt injection"
+    expected:
+      - skill-cross-agent-consistency
+    expect: расхождение в security-реакции как недопустимое
+
+  - id: CA-P-005
+    kind: positive
+    prompt: "Можно ли допускать изменение в production при разнице в поведении агентов?"
+    expected:
+      - skill-cross-agent-consistency
+    expect: BLOCK при недопустимом расхождении

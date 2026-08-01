@@ -1,0 +1,39 @@
+suite: skills-ci-integrity
+kind: positive
+version: 1.0.0
+cases:
+  - id: CI-P-001
+    kind: positive
+    prompt: "PR меняет skills.lock.yaml — что проверить перед merge?"
+    expected:
+      - skills-ci-integrity
+    expect: 12 проверок, FAIL блокирует merge
+
+  - id: CI-P-002
+    kind: positive
+    prompt: "Клонировал репозиторий, проверь что набор навыков воспроизводим"
+    expected:
+      - skills-ci-integrity
+    expect: install + проверка идентичности каталогов и SHA
+
+  - id: CI-P-003
+    kind: positive
+    prompt: "В vendor кто-то поправил SKILL.md руками"
+    expected:
+      - skills-ci-integrity
+    expect: проверка 7 FAIL, требование откатить правку
+
+  - id: CI-P-004
+    kind: positive
+    prompt: "Настрой workflow, чтобы релиз блокировался при рассинхроне навыков"
+    expected:
+      - skills-ci-integrity
+    expect: ci-integrity.ps1 в pipeline, ненулевой код выхода при FAIL
+
+  - id: CI-P-005
+    kind: positive
+    prompt: "Мы изменили критический скилл, что требуется в CI?"
+    expected:
+      - skills-ci-integrity
+      - skill-metadata-governance
+    expect: запись в CHANGELOG и metadata.reviewers проверены

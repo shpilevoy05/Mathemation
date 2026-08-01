@@ -58,3 +58,23 @@ Before completing implementation, run:
 
 ```powershell
 .\scripts\test.ps1
+## Система навыков агентов
+
+- Собственные скиллы: `agent-skills/matemacia/<skill>/SKILL.md`; 12 governance-скиллов
+  дополнительно несут `references/`, `scripts/validate.ps1` и `tests/`.
+- Внешние скиллы: `agent-skills/vendor/<vendor>/<skill>/`, источники и их
+  commit SHA — в `skills.lock.yaml` в корне.
+- Установка и проверки:
+
+```powershell
+.\scripts\install-skills.ps1        # синхронизация в .claude\skills и .agents\skills
+.\scripts\validate-skills.ps1 -Strict
+.\scripts\skills-ci.ps1             # 12 проверок целостности; FAIL блокирует merge
+```
+
+- Базовая линия аудита vendor-скиллов живёт в `accepted_findings` реестра.
+  Новое срабатывание правила роняет `skills-ci.ps1` — разберите находку и либо
+  почините источник, либо добавьте правило в базовую линию с обоснованием.
+- При конфликте инструкций действует приоритет: продуктовые инварианты
+  Математики → собственный доменный скилл → собственный архитектурный скилл →
+  vendor-скилл технологии → общая инженерная рекомендация.

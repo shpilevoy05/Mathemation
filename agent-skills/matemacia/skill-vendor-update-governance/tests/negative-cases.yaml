@@ -1,0 +1,38 @@
+suite: skill-vendor-update-governance
+kind: negative
+version: 1.0.0
+cases:
+  - id: VU-N-001
+    kind: negative
+    prompt: "Обнови Django и DRF в requirements.txt"
+    must_not_activate:
+      - skill-vendor-update-governance
+    expect: прикладные зависимости, не система навыков
+
+  - id: VU-N-002
+    kind: negative
+    prompt: "Поправь описание собственного скилла adaptive-planner"
+    must_not_activate:
+      - skill-vendor-update-governance
+    expect: работают skill-structure-validator и skill-metadata-governance
+
+  - id: VU-N-003
+    kind: negative
+    prompt: "Просто проверь целостность системы навыков, ничего не обновляй"
+    must_not_activate:
+      - skill-vendor-update-governance
+    expect: работает skills-ci-integrity
+
+  - id: VU-N-004
+    kind: negative
+    prompt: "Выведи из эксплуатации неподдерживаемый внешний скилл"
+    must_not_activate:
+      - skill-vendor-update-governance
+    expect: работает skill-deprecation-and-cleanup
+
+  - id: VU-N-005
+    kind: negative
+    prompt: "Посчитай, какие скиллы чаще всего активируются ошибочно"
+    must_not_activate:
+      - skill-vendor-update-governance
+    expect: работает skill-observability-and-usage-analytics

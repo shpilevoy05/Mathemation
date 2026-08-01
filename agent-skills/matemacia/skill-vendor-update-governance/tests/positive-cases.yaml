@@ -1,0 +1,40 @@
+suite: skill-vendor-update-governance
+kind: positive
+version: 1.0.0
+cases:
+  - id: VU-P-001
+    kind: positive
+    prompt: "Обнови vendor-скилл postgres-best-practices до последнего коммита"
+    expected:
+      - skill-vendor-update-governance
+      - skill-supply-chain-audit
+    expect: новый полный SHA, аудит, lock, переустановка, регрессии
+
+  - id: VU-P-002
+    kind: positive
+    prompt: "Развернул проект на новой машине, восстанови навыки"
+    expected:
+      - skill-vendor-update-governance
+    expect: install-skills.ps1 по lock, проверка целостности
+
+  - id: VU-P-003
+    kind: positive
+    prompt: "После обновления vendor упал golden task GT-014"
+    expected:
+      - skill-vendor-update-governance
+    expect: решение ROLLBACK с причиной и записью отчёта
+
+  - id: VU-P-004
+    kind: positive
+    prompt: "Плановое обновление всех внешних скиллов на этот квартал"
+    expected:
+      - skill-vendor-update-governance
+    expect: по одному источнику за коммит, отдельные отчёты
+
+  - id: VU-P-005
+    kind: positive
+    prompt: "Локальный vendor расходится с lock-файлом, приведи в порядок"
+    expected:
+      - skill-vendor-update-governance
+      - skills-ci-integrity
+    expect: восстановление из lock, а не правка lock под диск

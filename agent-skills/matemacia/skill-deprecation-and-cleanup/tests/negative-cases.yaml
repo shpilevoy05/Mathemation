@@ -1,0 +1,38 @@
+suite: skill-deprecation-and-cleanup
+kind: negative
+version: 1.0.0
+cases:
+  - id: DC-N-001
+    kind: negative
+    prompt: "Скилл про откат релиза активировался один раз за квартал"
+    must_not_activate:
+      - skill-deprecation-and-cleanup
+    expect: редкость не равна бесполезности, скилл сохраняется
+
+  - id: DC-N-002
+    kind: negative
+    prompt: "Обнови vendor-скилл до нового коммита"
+    must_not_activate:
+      - skill-deprecation-and-cleanup
+    expect: работает skill-vendor-update-governance
+
+  - id: DC-N-003
+    kind: negative
+    prompt: "В описании скилла опечатка, поправь"
+    must_not_activate:
+      - skill-deprecation-and-cleanup
+    expect: работает skill-structure-validator
+
+  - id: DC-N-004
+    kind: negative
+    prompt: "Разово реши, чей приоритет выше в этой задаче"
+    must_not_activate:
+      - skill-deprecation-and-cleanup
+    expect: работает skill-conflict-resolution
+
+  - id: DC-N-005
+    kind: negative
+    prompt: "Удали неиспользуемый Django-эндпоинт"
+    must_not_activate:
+      - skill-deprecation-and-cleanup
+    expect: прикладной код, не система навыков

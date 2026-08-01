@@ -1,0 +1,38 @@
+suite: skill-acceptance-suite
+kind: negative
+version: 1.0.0
+cases:
+  - id: AS-N-001
+    kind: negative
+    prompt: "Проверь только структуру SKILL.md у skill-metadata-governance"
+    must_not_activate:
+      - skill-acceptance-suite
+    expect: работает skill-structure-validator без полного набора
+
+  - id: AS-N-002
+    kind: negative
+    prompt: "Релиз Django-приложения, скиллы не менялись"
+    must_not_activate:
+      - skill-acceptance-suite
+    expect: прикладной релиз, приёмка навыков не требуется
+
+  - id: AS-N-003
+    kind: negative
+    prompt: "Разбери конфликт между двумя скиллами про mastery"
+    must_not_activate:
+      - skill-acceptance-suite
+    expect: работает skill-conflict-resolution
+
+  - id: AS-N-004
+    kind: negative
+    prompt: "Сделай ежемесячный отчёт по использованию скиллов"
+    must_not_activate:
+      - skill-acceptance-suite
+    expect: работает skill-observability-and-usage-analytics
+
+  - id: AS-N-005
+    kind: negative
+    prompt: "Прогони один golden task GT-007 и покажи лог"
+    must_not_activate:
+      - skill-acceptance-suite
+    expect: работает skill-golden-task-runner напрямую

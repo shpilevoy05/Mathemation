@@ -1,0 +1,39 @@
+suite: skill-metadata-governance
+kind: positive
+version: 1.0.0
+cases:
+  - id: MG-P-001
+    kind: positive
+    prompt: "Я изменил формулу обновления mastery в скилле, какую версию ставить?"
+    expected:
+      - skill-metadata-governance
+    expect: major, запись в CHANGELOG, прогон приёмки
+
+  - id: MG-P-002
+    kind: positive
+    prompt: "Заполни метаданные нового скилла exam-config-versioning"
+    expected:
+      - skill-metadata-governance
+    expect: все обязательные поля, criticality critical, reviewers
+
+  - id: MG-P-003
+    kind: positive
+    prompt: "Ревью скилла просрочено на два месяца"
+    expected:
+      - skill-metadata-governance
+    expect: обновить last_reviewed или перевести в deprecated
+
+  - id: MG-P-004
+    kind: positive
+    prompt: "Смени владельца скилла на ml-lead"
+    expected:
+      - skill-metadata-governance
+    expect: owner обновлён, версия patch, дата ревью обновлена
+
+  - id: MG-P-005
+    kind: positive
+    prompt: "CI ругается: версия в lock не совпадает с SKILL.md"
+    expected:
+      - skill-metadata-governance
+      - skills-ci-integrity
+    expect: версия синхронизирована в обе стороны один раз
