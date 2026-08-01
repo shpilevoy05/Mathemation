@@ -357,6 +357,7 @@ class Command(BaseCommand):
 
         profile = self._seed_exam_profile(nodes)
         self._seed_engagement(nodes, part1, student)
+        self._seed_pricing()
 
         if options.get("verbosity", 1) < 1:
             return
@@ -417,6 +418,61 @@ class Command(BaseCommand):
                     "price_coins": price, "is_active": True,
                 },
             )
+
+    def _seed_pricing(self):
+        """Тарифы, способы оплаты и одна акция — чтобы страница оплаты не была пустой.
+
+        Эквайринг не подключён: у способов оплаты пустой `provider_key`, и
+        витрина честно показывает, что оплата пока идёт через куратора.
+        """
+        from apps.billing.models import PaymentMethod, Promotion, Tariff
+
+        for code, title, price, days, description, features in [
+            ("solo", "Самостоятельно", 2900, 30,
+             "Полный доступ к платформе без экспертной проверки второй части.",
+             {"Занятия и план": "без ограничений", "Наставник": "до 30 подсказок в месяц"}),
+            ("expert", "С проверкой эксперта", 5900, 30,
+             "Всё из «Самостоятельно» плюс проверка второй части живым экспертом.",
+             {"Проверка второй части": "до 20 работ в месяц", "Срок проверки": "24 часа"}),
+            ("intensive", "Интенсив перед экзаменом", 9900, 30,
+             "Плотный режим: пробники каждую неделю и разбор с куратором.",
+             {"Пробники": "еженедельно", "Разбор с куратором": "2 раза в месяц"}),
+        ]:
+            Tariff.objects.get_or_create(
+                code=code, version=1,
+                defaults={
+                    "title": title, "description": description, "price_rub": price,
+                    "period_days": days, "features": features, "is_active": True,
+                },
+            )
+
+        for order, (code, title, description, instructions) in enumerate([
+            ("card", "Банковская карта", "Оплата картой российского банка.",
+             "Эквайринг подключается: пока куратор выставляет счёт вручную."),
+            ("sbp", "СБП по QR-коду", "Перевод по системе быстрых платежей.",
+             "Куратор пришлёт QR-код и подтвердит зачисление в течение дня."),
+            ("invoice", "Счёт для организации", "Оплата от юридического лица.",
+             "Напишите куратору реквизиты — счёт придёт на почту."),
+        ]):
+            PaymentMethod.objects.update_or_create(
+                code=code,
+                defaults={
+                    "title": title, "description": description,
+                    "instructions": instructions, "provider_key": "",
+                    "is_active": True, "order": order,
+                },
+            )
+
+        Promotion.objects.update_or_create(
+            code="START10",
+            defaults={
+                "title": "Первый месяц −10%",
+                "description": "Для тех, кто начинает подготовку.",
+                "kind": Promotion.Kind.PERCENT, "value": 10,
+                "tariff_codes": [], "max_uses": 0, "is_active": True,
+                "ends_at": timezone.now() + timedelta(days=60),
+            },
+        )
 
     def _seed_exam_profile(self, nodes: dict[str, KnowledgeNode]):
         """Профиль экзамена: по нему считается прогноз.

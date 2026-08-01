@@ -268,7 +268,61 @@ def dashboard_context(student):
         "gamification": gamification,
         "has_diagnostic": snapshot is not None and snapshot.start_score is not None,
         "journey_percent": score_journey_percent,
+        "gauge": primary_gauge(student, forecast),
+        "wallet_balance": _wallet_balance(student),
     }
+
+
+def _wallet_balance(student) -> int:
+    from apps.economy.services import get_wallet
+
+    return get_wallet(student).balance
+
+
+def primary_gauge(student, forecast=None) -> dict:
+    """Шкала первичных баллов: текущая оценка, интервал, цель и потолок.
+
+    Ось одна и всегда первичная: перевод в тестовые нелинейный, поэтому
+    смешивать единицы на одной линейке нельзя.
+    """
+    from apps.progress.services import (
+        forecast_interval,
+        max_primary_score,
+        primary_for_scaled,
+        primary_to_scaled,
+    )
+
+    interval = forecast_interval(student)
+    maximum = max_primary_score() or 1
+    low_primary = max(interval["primary"] - interval["sigma_primary"] * 1.28, 0)
+    high_primary = min(interval["primary"] + interval["sigma_primary"] * 1.28, maximum)
+    target_primary = primary_for_scaled(student.target_score)
+    percent = lambda value: round(min(max(value / maximum, 0), 1) * 100, 2)  # noqa: E731
+
+    gauge = {
+        "max_primary": round(maximum, 1),
+        "primary": interval["primary"],
+        "scaled": interval["scaled"],
+        "low_scaled": interval["low_scaled"],
+        "high_scaled": interval["high_scaled"],
+        "now_percent": percent(interval["primary"]),
+        "band_left_percent": percent(low_primary),
+        "band_width_percent": percent(high_primary) - percent(low_primary),
+        "target_primary": target_primary,
+        "target_scaled": student.target_score,
+        "target_percent": percent(target_primary),
+        "to_target_primary": round(max(target_primary - interval["primary"], 0), 1),
+        "ticks": [round(maximum * step / 8, 1) for step in range(9)],
+        "ceiling_primary": None,
+        "ceiling_percent": None,
+    }
+    if forecast is not None and forecast.get("ceiling_score") is not None:
+        ceiling_primary = primary_for_scaled(forecast["ceiling_score"])
+        gauge["ceiling_primary"] = ceiling_primary
+        gauge["ceiling_percent"] = percent(ceiling_primary)
+        gauge["ceiling_scaled"] = forecast["ceiling_score"]
+    gauge["scaled_check"] = primary_to_scaled(interval["primary"])
+    return gauge
 
 
 def knowledge_map_context(student, overlay=False):
@@ -305,7 +359,76 @@ def knowledge_map_context(student, overlay=False):
                 }
             )
         clusters.append({"title": cluster.title, "color": cluster.color, "nodes": nodes})
-    return {"clusters": clusters, "ceiling_overlay": overlay}
+    return {
+        "clusters": clusters,
+        "ceiling_overlay": overlay,
+        "graph": knowledge_graph_layout(clusters),
+    }
+
+
+# Раскладка графа. Считается на сервере, чтобы координаты были одинаковыми в
+# браузере, в тестах и в будущем экспорте картинки.
+GRAPH_CLUSTER_WIDTH = 320
+GRAPH_CLUSTER_GAP = 26
+GRAPH_COLUMNS = 3
+GRAPH_ROW_HEIGHT = 116
+GRAPH_HEAD = 74
+
+
+def knowledge_graph_layout(clusters: list[dict]) -> dict:
+    """Координаты узлов и рёбер для SVG-графа карты навыков.
+
+    Узлы раскладываются по своим кластерам в две колонки: так подписи не
+    налезают на рёбра, а кластер остаётся визуально цельным.
+    """
+    positions: dict[int, dict] = {}
+    boxes: list[dict] = []
+    row_top = 20
+    row_height = 0
+    for index, cluster in enumerate(clusters):
+        column = index % GRAPH_COLUMNS
+        if column == 0 and index:
+            row_top += row_height + GRAPH_CLUSTER_GAP
+            row_height = 0
+        left = 20 + column * (GRAPH_CLUSTER_WIDTH + GRAPH_CLUSTER_GAP)
+        rows = max(1, -(-len(cluster["nodes"]) // 2))
+        height = GRAPH_HEAD + rows * GRAPH_ROW_HEIGHT - 30
+        row_height = max(row_height, height)
+        boxes.append({
+            "title": cluster["title"], "color": cluster["color"],
+            "x": left, "y": row_top, "w": GRAPH_CLUSTER_WIDTH, "h": height,
+        })
+        for order, node in enumerate(cluster["nodes"]):
+            node_row, node_column = divmod(order, 2)
+            positions[node["id"]] = {
+                "id": node["id"],
+                "title": node["title"],
+                "state": node["state"],
+                "state_label": node["state_label"],
+                "mastery": round(float(node["mastery"])),
+                "x": left + 86 + node_column * 152 + (node_row % 2) * 16,
+                "y": row_top + 62 + node_row * GRAPH_ROW_HEIGHT,
+                "url": reverse("knowledge_node", args=[node["id"]]),
+            }
+
+    edges = []
+    dependencies = KnowledgeDependency.objects.filter(
+        node_id__in=positions, prerequisite_id__in=positions
+    ).values("node_id", "prerequisite_id", "min_mastery")
+    for dependency in dependencies:
+        prerequisite = positions[dependency["prerequisite_id"]]
+        edges.append({
+            "from": dependency["prerequisite_id"],
+            "to": dependency["node_id"],
+            "met": prerequisite["mastery"] >= dependency["min_mastery"],
+        })
+    return {
+        "clusters": boxes,
+        "nodes": list(positions.values()),
+        "edges": edges,
+        "width": 20 + GRAPH_COLUMNS * (GRAPH_CLUSTER_WIDTH + GRAPH_CLUSTER_GAP),
+        "height": row_top + row_height + 24,
+    }
 
 
 def knowledge_node_context(student, node_id):
@@ -642,11 +765,33 @@ def practice_backlog_context(student):
 
 
 def forecast_context(student):
+    from apps.exams.models import ExamTask
+    from apps.progress.services import (
+        active_exam_profile,
+        forecast_interval,
+        profile_coverage,
+    )
+
     plan = get_active_plan(student)
+    forecast = ceiling_forecast(student)
+    coverage = profile_coverage()
+    profile = active_exam_profile()
+    unmapped = set(coverage.get("unmapped_numbers", []))
+    numbers = []
+    if profile is not None:
+        numbers = [
+            {"number": number, "mapped": number not in unmapped}
+            for number in ExamTask.objects.filter(profile=profile)
+            .order_by("number")
+            .values_list("number", flat=True)
+        ]
     return {
-        "forecast": ceiling_forecast(student),
+        "forecast": forecast,
         "target_score": student.target_score,
         "trajectory": plan.trajectory if plan and plan.trajectory_id else None,
+        "gauge": primary_gauge(student, forecast),
+        "interval": forecast_interval(student),
+        "coverage": {**coverage, "numbers": numbers},
     }
 
 

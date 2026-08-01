@@ -5,10 +5,12 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
-from .models import Payment, Subscription, Tariff
+from decimal import Decimal
+
+from .models import Payment, PaymentMethod, Promotion, Subscription, Tariff
 from .providers import get_provider
 
 
@@ -41,21 +43,93 @@ def new_tariff_version(tariff: Tariff, *, price_rub, **changes) -> Tariff:
     return updated
 
 
+def active_payment_methods():
+    """Способы оплаты для витрины, в порядке, заданном администратором."""
+    return list(PaymentMethod.objects.filter(is_active=True))
+
+
+def running_promotions(now=None):
+    """Действующие акции: по сроку, активности и остатку применений."""
+    return [promotion for promotion in Promotion.objects.all() if promotion.is_running(now)]
+
+
+def promotion_by_code(code: str, now=None) -> Promotion | None:
+    """Найти акцию по промокоду. Регистр кода не важен."""
+    code = (code or "").strip()
+    if not code:
+        return None
+    promotion = Promotion.objects.filter(code__iexact=code).first()
+    return promotion if promotion is not None and promotion.is_running(now) else None
+
+
+def best_promotion(tariff: Tariff, *, code: str = "", now=None) -> Promotion | None:
+    """Лучшая для ученика акция: введённый промокод или автоматическая скидка.
+
+    Промокод имеет приоритет: если человек его ввёл и он подходит, показываем
+    именно его, даже когда автоматическая акция выгоднее — иначе непонятно,
+    сработал код или нет.
+    """
+    requested = promotion_by_code(code, now)
+    if requested is not None and requested.applies_to(tariff):
+        return requested
+    automatic = [
+        promotion for promotion in running_promotions(now)
+        if not promotion.code and promotion.applies_to(tariff)
+    ]
+    if not automatic:
+        return None
+    return max(automatic, key=lambda promotion: promotion.discount_for(tariff.price_rub))
+
+
+def quote(tariff: Tariff, *, code: str = "", now=None) -> dict:
+    """Итоговая цена тарифа со скидкой: база, скидка, к оплате."""
+    promotion = best_promotion(tariff, code=code, now=now)
+    discount = promotion.discount_for(tariff.price_rub) if promotion else Decimal("0.00")
+    return {
+        "tariff": tariff,
+        "base_rub": tariff.price_rub,
+        "discount_rub": discount,
+        "total_rub": (tariff.price_rub - discount).quantize(Decimal("0.01")),
+        "promotion": promotion,
+    }
+
+
 @transaction.atomic
-def start_payment(student, tariff: Tariff, payer, idempotency_key: str) -> tuple[Payment, str]:
+def start_payment(
+    student, tariff: Tariff, payer, idempotency_key: str,
+    *, promo_code: str = "", method: PaymentMethod | None = None,
+) -> tuple[Payment, str]:
     """Создать платёж и получить ссылку на оплату. Идемпотентно по ключу."""
     if not tariff.is_active:
         raise ValidationError("Тариф больше не продаётся.")
     if payer is None or not payer.is_authenticated:
         raise ValidationError("Плательщик не определён.")
+    if method is not None and not method.is_active:
+        raise ValidationError("Способ оплаты сейчас недоступен.")
 
     existing = Payment.objects.filter(idempotency_key=idempotency_key).first()
     if existing is not None:
         return existing, get_provider().create_payment(existing)
 
+    priced = quote(tariff, code=promo_code)
+    promotion = priced["promotion"]
+    metadata = {}
+    if promotion is not None:
+        metadata["promotion"] = {
+            "id": promotion.id, "title": promotion.title, "code": promotion.code,
+            "discount_rub": str(priced["discount_rub"]),
+        }
+        # Счётчик двигаем только при создании платежа: повторный клик по кнопке
+        # попадает в ветку идемпотентности выше и лимит акции не тратит.
+        Promotion.objects.filter(pk=promotion.pk).update(used_count=models.F("used_count") + 1)
+    if method is not None:
+        metadata["payment_method"] = method.code
+
     payment = Payment.objects.create(
         student=student, payer=payer, tariff=tariff,
-        amount_rub=tariff.price_rub, idempotency_key=idempotency_key,
+        amount_rub=priced["total_rub"], idempotency_key=idempotency_key,
+        provider=method.provider_key if method is not None else "",
+        metadata=metadata,
     )
     return payment, get_provider().create_payment(payment)
 

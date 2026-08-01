@@ -42,6 +42,143 @@
   }
   openInitialDialog();
 
+  // Граф карты навыков: координаты приходят с сервера, здесь только отрисовка
+  // и подсветка цепочки пререквизитов выбранной темы.
+  function renderKnowledgeGraph() {
+    const wrap = document.querySelector("[data-graph]"), payload = document.getElementById("graph-data");
+    if (!wrap || !payload) return;
+    const data = JSON.parse(payload.textContent), svg = wrap.querySelector("svg");
+    const NS = "http://www.w3.org/2000/svg", RADIUS = 27, CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+    const el = (name, attrs) => {
+      const node = document.createElementNS(NS, name);
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+      return node;
+    };
+    const byId = new Map(data.nodes.map(node => [node.id, node]));
+    const parents = new Map(data.nodes.map(node => [node.id, []]));
+    data.edges.forEach(edge => parents.get(edge.to).push(edge.from));
+
+    const hulls = el("g", {}), edges = el("g", {}), nodes = el("g", {});
+    data.clusters.forEach(cluster => {
+      hulls.appendChild(el("rect", { class: "cluster-hull", x: cluster.x, y: cluster.y, width: cluster.w, height: cluster.h, rx: 26 }));
+      const label = el("text", { class: "cluster-label", x: cluster.x + 20, y: cluster.y + 28 });
+      label.textContent = cluster.title;
+      hulls.appendChild(label);
+    });
+    data.edges.forEach(edge => {
+      const from = byId.get(edge.from), to = byId.get(edge.to);
+      const dx = to.x - from.x, dy = to.y - from.y, length = Math.hypot(dx, dy) || 1;
+      const ux = dx / length, uy = dy / length;
+      const start = { x: from.x + ux * RADIUS, y: from.y + uy * RADIUS };
+      const end = { x: to.x - ux * RADIUS, y: to.y - uy * RADIUS };
+      const control = { x: (start.x + end.x) / 2 - uy * 16, y: (start.y + end.y) / 2 + ux * 16 };
+      edges.appendChild(el("path", {
+        class: `edge ${edge.met ? "met" : "blocked"}`, "data-from": edge.from, "data-to": edge.to,
+        d: `M${start.x},${start.y} Q${control.x},${control.y} ${end.x},${end.y}`
+      }));
+    });
+    data.nodes.forEach(node => {
+      const group = el("g", {
+        class: "gnode", "data-id": node.id, "data-state": node.state, tabindex: "0", role: "button",
+        "aria-label": `${node.title}, ${node.state_label}, освоение ${node.mastery} процентов`
+      });
+      group.appendChild(el("circle", { class: "halo", cx: node.x, cy: node.y, r: RADIUS }));
+      if (node.mastery > 0) {
+        group.appendChild(el("circle", {
+          class: "ring", cx: node.x, cy: node.y, r: RADIUS,
+          "stroke-dasharray": `${(CIRCUMFERENCE * node.mastery / 100).toFixed(1)} ${CIRCUMFERENCE.toFixed(1)}`,
+          transform: `rotate(-90 ${node.x} ${node.y})`
+        }));
+      }
+      const percent = el("text", { class: "pct", x: node.x, y: node.y + 4 });
+      percent.textContent = node.state === "locked" ? "—" : `${node.mastery}%`;
+      group.appendChild(percent);
+      const name = el("text", { class: "name", x: node.x, y: node.y + RADIUS + 19 });
+      name.textContent = node.title;
+      group.appendChild(name);
+      nodes.appendChild(group);
+    });
+    svg.replaceChildren(hulls, edges, nodes);
+
+    const inspector = document.querySelector("[data-graph-inspector]");
+    const parts = inspector && {
+      title: inspector.querySelector("[data-ins-title]"), state: inspector.querySelector("[data-ins-state]"),
+      why: inspector.querySelector("[data-ins-why]"), bar: inspector.querySelector("[data-ins-bar]"),
+      task: inspector.querySelector("[data-ins-task]"), link: inspector.querySelector("[data-ins-link]")
+    };
+    const describe = node => {
+      if (node.state === "locked") {
+        const blocker = parents.get(node.id).map(id => byId.get(id)).find(dep => dep.mastery < 70);
+        if (blocker) return `Тема закрыта: не хватает освоения в теме «${blocker.title}» — сейчас ${blocker.mastery} %.`;
+        return "Тема закрыта пререквизитом.";
+      }
+      if (node.state === "decayed") return "Тема остыла без повторов. Возврат быстрее, чем изучение заново.";
+      if (node.state === "available") return "Пререквизиты закрыты — тему можно брать в план.";
+      if (node.state === "mastered") return "Тема освоена. Контрольный повтор запланирован автоматически.";
+      return "Тема в работе: порог освоения — 70 %.";
+    };
+    const show = node => {
+      if (!parts) return;
+      parts.title.textContent = node.title;
+      parts.state.textContent = node.state_label;
+      parts.why.textContent = describe(node);
+      parts.bar.style.width = `${Math.max(node.mastery, 2)}%`;
+      parts.task.textContent = `Освоение ${node.mastery} %`;
+      parts.link.href = node.url;
+    };
+    const chain = (id, seen = new Set()) => {
+      if (seen.has(id)) return seen;
+      seen.add(id);
+      parents.get(id).forEach(parent => chain(parent, seen));
+      return seen;
+    };
+    let picked = null;
+    const highlight = id => {
+      const lit = id ? chain(id) : null;
+      wrap.classList.toggle("is-picked", Boolean(lit));
+      nodes.querySelectorAll(".gnode").forEach(group => {
+        group.classList.toggle("is-lit", Boolean(lit && lit.has(Number(group.dataset.id))));
+      });
+      edges.querySelectorAll(".edge").forEach(edge => {
+        edge.classList.toggle("is-lit", Boolean(lit && lit.has(Number(edge.dataset.from)) && lit.has(Number(edge.dataset.to))));
+      });
+    };
+    const groupFrom = event => event.target.closest && event.target.closest(".gnode");
+    const toggle = group => {
+      const id = Number(group.dataset.id);
+      picked = picked === id ? null : id;
+      show(byId.get(id));
+      highlight(picked);
+    };
+    svg.addEventListener("mouseover", event => { const group = groupFrom(event); if (group) show(byId.get(Number(group.dataset.id))); });
+    svg.addEventListener("focusin", event => { const group = groupFrom(event); if (group) show(byId.get(Number(group.dataset.id))); });
+    svg.addEventListener("click", event => { const group = groupFrom(event); if (group) toggle(group); });
+    svg.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const group = groupFrom(event);
+      if (!group) return;
+      event.preventDefault();
+      toggle(group);
+    });
+  }
+  renderKnowledgeGraph();
+
+  const viewSwitch = document.querySelector("[data-view-switch]");
+  if (viewSwitch) {
+    viewSwitch.addEventListener("click", event => {
+      const button = event.target.closest("button[data-view]");
+      if (!button) return;
+      viewSwitch.querySelectorAll("button").forEach(item => {
+        const on = item === button;
+        item.classList.toggle("is-on", on);
+        item.setAttribute("aria-pressed", String(on));
+      });
+      document.querySelectorAll("[data-view-panel]").forEach(panel => {
+        panel.hidden = panel.dataset.viewPanel !== button.dataset.view;
+      });
+    });
+  }
+
   document.addEventListener("click", async event => {
     const startMockButton = event.target.closest("[data-start-mock]");
     if (startMockButton) {

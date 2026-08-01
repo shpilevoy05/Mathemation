@@ -159,6 +159,22 @@ def primary_to_scaled(primary: float) -> int:
     return scaled_score(primary, settings.PRIMARY_TO_SCALED)
 
 
+def primary_for_scaled(scaled: int) -> float:
+    """Сколько первичных нужно, чтобы получить такой тестовый балл.
+
+    Обратная сторона таблицы перевода: цель ученик ставит в тестовых баллах, а
+    вся шкала в интерфейсе живёт в первичных.
+    """
+    maximum = max_primary_score()
+    step = 0.5
+    primary = 0.0
+    while primary <= maximum:
+        if primary_to_scaled(primary) >= scaled:
+            return round(primary, 1)
+        primary += step
+    return round(maximum, 1)
+
+
 def expected_primary(student, mastery_override: dict[int, float] | None = None) -> float:
     """Ожидаемый первичный балл: Σ P(верно | mastery, IRT) · балл задания.
 

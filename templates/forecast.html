@@ -4,6 +4,40 @@
 {% if not student %}<section class="empty-state"><h1>Прогноз</h1><p>Этот раздел доступен ученикам.</p></section>{% else %}
 <div class="page-heading"><div><p class="eyebrow">Честная оценка</p><h1>Прогноз и потолок</h1><p>Посмотри, как темп и время до экзамена влияют на достижимый результат.</p></div></div>
 <section class="forecast-hero" data-forecast><div class="forecast-score"><small>Текущий прогноз</small><strong data-current-score>{{ forecast.current_score }}</strong><span>при текущем темпе</span></div><div class="forecast-arrow">→</div><div class="forecast-score ceiling"><small>Потолок</small><strong data-ceiling-score>{{ forecast.ceiling_score }}</strong><span>при выбранных условиях</span></div></section>
+<section class="card card-wide forecast-card">
+  <div class="section-heading">
+    <h2>Шкала первичных баллов</h2>
+    <small class="muted">потолок — максимум, достижимый к дате экзамена при текущем темпе</small>
+  </div>
+  <div class="score-row">
+    <span class="score-big num">{{ gauge.primary|floatformat:1 }}</span>
+    <span class="score-side">
+      <span class="cap">первичных из {{ gauge.max_primary|floatformat:0 }}</span>
+      <span>это <b class="num">{{ gauge.scaled }}</b> тестовых · интервал <b class="num">{{ gauge.low_scaled }}–{{ gauge.high_scaled }}</b></span>
+    </span>
+  </div>
+  {% include "partials/primary_gauge.html" with gauge=gauge %}
+  <div class="convert">
+    <div><span class="k">До цели</span><span class="v">{{ gauge.to_target_primary|floatformat:1 }} первичных</span></div>
+    <div><span class="k">Цель</span><span class="v">{{ gauge.target_scaled }} тестовых</span></div>
+    {% if gauge.ceiling_primary %}<div><span class="k">Потолок</span><span class="v">{{ gauge.ceiling_primary|floatformat:1 }} первичных</span></div>{% endif %}
+    <div><span class="k">Разброс оценки</span><span class="v">± {{ interval.sigma_primary|floatformat:1 }}</span></div>
+  </div>
+</section>
+
+<section class="card card-wide">
+  <div class="section-heading">
+    <h2>Покрытие профиля экзамена</h2>
+    <span class="chip {% if coverage.unmapped_numbers %}danger-soft{% else %}success-soft{% endif %}">{{ coverage.mapped }} из {{ coverage.tasks }}</span>
+  </div>
+  <div class="coverage">
+    {% for task in coverage.numbers %}
+      <span class="{% if task.mapped %}is-mapped{% endif %}" title="{% if task.mapped %}размечено темами графа{% else %}нет тем: задание считается нулём{% endif %}">{{ task.number }}</span>
+    {% endfor %}
+  </div>
+  <p class="disclaimer">Задание без размеченных тем даёт ноль и занижает прогноз — такие номера остаются серыми, пока методист не свяжет их с узлами графа.</p>
+</section>
+
 <p class="disclaimer prominent">Это не гарантия балла. Прогноз — условный диапазон результата при текущем темпе; фактический результат зависит от регулярности, пробников и работы над ошибками.</p>
 <section class="card target-score-card" data-target-score-card>
   <div><p class="eyebrow">Целевой балл</p><h2><span data-target-score-current>{{ target_score }}</span> баллов</h2><p>Текущая траектория: <strong data-target-trajectory>{{ trajectory.title|default:"ещё не назначена" }}</strong></p></div>

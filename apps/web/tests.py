@@ -362,6 +362,61 @@ class ShopPageTests(TestCase):
         self.assertIn(reverse("login"), response.url)
 
 
+class DesignSystemTests(TestCase):
+    """Новое оформление: граф на карте, шкала первичных, сигмы, тарифы в меню."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", verbosity=0)
+        cls.user = User.objects.get(username="student")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_map_ships_graph_layout_with_nodes_and_edges(self):
+        response = self.client.get(reverse("knowledge_map"))
+        graph = response.context["graph"]
+
+        self.assertEqual(len(graph["nodes"]), KnowledgeNode.objects.count())
+        self.assertTrue(graph["edges"])
+        self.assertContains(response, "graph-data")
+
+    def test_graph_nodes_never_overlap_each_other(self):
+        graph = self.client.get(reverse("knowledge_map")).context["graph"]
+
+        for first in graph["nodes"]:
+            for second in graph["nodes"]:
+                if first["id"] >= second["id"]:
+                    continue
+                distance = (
+                    (first["x"] - second["x"]) ** 2 + (first["y"] - second["y"]) ** 2
+                ) ** 0.5
+                self.assertGreater(distance, 70, f"{first['title']} и {second['title']}")
+
+    def test_dashboard_gauge_uses_primary_points_with_target_and_interval(self):
+        gauge = self.client.get(reverse("dashboard")).context["gauge"]
+
+        self.assertEqual(gauge["max_primary"], 32)
+        self.assertEqual(gauge["target_scaled"], self.user.student_profile.target_score)
+        self.assertLessEqual(gauge["now_percent"], 100)
+        self.assertGreaterEqual(gauge["target_percent"], gauge["now_percent"])
+
+    def test_forecast_page_shows_profile_coverage(self):
+        response = self.client.get(reverse("forecast"))
+
+        self.assertEqual(response.context["coverage"]["unmapped_numbers"], [])
+        self.assertContains(response, "Покрытие профиля экзамена")
+
+    def test_shop_speaks_about_sigmas_and_shows_the_token(self):
+        response = self.client.get(reverse("shop"))
+
+        self.assertContains(response, "сигм")
+        self.assertContains(response, "sigma-coin")
+
+    def test_navigation_leads_to_pricing(self):
+        self.assertContains(self.client.get(reverse("dashboard")), reverse("pricing"))
+
+
 class HomeworkAndDailyPageTests(TestCase):
     """Домашки и задание дня видны ученику в кабинете, а не только в API."""
 

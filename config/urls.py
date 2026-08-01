@@ -7,6 +7,7 @@ from rest_framework.routers import DefaultRouter
 from apps.accounts import views as account_views
 from apps.accounts.api import MeView, TargetScoreView
 from apps.ai_mentor.api import HintView, ParentAiLogView
+from apps.billing import pages as billing_pages
 from apps.content.api import AssignmentViewSet, LessonViewSet, TrackView
 from apps.content.student_api import (
     DailyChallengeView,
@@ -109,6 +110,7 @@ urlpatterns = [
     path("api/", include(api_urls)),
     path("api-auth/", include("rest_framework.urls")),
     path("accounts/", include("django.contrib.auth.urls")),
+    path("pricing/", billing_pages.pricing, name="pricing"),
     path("invite/", account_views.register_by_invite, name="register"),
     path("invite/<str:code>/", account_views.register_by_invite, name="register_by_invite"),
     path("", web_views.dashboard, name="dashboard"),

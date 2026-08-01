@@ -20,6 +20,27 @@
     </div>
   </section>
 
+  <section class="card card-wide forecast-card">
+    <div class="section-heading">
+      <h2>Прогноз на сегодня</h2>
+      <small class="muted">шкала в первичных баллах: перевод в тестовые нелинейный</small>
+    </div>
+    <div class="score-row">
+      <span class="score-big num">{{ gauge.primary|floatformat:1 }}</span>
+      <span class="score-side">
+        <span class="cap">первичных из {{ gauge.max_primary|floatformat:0 }}</span>
+        <span>это <b class="num">{{ gauge.scaled }}</b> тестовых · интервал <b class="num">{{ gauge.low_scaled }}–{{ gauge.high_scaled }}</b></span>
+      </span>
+    </div>
+    {% include "partials/primary_gauge.html" with gauge=gauge %}
+    <div class="convert">
+      <div><span class="k">До цели</span><span class="v">{{ gauge.to_target_primary|floatformat:1 }} первичных</span></div>
+      <div><span class="k">Цель</span><span class="v">{{ gauge.target_scaled }} тестовых</span></div>
+      {% if gauge.ceiling_primary %}<div><span class="k">Потолок при темпе</span><span class="v">{{ gauge.ceiling_primary|floatformat:1 }} первичных</span></div>{% endif %}
+      <div><span class="k">Сигмы</span><span class="v"><svg class="sigma-token" width="16" height="16" aria-hidden="true"><use href="#sigma-coin"></use></svg> {{ wallet_balance }}</span></div>
+    </div>
+  </section>
+
   {% if major_changes or trajectory_transitions %}
     <dialog class="app-dialog app-dialog-major" id="important-dialog" data-auto-open>
       <div class="dialog-heading"><span class="dialog-icon">⚠️</span><div><p class="eyebrow">Важное изменение</p><h2>Траектория и план обновлены</h2></div></div>

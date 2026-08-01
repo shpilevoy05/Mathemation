@@ -9,7 +9,7 @@
 from rest_framework import serializers
 
 from apps.accounts.models import Invite, StudentGroup, StudentProfile
-from apps.billing.models import Payment, Subscription, Tariff
+from apps.billing.models import Payment, PaymentMethod, Promotion, Subscription, Tariff
 from apps.content.models import (
     Assignment,
     AssignmentVersion,
@@ -148,6 +148,34 @@ class TariffSerializer(serializers.ModelSerializer):
         fields = "__all__"
         # Цена меняется только новой версией тарифа (действие new_version).
         read_only_fields = ["version"]
+
+
+class PaymentMethodSerializer(serializers.ModelSerializer):
+    is_placeholder = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = PaymentMethod
+        fields = [
+            "id", "code", "title", "description", "instructions",
+            "provider_key", "is_active", "order", "is_placeholder",
+        ]
+
+
+class PromotionSerializer(serializers.ModelSerializer):
+    is_running = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Promotion
+        fields = [
+            "id", "title", "description", "code", "kind", "value", "tariff_codes",
+            "starts_at", "ends_at", "max_uses", "used_count", "is_active",
+            "created_at", "is_running",
+        ]
+        # Счётчик применений двигает домен при создании платежа, не редактор.
+        read_only_fields = ["used_count", "created_at"]
+
+    def get_is_running(self, promotion) -> bool:
+        return promotion.is_running()
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):

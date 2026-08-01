@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from apps.accounts.models import Invite, StudentGroup, StudentProfile
 from apps.accounts.permissions import IsPlatformAdmin
 from apps.accounts.services import create_invite, deactivate_student, reactivate_student
-from apps.billing.models import Payment, Subscription, Tariff
+from apps.billing.models import Payment, PaymentMethod, Promotion, Subscription, Tariff
 from apps.billing.services import new_tariff_version, refund_payment
 from apps.content.models import (
     Assignment,
@@ -247,6 +247,20 @@ class TariffViewSet(PanelViewSet):
             title=request.data.get("title", self.get_object().title),
         )
         return Response(self.get_serializer(updated).data, status=status.HTTP_201_CREATED)
+
+
+class PaymentMethodViewSet(PanelViewSet):
+    """Способы оплаты на витрине тарифов."""
+
+    queryset = PaymentMethod.objects.all()
+    serializer_class = panel.PaymentMethodSerializer
+
+
+class PromotionViewSet(PanelViewSet):
+    """Скидки и акции поверх версионированных цен."""
+
+    queryset = Promotion.objects.all()
+    serializer_class = panel.PromotionSerializer
 
 
 class SubscriptionViewSet(PanelViewSet):

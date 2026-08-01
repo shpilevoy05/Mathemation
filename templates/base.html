@@ -9,7 +9,18 @@
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="{% static 'js/app.js' %}" defer></script>
 </head>
-<body>
+<body{% if not user.is_authenticated %} class="no-rail"{% endif %}>
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+    <defs>
+      <linearGradient id="sigmaCoin" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#4257D6"/><stop offset="1" stop-color="#8FA2FF"/>
+      </linearGradient>
+      <symbol id="sigma-coin" viewBox="0 0 40 40">
+        <path fill="url(#sigmaCoin)" d="M20 1.6l14.7 8.5a3.2 3.2 0 0 1 1.6 2.8v14.2a3.2 3.2 0 0 1-1.6 2.8L20 38.4a3.2 3.2 0 0 1-3.2 0L2.1 29.9a3.2 3.2 0 0 1-1.6-2.8V12.9a3.2 3.2 0 0 1 1.6-2.8L16.8 1.6a3.2 3.2 0 0 1 3.2 0z"/>
+        <path fill="#fff" d="M13.4 12.2h13.2v3.3h-7.4l5.3 4.6-5.3 4.7h7.4v3.3H13.4v-3.2l5.9-4.8-5.9-4.7z"/>
+      </symbol>
+    </defs>
+  </svg>
   <header class="site-header">
     <div class="header-inner">
       <a class="brand" href="/" aria-label="Матемация">{% include "partials/logo.html" with size="sm" %}</a>
@@ -32,9 +43,11 @@
             <a class="{% if request.resolver_match.url_name == 'daily_challenge' %}is-active{% endif %}" href="{% url 'daily_challenge' %}"><span class="nav-icon">⭐</span><span class="desktop-label">Задание дня</span><span class="mobile-label">Задание</span></a>
             <a class="{% if request.resolver_match.url_name == 'mocks' or request.resolver_match.url_name == 'mock_run' or request.resolver_match.url_name == 'mock_result' %}is-active{% endif %}" href="{% url 'mocks' %}"><span class="nav-icon">🏆</span><span>Пробники</span></a>
             <a class="{% if request.resolver_match.url_name == 'forecast' %}is-active{% endif %}" href="{% url 'forecast' %}"><span class="nav-icon">📈</span><span>Прогноз</span></a>
-            <a class="{% if request.resolver_match.url_name == 'shop' %}is-active{% endif %}" href="{% url 'shop' %}"><span class="nav-icon">🛒</span><span>Магазин</span></a>
+            <a class="{% if request.resolver_match.url_name == 'shop' %}is-active{% endif %}" href="{% url 'shop' %}"><span class="nav-icon">Σ</span><span>Магазин</span></a>
+            <a class="{% if request.resolver_match.url_name == 'pricing' %}is-active{% endif %}" href="{% url 'pricing' %}"><span class="nav-icon">₽</span><span>Тарифы</span></a>
           {% elif not expert_access and not methodist_access and user.parent_profile %}
             <a class="{% if request.resolver_match.url_name == 'parent_dashboard' %}is-active{% endif %}" href="{% url 'parent_dashboard' %}"><span class="nav-icon">📋</span><span>Отчёт</span></a>
+            <a class="{% if request.resolver_match.url_name == 'pricing' %}is-active{% endif %}" href="{% url 'pricing' %}"><span class="nav-icon">₽</span><span>Тарифы и оплата</span></a>
           {% endif %}
         </nav>
         <div class="account-menu">

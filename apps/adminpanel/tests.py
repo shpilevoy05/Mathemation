@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.accounts.models import StudentGroup, User
-from apps.billing.models import Payment, Subscription, Tariff
+from apps.billing.models import Payment, PaymentMethod, Promotion, Subscription, Tariff
 from apps.billing.services import confirm_payment, start_payment
 from apps.content.models import Homework, Lesson, TheoryBlock
 from apps.economy.models import LedgerEntry
@@ -54,6 +54,62 @@ class PanelAccessTests(TestCase):
         self.assertEqual(self.client.get("/panel/").status_code, 403)
         self.client.force_login(make_admin("page-admin"))
         self.assertEqual(self.client.get("/panel/").status_code, 200)
+
+
+class PanelPricingTests(TestCase):
+    """Прайс настраивается из панели: способы оплаты, скидки и акции."""
+
+    def setUp(self):
+        self.client.force_login(make_admin("pricing-admin"))
+
+    def test_admin_creates_a_payment_method(self):
+        response = self.client.post(
+            "/api/admin/payment-methods/",
+            {"code": "sbp", "title": "СБП", "description": "Перевод по QR", "order": 1},
+            "application/json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.json()["is_placeholder"])
+        self.assertEqual(PaymentMethod.objects.get(code="sbp").title, "СБП")
+
+    def test_admin_creates_a_promotion_and_cannot_forge_its_counter(self):
+        response = self.client.post(
+            "/api/admin/promotions/",
+            {
+                "title": "Первый месяц", "code": "START10", "kind": "percent",
+                "value": "10.00", "tariff_codes": ["solo"], "used_count": 99,
+            },
+            "application/json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        promotion = Promotion.objects.get(code="START10")
+        self.assertEqual(promotion.used_count, 0)
+        self.assertTrue(response.json()["is_running"])
+
+    def test_promotion_can_be_switched_off(self):
+        promotion = Promotion.objects.create(title="Акция", value=10)
+
+        response = self.client.patch(
+            f"/api/admin/promotions/{promotion.pk}/", {"is_active": False}, "application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["is_running"])
+
+    def test_pricing_sections_are_listed_in_the_panel_page(self):
+        page = self.client.get("/panel/").content.decode()
+
+        self.assertIn("Способы оплаты", page)
+        self.assertIn("Скидки и акции", page)
+
+    def test_pricing_endpoints_are_closed_for_students(self):
+        self.client.force_login(User.objects.create_user("shopper", role=User.Role.STUDENT))
+
+        for url in ("/api/admin/payment-methods/", "/api/admin/promotions/"):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 403)
 
 
 class PanelActionsTests(TestCase):

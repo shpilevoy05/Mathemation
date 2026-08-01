@@ -8,9 +8,9 @@
     <div class="hero-copy">
       <p class="eyebrow">Награды за занятия</p>
       <h1>Магазин</h1>
-      <p>Баллы начисляются за решённые задачи, закрытые ошибки, пройденные пункты плана и пробники. Косметика не влияет на обучение и прогноз.</p>
+      <p>Сигмы начисляются за решённые задачи, закрытые ошибки, пройденные пункты плана и пробники. Косметика не влияет на обучение, план и прогноз.</p>
     </div>
-    <div class="hero-streak"><span aria-hidden="true">🪙</span><strong data-shop-balance>{{ balance }}</strong></div>
+    <div class="hero-streak sigma-amount"><svg class="sigma-token" width="34" height="34" aria-hidden="true"><use href="#sigma-coin"></use></svg><strong data-shop-balance>{{ balance }}</strong><small>сигм</small></div>
   </section>
 
   <div class="dashboard-grid">
@@ -22,7 +22,7 @@
             <li class="shop-item {% if row.owned %}is-owned{% endif %}" data-shop-item="{{ row.item.id }}">
               <div>
                 <strong>{{ row.item.title }}</strong>
-                <small>{{ row.item.get_slot_display }} · {{ row.item.price_coins }} баллов</small>
+                <small>{{ row.item.get_slot_display }} · <span class="price num">{{ row.item.price_coins }} <svg class="sigma-token" width="14" height="14" aria-hidden="true"><use href="#sigma-coin"></use></svg></span></small>
                 {% if row.item.description %}<small>{{ row.item.description }}</small>{% endif %}
               </div>
               <div class="shop-actions">
@@ -37,7 +37,7 @@
                   <button class="button button-primary button-small" type="button"
                           data-shop-action="buy" data-shop-url="/api/shop/items/{{ row.item.id }}/buy/">Купить</button>
                 {% else %}
-                  <span class="empty-copy" data-shop-state>Не хватает баллов</span>
+                  <span class="empty-copy" data-shop-state>Не хватает сигм</span>
                 {% endif %}
               </div>
             </li>
@@ -55,13 +55,13 @@
         <ul class="plain-list">
           {% for entry in recent_entries %}
             <li>
-              <strong>{% if entry.amount > 0 %}+{% endif %}{{ entry.amount }}</strong>
+              <strong class="num">{% if entry.amount > 0 %}+{% endif %}{{ entry.amount }}</strong>
               <small>{{ entry.comment|default:entry.get_reason_display }} · {{ entry.created_at|date:"d.m H:i" }}</small>
             </li>
           {% endfor %}
         </ul>
       {% else %}
-        <p class="empty-copy">Пока пусто. Реши задачу — баллы появятся.</p>
+        <p class="empty-copy">Пока пусто. Реши задачу — сигмы появятся.</p>
       {% endif %}
     </section>
   </div>

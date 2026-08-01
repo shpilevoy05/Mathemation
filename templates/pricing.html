@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Тарифы и оплата — Матемация{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Стоимость подготовки</p>
+    <h1>Тарифы и оплата</h1>
+    <p>Цена фиксируется в момент оплаты: изменение прайса создаёт новую версию тарифа и не меняет условия уже оплаченного периода.</p>
+  </div>
+</div>
+
+{% if promotions %}
+  <section class="card promo-strip">
+    <div class="section-heading"><h2>Идут акции</h2><span class="chip">{{ promotions|length }}</span></div>
+    <ul class="plain-list">
+      {% for promotion in promotions %}
+        <li>
+          <strong>{{ promotion.title }}</strong>
+          <small>
+            {% if promotion.kind == 'percent' %}−{{ promotion.value|floatformat:0 }}%{% else %}−{{ promotion.value|floatformat:0 }} ₽{% endif %}
+            {% if promotion.code %} · промокод <b class="num">{{ promotion.code }}</b>{% else %} · применяется автоматически{% endif %}
+            {% if promotion.ends_at %} · до {{ promotion.ends_at|date:"d.m.Y" }}{% endif %}
+            {% if promotion.description %} · {{ promotion.description }}{% endif %}
+          </small>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endif %}
+
+<form class="promo-form" method="get" action="{% url 'pricing' %}">
+  <label for="promo">Промокод</label>
+  <div class="answer-row">
+    <input id="promo" name="promo" value="{{ promo_code }}" autocomplete="off" placeholder="Например, START10">
+    <button class="button" type="submit">Применить</button>
+  </div>
+  {% if promo_applied %}<p class="target-success">Промокод применён — цены ниже уже со скидкой.</p>{% endif %}
+  {% if promo_failed %}<p class="form-error">Такой промокод не действует: истёк срок, кончились применения или он не подходит к этим тарифам.</p>{% endif %}
+</form>
+
+<div class="pricing-grid">
+  {% for item in quotes %}
+    <section class="card pricing-card {% if item.promotion %}has-discount{% endif %}">
+      <div class="section-heading">
+        <h2>{{ item.tariff.title }}</h2>
+        {% if item.promotion %}<span class="chip danger-soft">скидка</span>{% endif %}
+      </div>
+      <p class="price-line">
+        <span class="price-total num">{{ item.total_rub|floatformat:0 }} ₽</span>
+        {% if item.promotion %}<s class="price-base num">{{ item.base_rub|floatformat:0 }} ₽</s>{% endif %}
+        <small>за {{ item.tariff.period_days }} дней</small>
+      </p>
+      {% if item.promotion %}<p class="muted">{{ item.promotion.title }}: −{{ item.discount_rub|floatformat:0 }} ₽</p>{% endif %}
+      {% if item.tariff.description %}<p>{{ item.tariff.description }}</p>{% endif %}
+      {% if item.tariff.features %}
+        <ul class="plain-list">
+          {% for name, value in item.tariff.features.items %}<li><strong>{{ name }}</strong><small>{{ value }}</small></li>{% endfor %}
+        </ul>
+      {% endif %}
+      {% if checkout_enabled %}
+        <button class="button button-primary" type="button" data-checkout="{{ item.tariff.id }}">Оплатить</button>
+      {% else %}
+        <button class="button button-primary" type="button" disabled>Оплата скоро</button>
+        <p class="disclaimer">Приём платежей ещё не подключён. Напишите куратору — он выставит счёт вручную и откроет доступ.</p>
+      {% endif %}
+      <small class="muted">Версия тарифа {{ item.tariff.version }}</small>
+    </section>
+  {% empty %}
+    <section class="empty-state">
+      <h2>Тарифы пока не опубликованы</h2>
+      <p>Администратор задаёт прайс в панели: раздел «Тарифы и оплата».</p>
+    </section>
+  {% endfor %}
+</div>
+
+<section class="card">
+  <div class="section-heading"><h2>Способы оплаты</h2><span class="muted">настраиваются администратором</span></div>
+  {% if payment_methods %}
+    <ul class="plain-list">
+      {% for method in payment_methods %}
+        <li>
+          <strong>{{ method.title }}{% if method.is_placeholder %} <span class="chip">вручную</span>{% endif %}</strong>
+          {% if method.description %}<small>{{ method.description }}</small>{% endif %}
+          {% if method.instructions %}<small>{{ method.instructions|linebreaksbr }}</small>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Способы оплаты ещё не заданы. Пока оплата обсуждается с куратором напрямую.</p>
+  {% endif %}
+  <p class="disclaimer">Платит взрослый: для ученика младше 18 лет плательщиком выступает родитель. Возврат оформляется через куратора и снимает подписку.</p>
+</section>
+{% endblock %}

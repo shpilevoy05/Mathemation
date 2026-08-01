@@ -66,6 +66,12 @@ SECTIONS = [
     {"group": "Деньги", "items": [
         {"key": "tariffs", "title": "Тарифы",
          "columns": ["id", "code", "version", "title", "price_rub", "period_days", "is_active"]},
+        {"key": "payment-methods", "title": "Способы оплаты",
+         "columns": ["id", "code", "title", "description", "instructions",
+                     "provider_key", "is_active", "order"]},
+        {"key": "promotions", "title": "Скидки и акции",
+         "columns": ["id", "title", "code", "kind", "value", "tariff_codes",
+                     "starts_at", "ends_at", "max_uses", "used_count", "is_active"]},
         {"key": "subscriptions", "title": "Подписки",
          "columns": ["id", "student", "tariff", "status", "ends_at"]},
         {"key": "payments", "title": "Платежи",

@@ -50,6 +50,99 @@ class Tariff(models.Model):
         return f"{self.title} v{self.version} ({self.price_rub} ₽)"
 
 
+class PaymentMethod(models.Model):
+    """Способ оплаты на витрине тарифов.
+
+    Способ — это витринная сущность: что ученик и родитель видят на странице
+    оплаты. Реальный эквайринг подключается отдельно через
+    `settings.BILLING_PROVIDER`, поэтому у способа есть только ключ провайдера,
+    и пустой ключ означает «оплата пока вручную».
+    """
+
+    code = models.SlugField(max_length=64, unique=True)
+    title = models.CharField(max_length=200)
+    description = models.CharField(max_length=300, blank=True)
+    # Подсказка платящему: реквизиты, порядок действий, срок зачисления.
+    instructions = models.TextField(blank=True)
+    provider_key = models.CharField(max_length=64, blank=True)
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "title"]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def is_placeholder(self) -> bool:
+        return not self.provider_key
+
+
+class Promotion(models.Model):
+    """Скидка или акция на тарифы.
+
+    Скидка живёт отдельно от тарифа: цена тарифа версионируется и должна
+    оставаться той, по которой платили, а акция — временное правило поверх неё.
+    """
+
+    class Kind(models.TextChoices):
+        PERCENT = "percent", "Процент"
+        FIXED = "fixed", "Фиксированная сумма"
+
+    title = models.CharField(max_length=200)
+    description = models.CharField(max_length=300, blank=True)
+    # Пустой код — акция применяется сама, без ввода промокода.
+    code = models.CharField(max_length=32, blank=True)
+    kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.PERCENT)
+    value = models.DecimalField(max_digits=10, decimal_places=2)
+    # Пустой список — акция действует на все тарифы.
+    tariff_codes = models.JSONField(default=list, blank=True)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    # 0 — без ограничения по числу применений.
+    max_uses = models.PositiveIntegerField(default=0)
+    used_count = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["code"], condition=~models.Q(code=""), name="uniq_promotion_code"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(value__gt=Decimal("0")), name="promotion_value_positive"
+            ),
+        ]
+
+    def __str__(self):
+        suffix = f" ({self.code})" if self.code else ""
+        return f"{self.title}{suffix}"
+
+    def is_running(self, now=None) -> bool:
+        now = now or timezone.now()
+        if not self.is_active:
+            return False
+        if self.starts_at and self.starts_at > now:
+            return False
+        if self.ends_at and self.ends_at <= now:
+            return False
+        return self.max_uses == 0 or self.used_count < self.max_uses
+
+    def applies_to(self, tariff: "Tariff") -> bool:
+        return not self.tariff_codes or tariff.code in self.tariff_codes
+
+    def discount_for(self, price: Decimal) -> Decimal:
+        """Скидка в рублях. Никогда не больше самой цены."""
+        # Значение может прийти из формы как строка или число, поэтому
+        # приводим его к Decimal, а не полагаемся на тип из базы.
+        value = Decimal(str(self.value))
+        raw = price * value / Decimal("100") if self.kind == self.Kind.PERCENT else value
+        return min(Decimal(price), raw.quantize(Decimal("0.01")))
+
+
 class Subscription(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending"
