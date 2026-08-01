@@ -2,19 +2,65 @@ from django.db import models
 
 
 class Lesson(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Черновик"
+        PUBLISHED = "published", "Опубликован"
+        ARCHIVED = "archived", "В архиве"
+
+    class VideoProvider(models.TextChoices):
+        KINESCOPE = "kinescope", "Kinescope"
+        YOUTUBE = "youtube", "YouTube"
+        VK = "vk", "VK Видео"
+        RUTUBE = "rutube", "Rutube"
+        OTHER = "other", "Другой"
+
     node = models.ForeignKey(
         "knowledge.KnowledgeNode", on_delete=models.CASCADE, related_name="lessons"
     )
     title = models.CharField(max_length=200)
     order = models.PositiveSmallIntegerField(default=0)
-    video_url = models.URLField(blank=True)
+    # Видео живёт на хостинге (по умолчанию Kinescope): в поле кладут либо
+    # идентификатор ролика, либо готовую ссылку.
+    video_provider = models.CharField(
+        max_length=16, choices=VideoProvider.choices, default=VideoProvider.KINESCOPE
+    )
+    video_url = models.CharField(max_length=500, blank=True)
     video_duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Черновик виден только методисту: урок собирают по частям, и ученик не
+    # должен получить в плане пустую карточку.
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    published_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["order"]
 
     def __str__(self):
         return self.title
+
+    @property
+    def is_published(self) -> bool:
+        return self.status == self.Status.PUBLISHED
+
+    @property
+    def video_embed_url(self) -> str:
+        """Ссылка для встраивания.
+
+        Для Kinescope достаточно идентификатора ролика: методисту не нужно
+        помнить формат embed-ссылки, а опечатка в нём ломала бы плеер.
+        """
+        value = (self.video_url or "").strip()
+        if not value:
+            return ""
+        if self.video_provider == self.VideoProvider.KINESCOPE:
+            if value.startswith("https://kinescope.io/embed/"):
+                return value
+            identifier = value.rstrip("/").rsplit("/", 1)[-1]
+            return f"https://kinescope.io/embed/{identifier}"
+        return value
+
+    @property
+    def video_is_embeddable(self) -> bool:
+        return self.video_embed_url.startswith("https://")
 
 
 class TheoryBlock(models.Model):

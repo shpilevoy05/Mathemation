@@ -170,3 +170,90 @@ class DailyChallengeTests(TestCase):
         payload = self.client.get("/api/daily/").json()
         self.assertEqual(payload["reward_xp"], 15)
         self.assertFalse(payload["solved"])
+
+
+class LessonPublicationTests(TestCase):
+    """Черновик методиста не показывается ученику."""
+
+    def setUp(self):
+        from apps.content.models import Lesson, TheoryBlock
+
+        self.node = make_node("publication-node")
+        self.lesson = Lesson.objects.create(node=self.node, title="Урок")
+        self.theory_model = TheoryBlock
+
+    def test_new_lesson_is_draft(self):
+        from apps.content.services import published_lessons
+
+        self.assertFalse(self.lesson.is_published)
+        self.assertNotIn(self.lesson, published_lessons())
+
+    def test_empty_lesson_cannot_be_published(self):
+        from apps.content.services import publish_lesson
+
+        with self.assertRaises(ValidationError):
+            publish_lesson(self.lesson)
+
+    def test_lesson_with_video_can_be_published(self):
+        from apps.content.services import publish_lesson, published_lessons
+
+        self.lesson.video_url = "abc123"
+        self.lesson.save(update_fields=["video_url"])
+        publish_lesson(self.lesson)
+        self.lesson.refresh_from_db()
+        self.assertTrue(self.lesson.is_published)
+        self.assertIsNotNone(self.lesson.published_at)
+        self.assertIn(self.lesson, published_lessons(self.node))
+
+    def test_publish_keeps_the_first_publication_date(self):
+        from apps.content.services import publish_lesson, unpublish_lesson
+
+        self.theory_model.objects.create(lesson=self.lesson, body="Текст")
+        first = publish_lesson(self.lesson).published_at
+        unpublish_lesson(self.lesson)
+        publish_lesson(self.lesson)
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.published_at, first)
+
+
+class KinescopeVideoTests(TestCase):
+    """Методист вставляет идентификатор ролика, а не формат embed-ссылки."""
+
+    def setUp(self):
+        from apps.content.models import Lesson
+
+        self.model = Lesson
+        self.lesson = Lesson.objects.create(
+            node=make_node("video-node"), title="Урок с видео"
+        )
+
+    def _embed(self, value, provider=None):
+        self.lesson.video_url = value
+        if provider:
+            self.lesson.video_provider = provider
+        return self.lesson.video_embed_url
+
+    def test_kinescope_identifier_becomes_embed_url(self):
+        self.assertEqual(
+            self._embed("abc123"), "https://kinescope.io/embed/abc123"
+        )
+
+    def test_kinescope_watch_link_becomes_embed_url(self):
+        self.assertEqual(
+            self._embed("https://kinescope.io/abc123"),
+            "https://kinescope.io/embed/abc123",
+        )
+
+    def test_ready_embed_url_is_left_alone(self):
+        url = "https://kinescope.io/embed/abc123"
+        self.assertEqual(self._embed(url), url)
+
+    def test_other_provider_url_is_used_as_is(self):
+        url = "https://rutube.ru/video/abc123/"
+        self.assertEqual(
+            self._embed(url, self.model.VideoProvider.RUTUBE), url
+        )
+
+    def test_empty_video_has_no_embed(self):
+        self.assertEqual(self._embed(""), "")
+        self.assertFalse(self.lesson.video_is_embeddable)

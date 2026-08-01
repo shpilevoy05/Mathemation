@@ -125,7 +125,10 @@ class TrackContextTests(TestCase):
             node=locked, prerequisite=prerequisite, min_mastery=70
         )
         for node in (mastered, prerequisite, locked):
-            Lesson.objects.create(node=node, title=f"Урок: {node.title}")
+            Lesson.objects.create(
+                node=node, title=f"Урок: {node.title}",
+                status=Lesson.Status.PUBLISHED,
+            )
         set_mastery(student, mastered, 90)
 
         context = track_context(student)
@@ -230,9 +233,12 @@ class StudentCabinetTests(TestCase):
 
     def test_https_video_is_embedded_on_lesson_page(self):
         lesson = Lesson.objects.get(node=self.node)
+        lesson.video_provider = Lesson.VideoProvider.OTHER
         lesson.video_url = "https://videos.example/embed/lesson"
         lesson.video_duration_minutes = 15
-        lesson.save(update_fields=["video_url", "video_duration_minutes"])
+        lesson.save(
+            update_fields=["video_provider", "video_url", "video_duration_minutes"]
+        )
 
         response = self.client.get(reverse("lesson", args=[self.node.id]))
 
@@ -243,8 +249,9 @@ class StudentCabinetTests(TestCase):
 
     def test_http_video_is_a_link_and_is_not_embedded(self):
         lesson = Lesson.objects.get(node=self.node)
+        lesson.video_provider = Lesson.VideoProvider.OTHER
         lesson.video_url = "http://videos.example/embed/lesson"
-        lesson.save(update_fields=["video_url"])
+        lesson.save(update_fields=["video_provider", "video_url"])
 
         response = self.client.get(reverse("lesson", args=[self.node.id]))
 

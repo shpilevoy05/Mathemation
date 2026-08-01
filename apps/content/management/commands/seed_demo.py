@@ -131,9 +131,11 @@ TRAJECTORIES = [
     ("score90", "90+", 90, 100, 10),
 ]
 
+# Видео на Kinescope: в поле кладётся идентификатор ролика, embed-ссылку
+# собирает модель.
 DEMO_VIDEOS = {
-    "frac-powers": ("https://example.com/embed/demo", 12),
-    "linear-quadratic": ("https://example.com/embed/demo", 18),
+    "frac-powers": ("demo-frac-powers", 12),
+    "linear-quadratic": ("demo-linear-quadratic", 18),
 }
 
 DEMO_EDGE_THRESHOLDS = {
@@ -186,7 +188,14 @@ class Command(BaseCommand):
 
         for code, node in nodes.items():
             lesson, _ = Lesson.objects.update_or_create(
-                node=node, title=f"Урок: {node.title}", defaults={"order": node.order}
+                node=node, title=f"Урок: {node.title}",
+                defaults={
+                    "order": node.order,
+                    # Демо-контент готов, поэтому уроки сразу опубликованы:
+                    # черновик ученику не показывается.
+                    "status": Lesson.Status.PUBLISHED,
+                    "published_at": timezone.now(),
+                },
             )
             if code in DEMO_VIDEOS:
                 lesson.video_url, lesson.video_duration_minutes = DEMO_VIDEOS[code]

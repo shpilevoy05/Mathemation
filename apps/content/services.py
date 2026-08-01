@@ -1,4 +1,4 @@
-"""Версионирование заданий, домашки и задание дня."""
+"""Публикация уроков, версионирование заданий, домашки и задание дня."""
 
 from __future__ import annotations
 
@@ -7,7 +7,46 @@ from django.utils import timezone
 
 from apps.practice.models import Attempt
 
-from .models import AssignmentVersion, DailyChallenge, Homework, HomeworkSubmission
+from .models import (
+    AssignmentVersion,
+    DailyChallenge,
+    Homework,
+    HomeworkSubmission,
+    Lesson,
+)
+
+
+def publish_lesson(lesson: Lesson) -> Lesson:
+    """Опубликовать урок. Пустой урок публиковать нельзя.
+
+    Ученик не должен получить в плане карточку без единого материала — это
+    выглядит как поломка сервиса, а не как незаконченная работа методиста.
+    """
+    has_content = (
+        lesson.theory_blocks.exists()
+        or bool(lesson.video_url)
+        or lesson.assignments.exists()
+    )
+    if not has_content:
+        raise ValidationError(
+            "Нельзя опубликовать пустой урок: добавьте теорию, видео или задачи."
+        )
+    lesson.status = Lesson.Status.PUBLISHED
+    lesson.published_at = lesson.published_at or timezone.now()
+    lesson.save(update_fields=["status", "published_at"])
+    return lesson
+
+
+def unpublish_lesson(lesson: Lesson) -> Lesson:
+    lesson.status = Lesson.Status.DRAFT
+    lesson.save(update_fields=["status"])
+    return lesson
+
+
+def published_lessons(node=None):
+    """Уроки, которые видит ученик."""
+    queryset = Lesson.objects.filter(status=Lesson.Status.PUBLISHED)
+    return queryset.filter(node=node) if node is not None else queryset
 
 
 def current_version(assignment) -> AssignmentVersion:

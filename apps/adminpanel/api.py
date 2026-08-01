@@ -32,6 +32,8 @@ from apps.content.services import (
     assign_homework,
     assign_homework_to_group,
     publish_assignment_version,
+    publish_lesson,
+    unpublish_lesson,
 )
 from apps.economy.models import InventoryItem, LedgerEntry, ShopCategory, ShopItem, Wallet
 from apps.economy.services import grant
@@ -59,6 +61,15 @@ class PanelViewSet(viewsets.ModelViewSet):
 class LessonViewSet(PanelViewSet):
     queryset = Lesson.objects.select_related("node")
     serializer_class = panel.LessonSerializer
+
+    @action(detail=True, methods=["post"])
+    def publish(self, request, pk=None):
+        lesson = _domain_errors(publish_lesson, self.get_object())
+        return Response(self.get_serializer(lesson).data)
+
+    @action(detail=True, methods=["post"])
+    def unpublish(self, request, pk=None):
+        return Response(self.get_serializer(unpublish_lesson(self.get_object())).data)
 
 
 class TheoryBlockViewSet(PanelViewSet):

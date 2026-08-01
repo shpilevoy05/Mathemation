@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from apps.ai_mentor.models import AiHintMessage, AiHintSession
 from apps.ai_mentor.services import mentor_available
+from apps.content.services import published_lessons
 from apps.content.models import Assignment, Lesson, TheoryBlock
 from apps.expert_review.models import ExpertReviewRequest
 from apps.gamification.services import gamification_snapshot
@@ -24,6 +25,18 @@ from apps.progress.models import ProgressSnapshot
 from apps.progress.services import ceiling_forecast
 
 from .labels import ERROR_TYPE_LABELS
+
+
+def _published_lessons_prefetch(lookup: str = "nodes__lessons", *related: str) -> Prefetch:
+    """Prefetch уроков, отфильтрованный по публикации.
+
+    Черновик методиста не должен появляться у ученика на дорожке или в карте
+    навыков как пустая точка.
+    """
+    queryset = published_lessons()
+    if related:
+        queryset = queryset.prefetch_related(*related)
+    return Prefetch(lookup, queryset=queryset)
 
 
 def expert_queue_context(user):
@@ -298,7 +311,7 @@ def knowledge_map_context(student, overlay=False):
 def knowledge_node_context(student, node_id):
     node = get_object_or_404(
         KnowledgeNode.objects.select_related("cluster").prefetch_related(
-            "lessons__theory_blocks"
+            _published_lessons_prefetch("lessons", "theory_blocks")
         ),
         pk=node_id,
     )
@@ -339,7 +352,7 @@ def track_context(student):
     clusters = []
     current_assigned = False
     position = 0
-    for cluster in TopicCluster.objects.prefetch_related("nodes__lessons"):
+    for cluster in TopicCluster.objects.prefetch_related(_published_lessons_prefetch()):
         points = []
         cluster_has_mistakes = False
         for node in cluster.nodes.all():
@@ -442,9 +455,11 @@ def _make_current(point):
 
 def lesson_context(student, node_id, attempt_context=Attempt.Context.LESSON):
     node = get_object_or_404(KnowledgeNode, pk=node_id)
-    video_lessons = list(Lesson.objects.filter(node=node).exclude(video_url=""))
-    for lesson in video_lessons:
-        lesson.video_is_embeddable = lesson.video_url.startswith("https://")
+    # Черновики методиста ученику не показываем; ссылка на плеер собирается
+    # моделью, потому что для Kinescope достаточно идентификатора ролика.
+    video_lessons = list(
+        published_lessons(node).exclude(video_url="")
+    )
     queue = practice_queue(student, node)
     tasks = [
         {"assignment": assignment, "phase": "warmup", "phase_label": "Старое слабое место"}
