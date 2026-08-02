@@ -325,12 +325,167 @@
       try {
         const data = await apiFetch(reviewButton.dataset.reviewComplete, { method: "POST", body: JSON.stringify({ success: reviewButton.dataset.success === "true" }) });
         const result = item.querySelector("[data-review-result]"); result.hidden = false; result.classList.add(reviewButton.dataset.success === "true" ? "is-correct" : "is-wrong"); result.textContent = data.message || (reviewButton.dataset.success === "true" ? "Повтор зачтён." : "Ошибка вернётся по новому расписанию.");
+        window.lessonFlow?.applyRewards(data.rewards);
       } catch (error) { item.querySelectorAll("button").forEach(button => button.disabled = false); alert(error.message); }
     }
 
     const nextButton = event.target.closest("[data-next-task]");
     if (nextButton) showNextTask(nextButton.closest("[data-task]"));
   });
+
+  // Занятие как три этапа: материал → задачи → отработка. Между этапами
+  // показываем, что именно принесла работа: рост освоения, XP и сигмы.
+  function initLessonFlow() {
+    const shell = document.querySelector("[data-lesson]");
+    if (!shell) return;
+    const STAGES = ["material", "tasks", "review"];
+    const TITLES = { tasks: "Дальше — задачи", review: "Дальше — отработка", done: "Занятие пройдено" };
+    const PRAISE = [
+      "Тема разобрана, задачи решены, ошибки вернулись в работу.",
+      "Так и растёт балл: понял, отработал, закрепил.",
+      "Сильный заход. Освоение темы поднялось — дорожка уже это учла.",
+    ];
+    const layer = shell.querySelector("[data-reward-layer]");
+    const outro = shell.querySelector("[data-lesson-outro]");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const session = { xp: 0, coins: 0, mastery: Number(shell.dataset.mastery) || 0 };
+    let pending = null;
+
+    const meter = name => shell.querySelector(`[data-meter-${name}]`);
+    const bump = element => {
+      if (!element || reduceMotion) return;
+      element.classList.remove("is-bumped");
+      void element.offsetWidth;
+      element.classList.add("is-bumped");
+    };
+    const countTo = (element, value, suffix = "") => {
+      if (!element) return;
+      const from = parseFloat(element.textContent.replace(",", ".")) || 0;
+      if (reduceMotion || from === value) { element.textContent = `${value}${suffix}`; return; }
+      const started = performance.now(), duration = 600;
+      const step = now => {
+        const share = Math.min((now - started) / duration, 1);
+        const current = from + (value - from) * share;
+        element.textContent = `${Number.isInteger(value) ? Math.round(current) : current.toFixed(1)}${suffix}`;
+        if (share < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    };
+
+    function applyRewards(rewards) {
+      if (!rewards) return;
+      if (rewards.xp) {
+        session.xp += rewards.xp;
+        countTo(meter("xp"), Number(shell.dataset.startXp) + session.xp);
+        bump(meter("xp"));
+      }
+      if (rewards.coins) {
+        session.coins += rewards.coins;
+        countTo(meter("coins"), Number(shell.dataset.startCoins) + session.coins);
+        bump(meter("coins"));
+      }
+      const nodeGain = (rewards.mastery || []).find(row => String(row.node_id) === shell.dataset.nodeId);
+      if (nodeGain) {
+        session.mastery = nodeGain.to;
+        countTo(meter("mastery"), nodeGain.to, "%");
+        bump(meter("mastery"));
+      }
+      pending = {
+        xp: (pending?.xp || 0) + (rewards.xp || 0),
+        coins: (pending?.coins || 0) + (rewards.coins || 0),
+        masteryFrom: pending?.masteryFrom ?? (nodeGain ? nodeGain.from : null),
+        masteryTo: nodeGain ? nodeGain.to : pending?.masteryTo ?? null,
+      };
+    }
+
+    function showStage(key) {
+      shell.dataset.stage = key;
+      shell.querySelectorAll("[data-stage-panel]").forEach(panel => {
+        panel.hidden = panel.dataset.stagePanel !== key;
+      });
+      outro.hidden = key !== "done";
+      shell.querySelectorAll(".step").forEach(step => {
+        const index = STAGES.indexOf(step.dataset.step), position = STAGES.indexOf(key);
+        step.classList.toggle("is-current", key !== "done" && index === position);
+        if (key === "done" || index < position) step.classList.add("is-done");
+        step.setAttribute("aria-current", index === position && key !== "done" ? "step" : "false");
+      });
+      const done = shell.querySelectorAll(".step.is-done").length;
+      const fill = shell.querySelector("[data-stepper-fill]");
+      if (fill) fill.style.width = `${Math.min(done / (STAGES.length - 1), 1) * 100}%`;
+      shell.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    }
+
+    function celebrate(nextStage) {
+      const rewards = pending || {};
+      pending = null;
+      layer.querySelector("[data-reward-kicker]").textContent =
+        nextStage === "done" ? "Занятие завершено" : "Этап пройден";
+      layer.querySelector("[data-reward-title]").textContent = TITLES[nextStage] || TITLES.done;
+
+      const masteryRow = layer.querySelector("[data-reward-mastery]");
+      const hasMastery = rewards.masteryTo != null && rewards.masteryFrom != null;
+      masteryRow.hidden = !hasMastery;
+      if (hasMastery) {
+        layer.querySelector("[data-reward-mastery-from]").textContent = rewards.masteryFrom;
+        layer.querySelector("[data-reward-mastery-to]").textContent = rewards.masteryTo;
+        const bar = layer.querySelector("[data-reward-mastery-bar]");
+        bar.style.width = `${rewards.masteryFrom}%`;
+        setTimeout(() => { bar.style.width = `${rewards.masteryTo}%`; }, 60);
+      }
+      const xpRow = layer.querySelector("[data-reward-xp-row]");
+      xpRow.hidden = !rewards.xp;
+      if (rewards.xp) layer.querySelector("[data-reward-xp]").textContent = `+${rewards.xp}`;
+      const coinsRow = layer.querySelector("[data-reward-coins-row]");
+      coinsRow.hidden = !rewards.coins;
+      if (rewards.coins) layer.querySelector("[data-reward-coins]").textContent = `+${rewards.coins}`;
+
+      layer.hidden = false;
+      layer.querySelector("[data-reward-continue]").onclick = () => {
+        layer.hidden = true;
+        if (nextStage === "done") finishLesson(); else showStage(nextStage);
+      };
+    }
+
+    function finishLesson() {
+      const praise = PRAISE[Math.min(Math.floor(session.xp / 10), PRAISE.length - 1)];
+      outro.querySelector("[data-outro-praise]").textContent = praise;
+      outro.querySelector("[data-outro-mastery]").textContent = `${session.mastery}%`;
+      outro.querySelector("[data-outro-xp]").textContent = `+${session.xp}`;
+      outro.querySelector("[data-outro-coins]").textContent = `+${session.coins}`;
+      showStage("done");
+    }
+
+    shell.addEventListener("click", async event => {
+      const jump = event.target.closest("[data-step-jump]");
+      if (jump) { showStage(jump.dataset.stepJump); return; }
+
+      const material = event.target.closest("[data-finish-material]");
+      if (material) {
+        material.disabled = true;
+        try {
+          const data = await apiFetch(`/api/lessons/${shell.dataset.nodeId}/stages/`, { method: "POST", body: "{}" });
+          const step = shell.querySelector('[data-step="material"]');
+          step.classList.add("is-done");
+          const caption = data.stages.find(stage => stage.key === "material")?.caption;
+          if (caption) step.querySelector("[data-step-caption]").textContent = caption;
+        } catch (error) { alert(error.message); }
+        material.disabled = false;
+        celebrate("tasks");
+        return;
+      }
+
+      const goto = event.target.closest("[data-goto-stage]");
+      if (goto) { celebrate(goto.dataset.gotoStage); return; }
+
+      const finish = event.target.closest("[data-finish-lesson]");
+      if (finish) celebrate("done");
+    });
+
+    window.lessonFlow = { applyRewards, celebrate, showStage };
+    showStage(shell.dataset.stage);
+  }
+  initLessonFlow();
 
   function updateTaskProgress() {
     const tasks = [...document.querySelectorAll("[data-task]")];
@@ -343,8 +498,16 @@
   function showNextTask(current) {
     const tasks = [...document.querySelectorAll("[data-task]")], index = tasks.indexOf(current);
     current.classList.add("is-hidden");
-    if (tasks[index + 1]) tasks[index + 1].classList.remove("is-hidden"); else document.querySelector("[data-lesson-complete]")?.classList.remove("is-hidden");
-    updateTaskProgress(); window.scrollTo({ top: document.querySelector("#tasks")?.offsetTop - 90, behavior: "smooth" });
+    if (tasks[index + 1]) {
+      tasks[index + 1].classList.remove("is-hidden");
+      updateTaskProgress();
+      window.scrollTo({ top: document.querySelector("#tasks")?.offsetTop - 90, behavior: "smooth" });
+      return;
+    }
+    // Задачи кончились: показываем итог этапа и уводим на отработку.
+    updateTaskProgress();
+    document.querySelector("[data-lesson-complete]")?.classList.remove("is-hidden");
+    if (window.lessonFlow) window.lessonFlow.celebrate("review");
   }
   updateTaskProgress();
 
@@ -409,7 +572,7 @@
     const attemptForm = event.target.closest("[data-attempt-form]");
     if (attemptForm) {
       event.preventDefault(); const task = attemptForm.closest("[data-task]"), button = attemptForm.querySelector("button"), verdict = task.querySelector("[data-verdict]"); button.disabled = true;
-      try { const data = await apiFetch(`/api/assignments/${task.dataset.assignmentId}/attempt/`, { method: "POST", body: JSON.stringify({ answer: new FormData(attemptForm).get("answer"), context: attemptForm.dataset.context }) }); verdict.hidden = false; verdict.className = `verdict ${data.is_correct ? "is-correct" : "is-wrong"}`; verdict.textContent = data.is_correct === null ? "Решение отправлено на экспертную проверку." : (data.is_correct ? "Верно! Можно двигаться дальше." : "Пока неверно. Ошибка сохранена для отработки."); task.querySelector("[data-next-task]").hidden = false; renderProgress(task, data.progress); }
+      try { const data = await apiFetch(`/api/assignments/${task.dataset.assignmentId}/attempt/`, { method: "POST", body: JSON.stringify({ answer: new FormData(attemptForm).get("answer"), context: attemptForm.dataset.context }) }); verdict.hidden = false; verdict.className = `verdict ${data.is_correct ? "is-correct" : "is-wrong"}`; verdict.textContent = data.is_correct === null ? "Решение отправлено на экспертную проверку." : (data.is_correct ? "Верно! Можно двигаться дальше." : "Пока неверно. Ошибка сохранена для отработки."); task.querySelector("[data-next-task]").hidden = false; renderProgress(task, data.progress); window.lessonFlow?.applyRewards(data.rewards); }
       catch (error) { verdict.hidden = false; verdict.className = "verdict is-wrong"; verdict.textContent = error.message; button.disabled = false; }
     }
     const hintForm = event.target.closest("[data-hint-form]");

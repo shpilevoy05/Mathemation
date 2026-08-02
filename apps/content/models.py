@@ -194,6 +194,35 @@ class HomeworkSubmission(models.Model):
         ]
 
 
+class LessonProgress(models.Model):
+    """Где ученик находится внутри занятия по теме.
+
+    Занятие проходится этапами: материал, задачи, отработка. Задачи и отработку
+    можно посчитать по попыткам и полке ошибок, а вот «материал посмотрел»
+    известно только от самого ученика — это единственное, что здесь хранится.
+    """
+
+    student = models.ForeignKey(
+        "accounts.StudentProfile", on_delete=models.CASCADE, related_name="lesson_progress"
+    )
+    node = models.ForeignKey(
+        "knowledge.KnowledgeNode", on_delete=models.CASCADE, related_name="lesson_progress"
+    )
+    material_viewed_at = models.DateTimeField(null=True, blank=True)
+    summary_downloaded_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["student", "node"], name="uniq_lesson_progress_per_node"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.student_id} · {self.node_id}"
+
+
 class DailyChallenge(models.Model):
     """Задание дня: одна задача на дату с наградой.
 

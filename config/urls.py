@@ -9,6 +9,7 @@ from apps.accounts.api import MeView, TargetScoreView
 from apps.ai_mentor.api import HintView, ParentAiLogView
 from apps.billing import pages as billing_pages
 from apps.content.api import AssignmentViewSet, LessonViewSet, TrackView
+from apps.content.lesson_api import LessonStageView, lesson_summary
 from apps.content.student_api import (
     DailyChallengeView,
     MyHomeworkView,
@@ -90,6 +91,7 @@ api_urls = [
     path("homework/", MyHomeworkView.as_view()),
     path("homework/<int:submission_id>/submit/", SubmitHomeworkView.as_view()),
     path("daily/", DailyChallengeView.as_view()),
+    path("lessons/<int:node_id>/stages/", LessonStageView.as_view()),
     path("wallet/", WalletView.as_view()),
     path("shop/", ShopView.as_view()),
     path("shop/items/<int:item_id>/buy/", BuyItemView.as_view()),
@@ -118,6 +120,11 @@ urlpatterns = [
     path("map/node/<int:node_id>/", web_views.knowledge_node, name="knowledge_node"),
     path("track/", web_views.track, name="track"),
     path("lesson/<int:node_id>/", web_views.lesson, name="lesson"),
+    path(
+        "lesson/<int:node_id>/summary.md",
+        lesson_summary,
+        name="lesson-summary",
+    ),
     path("practice/backlog/", web_views.practice_backlog, name="practice_backlog"),
     path("shop/", web_views.shop, name="shop"),
     path("homework/", web_views.homework, name="homework"),

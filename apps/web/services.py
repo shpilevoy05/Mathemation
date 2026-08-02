@@ -3,6 +3,7 @@
 from datetime import timedelta
 from pathlib import Path
 
+from django.conf import settings
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -759,6 +760,15 @@ def lesson_context(student, node_id, attempt_context=Attempt.Context.LESSON):
     }
     for task in tasks:
         task["hint_session"] = sessions.get(task["assignment"].id)
+
+    from apps.content.lessons import lesson_stages, review_stats, task_stats
+    from apps.gamification.services import gamification_snapshot
+    from apps.economy.services import get_wallet
+
+    stages = lesson_stages(student, node)
+    review = review_stats(student, node)
+    snapshot = gamification_snapshot(student)
+    mastery = node_states(student)[node.id]
     return {
         "node": node,
         "video_lessons": video_lessons,
@@ -766,6 +776,17 @@ def lesson_context(student, node_id, attempt_context=Attempt.Context.LESSON):
         "tasks": tasks,
         "attempt_context": attempt_context,
         "mentor_enabled": mentor_available(attempt_context),
+        "stages": stages,
+        "current_stage": next(stage["key"] for stage in stages if stage["is_current"]),
+        "lesson_is_complete": all(stage["is_done"] for stage in stages),
+        "task_stats": task_stats(student, node),
+        "due_node_reviews": review["due"],
+        "open_mistakes": review["open_count"],
+        "mastery_percent": round(float(mastery["mastery"]), 1),
+        "mastery_threshold": settings.MASTERY_THRESHOLD,
+        "start_xp": snapshot["xp"],
+        "start_level": snapshot["level"],
+        "start_coins": get_wallet(student).balance,
     }
 
 

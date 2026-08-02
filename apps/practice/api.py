@@ -24,6 +24,10 @@ class SubmitAttemptView(views.APIView):
         context = request.data.get("context", Attempt.Context.LESSON)
         if context not in Attempt.Context.values:
             return Response({"detail": "Неизвестный контекст."}, status=400)
+        # Награда за ответ показывается ученику числом, поэтому её измеряем
+        # до и после попытки: XP и сигмы начисляются глубоко в домене, и
+        # собирать их по кускам в интерфейсе было бы враньём.
+        before = _reward_state(student)
         attempt = submit_attempt(
             student, assignment, request.data.get("answer", ""), context
         )
@@ -31,7 +35,48 @@ class SubmitAttemptView(views.APIView):
         # Ученик должен видеть, что ответ что-то изменил: рост освоения темы,
         # закрытые пункты плана и прогресс по задачам узла.
         payload["progress"] = attempt_progress(student, assignment)
+        payload["rewards"] = _rewards_since(student, before)
         return Response(payload, status=201)
+
+
+def _reward_state(student) -> dict:
+    """Снимок наград до действия: XP, сигмы и освоение тем задачи."""
+    from apps.economy.services import get_wallet
+    from apps.gamification.models import GamificationProfile
+    from apps.knowledge.models import SkillMastery
+
+    profile, _ = GamificationProfile.objects.get_or_create(student=student)
+    return {
+        "xp": profile.xp,
+        "level": profile.level,
+        "coins": get_wallet(student).balance,
+        "mastery": {
+            mastery.node_id: float(mastery.mastery)
+            for mastery in SkillMastery.objects.filter(student=student)
+        },
+    }
+
+
+def _rewards_since(student, before: dict) -> dict:
+    """Насколько выросли XP, сигмы и освоение после действия."""
+    after = _reward_state(student)
+    mastery_gain = [
+        {
+            "node_id": node_id,
+            "from": round(before["mastery"].get(node_id, 0.0), 1),
+            "to": round(value, 1),
+            "delta": round(value - before["mastery"].get(node_id, 0.0), 1),
+        }
+        for node_id, value in after["mastery"].items()
+        if round(value - before["mastery"].get(node_id, 0.0), 1) > 0
+    ]
+    return {
+        "xp": after["xp"] - before["xp"],
+        "coins": after["coins"] - before["coins"],
+        "level_up": after["level"] > before["level"],
+        "level": after["level"],
+        "mastery": mastery_gain,
+    }
 
 
 def attempt_progress(student, assignment) -> list[dict]:
@@ -121,10 +166,15 @@ class CompleteReviewView(views.APIView):
         review = get_object_or_404(
             ReviewSchedule, pk=review_id, backlog_item__student=student
         )
+        before = _reward_state(student)
         complete_review(review, success=bool(request.data.get("success")))
         item = review.backlog_item
         resolved = item.status == MistakeBacklogItem.Status.RESOLVED
-        payload = {"status": review.status, "mistake_resolved": resolved}
+        payload = {
+            "status": review.status,
+            "mistake_resolved": resolved,
+            "rewards": _rewards_since(student, before),
+        }
         if resolved:
             # Закрытие петли мотивирует.
             payload["message"] = f"Эту ошибку ты уже не делаешь: «{item.node.title}» ✅"

@@ -516,6 +516,72 @@ a.track-node-link:hover { transform: translateY(-3px); }
    display-правила, которые иначе перебивают атрибут hidden. */
 [hidden] { display: none !important; }
 
+/* Занятие проходится этапами: материал → задачи → отработка. */
+.lesson-shell { display: grid; gap: 22px; }
+.lesson-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 18px; }
+.lesson-head p { margin-bottom: 0; color: var(--muted); }
+.lesson-meters { display: flex; flex-wrap: wrap; gap: 10px; }
+.meter { display: grid; gap: 2px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); }
+.meter small { color: var(--muted); font-size: .74rem; letter-spacing: .04em; text-transform: uppercase; }
+.meter strong { font-size: 1.2rem; }
+.meter strong.is-bumped { animation: meter-bump .5s ease; }
+@keyframes meter-bump { 40% { transform: scale(1.18); color: var(--success); } }
+
+.stepper { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 0; margin: 0; list-style: none; }
+.stepper-line { position: absolute; top: 27px; right: 16%; left: 16%; height: 4px; border-radius: 999px; background: var(--line); }
+.stepper-line i { display: block; width: 0; height: 100%; border-radius: 999px; background: var(--primary); transition: width .5s ease; }
+.step button { display: grid; justify-items: center; gap: 8px; width: 100%; padding: 6px 4px 0; border: 0; background: none; color: inherit; cursor: pointer; text-align: center; }
+.step-dot { position: relative; z-index: 1; display: grid; place-items: center; width: 44px; height: 44px; border: 3px solid var(--line-strong); border-radius: 50%; background: var(--card); color: var(--muted); font-family: var(--data); font-weight: 700; transition: transform .3s ease, border-color .3s ease, background .3s ease, color .3s ease; }
+.step-copy strong { display: block; font-size: .95rem; }
+.step-copy small { color: var(--muted); font-size: .78rem; }
+.step.is-current .step-dot { border-color: var(--primary); color: var(--primary-dark); background: var(--primary-soft); transform: scale(1.06); }
+.step.is-current .step-copy strong { color: var(--primary-dark); }
+.step.is-done .step-dot { border-color: var(--success); background: var(--success); color: #fff; }
+.step.is-done .step-dot::after { content: "✓"; }
+.step.is-done .step-dot { font-size: 0; }
+.step.is-done .step-dot::after { font-size: 1.05rem; }
+
+.lesson-stage { display: grid; gap: 16px; animation: stage-in .35s ease; }
+@keyframes stage-in { from { opacity: 0; transform: translateY(10px); } }
+.stage-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.stage-head h2 { margin-bottom: 0; }
+.stage-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.stage-actions p { margin: 0; }
+.summary-card .section-heading { align-items: center; }
+.summary-card .theory-summary { margin: 14px 0 0; }
+
+.lesson-outro { display: grid; justify-items: center; gap: 14px; text-align: center; }
+.lesson-outro .success-icon { animation: outro-pop .5s ease; }
+@keyframes outro-pop { from { transform: scale(.4); opacity: 0; } }
+.outro-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: min(560px, 100%); }
+.outro-stats div { display: grid; gap: 4px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card-2); }
+.outro-stats small { color: var(--muted); font-size: .76rem; }
+.outro-stats strong { font-size: 1.5rem; }
+
+/* Слой перехода: показывает, что именно принёс этап. */
+.reward-layer { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(16, 22, 42, .55); backdrop-filter: blur(3px); animation: fade-in .2s ease; }
+.reward-card { width: min(420px, 100%); padding: 26px; border-radius: 20px; background: var(--card); box-shadow: var(--shadow-lift); text-align: center; animation: reward-in .35s cubic-bezier(.2, .9, .3, 1.2); }
+.reward-kicker { color: var(--success); font-size: .78rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.reward-card h3 { margin: 6px 0 16px; font-size: 1.3rem; }
+.reward-rows { display: grid; gap: 10px; margin-bottom: 18px; text-align: left; }
+.reward-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--card-2); }
+.reward-row .bar { grid-column: 1 / -1; height: 6px; background: var(--gray-soft); }
+.reward-row .bar span { display: block; height: 100%; border-radius: 999px; background: var(--success); transition: width .8s ease; }
+.reward-row b { font-size: 1.05rem; }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes reward-in { from { opacity: 0; transform: translateY(18px) scale(.96); } }
+
+@media (max-width: 720px) {
+  .stepper { grid-template-columns: 1fr; }
+  .stepper-line { display: none; }
+  .step button { grid-template-columns: 44px 1fr; justify-items: start; text-align: left; }
+  .outro-stats { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lesson-stage, .reward-card, .reward-layer, .lesson-outro .success-icon { animation: none; }
+  .stepper-line i, .reward-row .bar span { transition: none; }
+}
+
 /* Аватар и рамка из магазина. */
 .avatar-badge { position: relative; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: var(--primary-soft); color: var(--primary-dark); font-weight: 700; overflow: hidden; }
 .avatar-badge--sm { width: 34px; height: 34px; font-size: .85rem; }
