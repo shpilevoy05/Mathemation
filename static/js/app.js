@@ -364,6 +364,8 @@
           shopButton.dataset.shopUrl = shopButton.dataset.shopUrl.replace("/buy/", "/equip/");
           shopButton.textContent = "Надеть";
           shopButton.disabled = false;
+        } else if (shopButton.dataset.shopAction === "unequip") {
+          window.location.reload();
         } else {
           document.querySelectorAll("[data-shop-item] [data-shop-state]").forEach(node => { if (node.textContent === "Надето") node.remove(); });
           const state = document.createElement("span"); state.className = "quest-check"; state.dataset.shopState = ""; state.textContent = "Надето";
@@ -378,6 +380,26 @@
         else alert(exception.message);
         shopButton.disabled = false;
       }
+    }
+
+    const startDiagnostic = event.target.closest("[data-start-diagnostic]");
+    if (startDiagnostic) {
+      const error = document.querySelector("[data-diagnostic-error]");
+      startDiagnostic.disabled = true; if (error) error.hidden = true;
+      try {
+        const data = await apiFetch(startDiagnostic.dataset.startDiagnostic, { method: "POST", body: "{}" });
+        window.location.assign(`/diagnostics/run/${data.result_id}/`);
+      } catch (exception) {
+        if (error) { error.hidden = false; error.textContent = exception.message; } else alert(exception.message);
+        startDiagnostic.disabled = false;
+      }
+    }
+
+    const resetLook = event.target.closest("[data-reset-look]");
+    if (resetLook) {
+      resetLook.disabled = true;
+      try { await apiFetch("/api/shop/reset-look/", { method: "POST", body: "{}" }); window.location.reload(); }
+      catch (exception) { alert(exception.message); resetLook.disabled = false; }
     }
 
     const nextButton = event.target.closest("[data-next-task]");
@@ -588,6 +610,26 @@
       } catch (exception) { error.textContent = exception.message; error.hidden = false; }
       finally { button.disabled = false; }
     }
+    const diagnosticForm = event.target.closest("[data-diagnostic-form]");
+    if (diagnosticForm) {
+      event.preventDefault();
+      const button = diagnosticForm.querySelector("[type=submit]");
+      const error = diagnosticForm.querySelector("[data-diagnostic-error]");
+      button.disabled = true; error.hidden = true;
+      try {
+        const answers = {};
+        diagnosticForm.querySelectorAll("input[name^=answer_]").forEach(input => {
+          answers[input.name.slice(7)] = input.value;
+        });
+        await apiFetch(`/api/diagnostics/results/${diagnosticForm.dataset.resultId}/submit/`, {
+          method: "POST", body: JSON.stringify({ answers }),
+        });
+        window.location.assign(diagnosticForm.dataset.doneUrl);
+      } catch (exception) {
+        error.hidden = false; error.textContent = exception.message; button.disabled = false;
+      }
+    }
+
     const mockForm = event.target.closest("[data-mock-form]");
     if (mockForm) {
       event.preventDefault();

@@ -153,8 +153,10 @@ class TariffSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tariff
         fields = "__all__"
-        # Цена меняется только новой версией тарифа (действие new_version).
-        read_only_fields = ["version"]
+        # Цена и версия правкой строки не меняются: изменение цены — это новая
+        # версия тарифа (действие «Новая цена»), иначе у оплаченного периода
+        # задним числом поменялись бы условия.
+        read_only_fields = ["version", "price_rub"]
 
 
 class AddOnSerializer(serializers.ModelSerializer):

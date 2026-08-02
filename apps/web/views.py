@@ -74,6 +74,18 @@ def daily_challenge(request):
 
 
 @login_required
+def diagnostics(request):
+    return _render_student_page(request, "diagnostics.html", services.diagnostics_context)
+
+
+@login_required
+def diagnostic_run(request, result_id):
+    return _render_student_page(
+        request, "diagnostic_run.html", services.diagnostic_run_context, result_id=result_id
+    )
+
+
+@login_required
 def practice_backlog(request):
     return _render_student_page(
         request, "practice_backlog.html", services.practice_backlog_context

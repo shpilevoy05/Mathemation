@@ -12,7 +12,8 @@
       {% for assignment in part1_assignments %}<article class="mock-task"><h3>{{ forloop.counter }}. {{ assignment.title }}</h3><p>{{ assignment.statement }}</p><label>Ответ<input name="answer_{{ assignment.id }}" autocomplete="off"></label></article>{% empty %}<p>В этом пробнике нет задач части 1.</p>{% endfor %}
     </section>
     <section class="card mock-part"><p class="eyebrow">Часть 2</p><h2>Развёрнутые решения</h2>
-      {% for assignment in part2_assignments %}<article class="mock-task" data-part2-assignment="{{ assignment.id }}"><h3>{{ assignment.title }}</h3><p>{{ assignment.statement }}</p><label>Фото или скан решения<input type="file" name="file_{{ assignment.id }}" accept="image/*,.pdf" required></label></article>{% empty %}<p>В этом пробнике нет задач части 2.</p>{% endfor %}
+      <p class="muted">Прикреплять решение необязательно: нерешённая задача просто получит ноль, как на экзамене. Что загрузишь — уйдёт эксперту.</p>
+      {% for assignment in part2_assignments %}<article class="mock-task" data-part2-assignment="{{ assignment.id }}"><h3>{{ assignment.title }}</h3><p>{{ assignment.statement }}</p><label>Фото или скан решения <small class="muted">(можно пропустить)</small><input type="file" name="file_{{ assignment.id }}" accept="image/*,.pdf"></label></article>{% empty %}<p>В этом пробнике нет задач части 2.</p>{% endfor %}
     </section>
     <p class="form-error" data-mock-error hidden></p><button class="button button-primary mock-submit" type="submit">Завершить пробник</button>
   </form>

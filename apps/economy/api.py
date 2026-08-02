@@ -10,7 +10,16 @@ from rest_framework.response import Response
 from apps.accounts.api import get_student
 
 from .models import InventoryItem, ShopItem
-from .services import active_boost, equip, equipped_items, get_wallet, purchase, storefront
+from .services import (
+    active_boost,
+    equip,
+    equipped_items,
+    get_wallet,
+    purchase,
+    storefront,
+    unequip,
+    unequip_all,
+)
 
 
 def _item_payload(item: ShopItem, owned_ids: set[int], equipped_ids: set[int]) -> dict:
@@ -88,6 +97,29 @@ class BuyItemView(views.APIView):
             ),
             "boost_percent": boost.bonus_percent if boost else 0,
         }, status=201)
+
+
+class UnequipItemView(views.APIView):
+    """POST /api/shop/items/<id>/unequip/ — вернуться к базовому оформлению."""
+
+    def post(self, request, item_id: int):
+        student = get_student(request)
+        item = get_object_or_404(ShopItem, pk=item_id)
+        try:
+            unequip(student, item)
+        except DjangoValidationError as exc:
+            return Response({"detail": " ".join(exc.messages)}, status=400)
+        return Response({
+            "equipped": {slot: inv.item_id for slot, inv in equipped_items(student).items()}
+        })
+
+
+class ResetLookView(views.APIView):
+    """POST /api/shop/reset-look/ — снять всю косметику разом."""
+
+    def post(self, request):
+        student = get_student(request)
+        return Response({"unequipped": unequip_all(student)})
 
 
 class EquipItemView(views.APIView):

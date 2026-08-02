@@ -72,8 +72,11 @@
   </form>
 </dialog>
 
+{{ row_actions|json_script:"row-actions" }}
 <script>
-const ROW_ACTIONS = {{ row_actions|safe }};
+// Действия приходят JSON-скриптом: раньше словарь печатался repr-ом Python,
+// и True в нём ломал разбор всего файла — панель не открывала ни один раздел.
+const ROW_ACTIONS = JSON.parse(document.getElementById("row-actions").textContent);
 const API = "/api/admin/";
 let current = null;   // {key, title, columns}
 let fieldsMeta = {};  // метаданные полей из OPTIONS

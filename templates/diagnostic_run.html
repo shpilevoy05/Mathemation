@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Диагностика: {{ result.test.title }} — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Диагностика</h1><p>Этот раздел доступен ученикам.</p></section>
+{% elif not is_open %}
+  <section class="empty-state">
+    <h1>Диагностика уже завершена</h1>
+    <a class="button button-primary" href="{% url 'diagnostics' %}">Посмотреть результат</a>
+  </section>
+{% else %}
+  <a class="back-link" href="{% url 'diagnostics' %}">← К диагностике</a>
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Входная диагностика</p>
+      <h1>{{ result.test.title }}</h1>
+      <p>Отвечай как есть: срез нужен, чтобы построить план, а не чтобы поставить оценку. Не знаешь — оставь поле пустым.</p>
+    </div>
+  </div>
+
+  <form class="card" data-diagnostic-form data-result-id="{{ result.id }}" data-done-url="{% url 'diagnostics' %}">
+    {% for assignment in assignments %}
+      <article class="mock-task">
+        <h3>{{ forloop.counter }}. {{ assignment.title }}</h3>
+        <p>{{ assignment.statement|linebreaksbr }}</p>
+        <label>Ответ<input name="answer_{{ assignment.id }}" autocomplete="off"></label>
+      </article>
+    {% empty %}
+      <p class="empty-copy">В этом срезе нет задач.</p>
+    {% endfor %}
+    <p class="form-error" data-diagnostic-error hidden></p>
+    <button class="button button-primary mock-submit" type="submit">Завершить диагностику</button>
+  </form>
+{% endif %}
+{% endblock %}

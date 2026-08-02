@@ -33,12 +33,14 @@ class MockLifecycleTests(TestCase):
             username="exp", role="expert"
         )
 
-    def _run_part1(self, correct=True):
+    def _run_part1(self, correct=True, upload_part2=True):
         result = MockExamResult.objects.create(student=self.student, exam=self.exam)
         submit_attempt(
             self.student, self.a1, "7" if correct else "0",
             context=Attempt.Context.MOCK, mock_result=result,
         )
+        if upload_part2:
+            submit_solution(self.student, self.a2, _solution_file(), mock_result=result)
         return complete_mock_part1(result)
 
     def test_part1_checked_waits_for_expert(self):
@@ -51,9 +53,7 @@ class MockLifecycleTests(TestCase):
 
     def test_expert_verdict_completes_mock_and_calibrates(self):
         result = self._run_part1()
-        review = submit_solution(
-            self.student, self.a2, _solution_file(), mock_result=result
-        )
+        review = result.expert_reviews.get()
         finish_review(review, self.expert, {"К1": 1, "К2": 1}, comment="Отлично")
         result.refresh_from_db()
         self.assertEqual(result.status, MockExamResult.Status.COMPLETED)
@@ -65,7 +65,28 @@ class MockLifecycleTests(TestCase):
 
     def test_exam_without_part2_completes_immediately(self):
         self.exam.assignments.set([self.a1])
+        result = self._run_part1(upload_part2=False)
+        self.assertEqual(result.status, MockExamResult.Status.COMPLETED)
+
+    def test_skipped_part2_does_not_freeze_the_mock(self):
+        """Ученик не приложил решение — задача просто получает ноль."""
+        result = self._run_part1(upload_part2=False)
+
+        self.assertEqual(result.status, MockExamResult.Status.COMPLETED)
+        self.assertEqual(result.part2_primary_score, 0)
+        self.assertEqual(result.total_primary_score, 1)
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.calibration_samples, 1)
+
+    def test_partial_upload_waits_only_for_what_was_sent(self):
+        """Одна работа загружена, вторая пропущена: ждём только загруженную."""
+        third = make_assignment(self.node2, answer="", part=Assignment.Part.PART2)
+        self.exam.assignments.add(third)
         result = self._run_part1()
+
+        self.assertEqual(result.status, MockExamResult.Status.PART1_CHECKED)
+        finish_review(result.expert_reviews.get(), self.expert, {"К1": 1}, comment="")
+        result.refresh_from_db()
         self.assertEqual(result.status, MockExamResult.Status.COMPLETED)
 
     def test_deadline_property(self):

@@ -16,7 +16,14 @@ from apps.content.student_api import (
     SubmitHomeworkView,
 )
 from apps.diagnostics.api import DiagnosticListView, StartDiagnosticView, SubmitDiagnosticView
-from apps.economy.api import BuyItemView, EquipItemView, ShopView, WalletView
+from apps.economy.api import (
+    BuyItemView,
+    EquipItemView,
+    ResetLookView,
+    ShopView,
+    UnequipItemView,
+    WalletView,
+)
 from apps.expert_review.api import (
     ExpertReviewFinishView,
     ExpertReviewListView,
@@ -96,6 +103,8 @@ api_urls = [
     path("shop/", ShopView.as_view()),
     path("shop/items/<int:item_id>/buy/", BuyItemView.as_view()),
     path("shop/items/<int:item_id>/equip/", EquipItemView.as_view()),
+    path("shop/items/<int:item_id>/unequip/", UnequipItemView.as_view()),
+    path("shop/reset-look/", ResetLookView.as_view()),
     path("progress/", ProgressView.as_view()),
     path("forecast/", ForecastView.as_view()),
     path("parent/report/", ParentReportView.as_view()),
@@ -124,6 +133,12 @@ urlpatterns = [
         "lesson/<int:node_id>/summary.md",
         lesson_summary,
         name="lesson-summary",
+    ),
+    path("diagnostics/", web_views.diagnostics, name="diagnostics"),
+    path(
+        "diagnostics/run/<int:result_id>/",
+        web_views.diagnostic_run,
+        name="diagnostic_run",
     ),
     path("practice/backlog/", web_views.practice_backlog, name="practice_backlog"),
     path("shop/", web_views.shop, name="shop"),

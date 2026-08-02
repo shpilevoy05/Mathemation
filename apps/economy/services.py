@@ -228,6 +228,29 @@ def equip(student, item: ShopItem) -> InventoryItem:
     return owned
 
 
+@transaction.atomic
+def unequip(student, item: ShopItem) -> InventoryItem:
+    """Снять предмет и вернуться к базовому оформлению.
+
+    Купленное остаётся в инвентаре: снять — это про внешний вид, а не про
+    возврат покупки.
+    """
+    owned = InventoryItem.objects.filter(student=student, item=item).first()
+    if owned is None:
+        raise ValidationError("Предмет не куплен.")
+    owned.is_equipped = False
+    owned.save(update_fields=["is_equipped"])
+    return owned
+
+
+@transaction.atomic
+def unequip_all(student) -> int:
+    """Сбросить оформление целиком: базовый вид кабинета."""
+    return InventoryItem.objects.filter(student=student, is_equipped=True).update(
+        is_equipped=False
+    )
+
+
 def equipped_items(student) -> dict[str, InventoryItem]:
     return {
         inventory.item.slot: inventory

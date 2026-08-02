@@ -627,6 +627,7 @@ def shop_context(student) -> dict:
         "recent_entries": list(wallet.entries.all()[:10]),
         "streak_freezes": profile.streak_freezes,
         "active_boost": boost,
+        "has_equipped": bool(equipped),
     }
 
 
@@ -787,6 +788,49 @@ def lesson_context(student, node_id, attempt_context=Attempt.Context.LESSON):
         "start_xp": snapshot["xp"],
         "start_level": snapshot["level"],
         "start_coins": get_wallet(student).balance,
+    }
+
+
+def diagnostics_context(student) -> dict:
+    """Входная диагностика: что пройти и что она уже показала."""
+    from apps.diagnostics.models import DiagnosticResult, DiagnosticTest
+
+    results = list(
+        DiagnosticResult.objects.filter(student=student)
+        .select_related("test")
+        .order_by("-started_at")[:5]
+    )
+    last_completed = next(
+        (result for result in results if result.status == DiagnosticResult.Status.COMPLETED),
+        None,
+    )
+    in_progress = next(
+        (result for result in results if result.status == DiagnosticResult.Status.IN_PROGRESS),
+        None,
+    )
+    return {
+        "tests": [
+            {"test": test, "count": test.assignments.count()}
+            for test in DiagnosticTest.objects.filter(is_active=True)
+        ],
+        "results": results,
+        "last_completed": last_completed,
+        "in_progress": in_progress,
+        "has_plan": get_active_plan(student) is not None,
+    }
+
+
+def diagnostic_run_context(student, result_id) -> dict:
+    """Прохождение диагностики: задачи одной страницей, без таймера."""
+    from apps.diagnostics.models import DiagnosticResult
+
+    result = get_object_or_404(
+        DiagnosticResult.objects.select_related("test"), pk=result_id, student=student
+    )
+    return {
+        "result": result,
+        "assignments": list(result.test.assignments.all()),
+        "is_open": result.status == DiagnosticResult.Status.IN_PROGRESS,
     }
 
 

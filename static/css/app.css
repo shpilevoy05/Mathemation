@@ -512,6 +512,15 @@ a.track-node-link:hover { transform: translateY(-3px); }
 .coverage span { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: var(--card-2); font-family: var(--data); font-size: .76rem; }
 .coverage span.is-mapped { border-color: var(--success); color: var(--success); background: var(--success-soft); }
 
+/* Вертикальный ритм кабинета: карточки и сетки не должны слипаться, если
+   идут подряд без обёртки-грида. */
+.page-shell > .card + .card,
+.page-shell > .card + .stat-grid,
+.page-shell > .stat-grid + .card,
+.page-shell > .card + .parent-section,
+.page-shell > .hero + .card { margin-top: 18px; }
+.forecast-card { margin-bottom: 18px; }
+
 /* Скрытая панель должна оставаться скрытой: у графа и списка тем свои
    display-правила, которые иначе перебивают атрибут hidden. */
 [hidden] { display: none !important; }
