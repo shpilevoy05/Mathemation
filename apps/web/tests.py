@@ -417,6 +417,98 @@ class DesignSystemTests(TestCase):
         self.assertContains(self.client.get(reverse("dashboard")), reverse("pricing"))
 
 
+class CompletionAndVerdictTests(TestCase):
+    """Пройденное занятие, счёт недели у родителя и вердикт эксперта у ученика."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", verbosity=0)
+        cls.user = User.objects.get(username="student")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.student = self.user.student_profile
+
+    def _solve_all_tasks(self, node):
+        from apps.practice.services import submit_attempt
+
+        assignments = Assignment.objects.filter(skill_tags__node=node).distinct()
+        for assignment in assignments:
+            submit_attempt(
+                self.student, assignment, assignment.correct_answer, Attempt.Context.LESSON
+            )
+        return assignments.count()
+
+    def test_lesson_point_is_done_once_every_task_is_solved(self):
+        node = KnowledgeNode.objects.get(code="frac-powers")
+        self.assertTrue(self._solve_all_tasks(node))
+
+        points = [
+            point
+            for cluster in self.client.get(reverse("track")).context["track_clusters"]
+            for point in cluster["points"]
+            if point["node_id"] == node.id and point["type"] == "lesson"
+        ]
+
+        self.assertTrue(points)
+        for point in points:
+            self.assertTrue(point["is_done"], point["title"])
+            self.assertEqual(point["marker"], "✓")
+
+    def test_parent_week_counts_items_by_completion_not_by_due_date(self):
+        from apps.planning.services import complete_item, get_active_plan
+        from apps.progress.services import build_parent_report
+
+        plan = get_active_plan(self.student)
+        item = plan.items.filter(item_type="lesson").first()
+        # Пункт со сроком в прошлом, закрытый сегодня, — работа этой недели.
+        item.due_date = timezone.localdate() - timedelta(days=30)
+        item.save(update_fields=["due_date"])
+        complete_item(item)
+
+        report = build_parent_report(self.student)
+
+        self.assertEqual(report.payload["week_fact"]["plan_items_done"], 1)
+
+    def test_returned_work_is_visible_to_the_student_with_the_comment(self):
+        from django.core.files.base import ContentFile
+
+        from apps.accounts.models import User as UserModel
+        from apps.expert_review.services import finish_review, submit_solution
+
+        assignment = Assignment.objects.filter(exam_part=2).first()
+        review = submit_solution(
+            self.student, assignment, ContentFile(b"\xff\xd8\xff\xe0jpeg", name="s.jpg")
+        )
+        finish_review(
+            review, UserModel.objects.get(username="expert"), {"1": 0},
+            comment="Проекция верна, пересчитай тангенс.", needs_resubmission=True,
+        )
+
+        response = self.client.get(reverse("practice_backlog"))
+
+        rows = response.context["expert_reviews"]
+        self.assertEqual(rows[0]["status_label"], "вернули на доработку")
+        self.assertTrue(rows[0]["needs_resubmission"])
+        self.assertContains(response, "Проекция верна")
+        self.assertContains(response, "data-resubmit-form")
+
+    def test_pending_work_is_shown_as_waiting_for_the_expert(self):
+        from django.core.files.base import ContentFile
+
+        from apps.expert_review.services import submit_solution
+
+        assignment = Assignment.objects.filter(exam_part=2).first()
+        submit_solution(
+            self.student, assignment, ContentFile(b"\xff\xd8\xff\xe0jpeg", name="s.jpg")
+        )
+
+        rows = self.client.get(reverse("practice_backlog")).context["expert_reviews"]
+
+        self.assertTrue(rows[0]["is_pending"])
+        self.assertFalse(rows[0]["needs_resubmission"])
+
+
 class HomeworkAndDailyPageTests(TestCase):
     """Домашки и задание дня видны ученику в кабинете, а не только в API."""
 

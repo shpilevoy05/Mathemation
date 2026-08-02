@@ -86,13 +86,24 @@ class ShopCategory(models.Model):
 
 
 class ShopItem(models.Model):
-    """Косметический предмет: аватар, рамка, тема оформления, значок."""
+    """Предмет витрины: косметика или расходник со срочным эффектом.
+
+    Косметика (аватар, рамка, тема) надевается и живёт в инвентаре. Расходник
+    (заморозка стрика, ускоритель опыта) срабатывает в момент покупки и
+    покупается повторно — поэтому у него нет «надетости».
+    """
 
     class Slot(models.TextChoices):
         AVATAR = "avatar"
         FRAME = "frame"
         THEME = "theme"
         BADGE = "badge"
+        BOOST = "boost"
+
+    class Effect(models.TextChoices):
+        NONE = "none", "Только внешний вид"
+        STREAK_FREEZE = "streak_freeze", "Заморозка стрика"
+        XP_BOOST = "xp_boost", "Ускоритель опыта"
 
     category = models.ForeignKey(
         ShopCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="items"
@@ -100,6 +111,14 @@ class ShopItem(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     slot = models.CharField(max_length=16, choices=Slot.choices, default=Slot.AVATAR)
+    # Машинный код предмета: по нему интерфейс знает, какой аватар, какую
+    # рамку или тему рисовать. Пустой код — предмет без визуального эффекта.
+    code = models.SlugField(max_length=64, blank=True)
+    effect = models.CharField(max_length=16, choices=Effect.choices, default=Effect.NONE)
+    # Для заморозки — сколько дней, для ускорителя — прибавка в процентах.
+    effect_value = models.PositiveSmallIntegerField(default=0)
+    # Срок действия ускорителя. Ноль — эффект бессрочный или мгновенный.
+    duration_hours = models.PositiveSmallIntegerField(default=0)
     image_url = models.URLField(max_length=500, blank=True)
     price_coins = models.PositiveIntegerField()
     is_active = models.BooleanField(default=True)
@@ -124,6 +143,38 @@ class ShopItem(models.Model):
         if self.available_to and now > self.available_to:
             return False
         return True
+
+
+class XpBoost(models.Model):
+    """Временный ускоритель опыта.
+
+    Хранится отдельно от инвентаря: у эффекта есть срок, а у косметики — нет.
+    Действующих ускорителей может быть несколько, но складывать их нельзя,
+    иначе покупка десяти штук ломает экономику: берётся самый сильный.
+    """
+
+    student = models.ForeignKey(
+        "accounts.StudentProfile", on_delete=models.CASCADE, related_name="xp_boosts"
+    )
+    item = models.ForeignKey(
+        ShopItem, on_delete=models.SET_NULL, null=True, blank=True, related_name="boosts"
+    )
+    bonus_percent = models.PositiveSmallIntegerField()
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-ends_at"]
+
+    def __str__(self):
+        return f"+{self.bonus_percent}% XP до {self.ends_at:%d.%m %H:%M}"
+
+    def is_running(self, now=None) -> bool:
+        from django.utils import timezone
+
+        now = now or timezone.now()
+        return self.starts_at <= now < self.ends_at
 
 
 class InventoryItem(models.Model):

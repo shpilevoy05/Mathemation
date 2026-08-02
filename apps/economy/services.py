@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+from math import ceil
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
-from .models import InventoryItem, LedgerEntry, ShopItem, Wallet
+from .models import InventoryItem, LedgerEntry, ShopItem, Wallet, XpBoost
 
 
 def get_wallet(student) -> Wallet:
@@ -143,21 +146,72 @@ def _safe_grant(student, amount: int, reason: str, reference: str, comment: str 
 
 
 @transaction.atomic
-def purchase(student, item: ShopItem) -> InventoryItem:
-    """Купить косметику. Повторная покупка того же предмета запрещена."""
+def purchase(student, item: ShopItem) -> InventoryItem | None:
+    """Купить предмет.
+
+    Косметику покупают один раз — она уходит в инвентарь. Расходник
+    (заморозка стрика, ускоритель опыта) срабатывает сразу и покупается
+    повторно, поэтому возвращается `None`: складывать его в инвентарь не во что.
+    """
     if not item.is_available():
         raise ValidationError("Товар недоступен.")
-    if InventoryItem.objects.filter(student=student, item=item).exists():
+    consumable = item.effect != ShopItem.Effect.NONE
+    if not consumable and InventoryItem.objects.filter(student=student, item=item).exists():
         raise ValidationError("Этот предмет уже куплен.")
 
     spend(
         student,
         item.price_coins,
         LedgerEntry.Reason.PURCHASE,
-        reference=f"item:{item.pk}",
+        # Расходник покупается много раз, поэтому ключ идемпотентности
+        # включает момент покупки, а не только сам предмет.
+        reference=(
+            f"item:{item.pk}:{timezone.now().timestamp():.0f}" if consumable
+            else f"item:{item.pk}"
+        ),
         comment=item.title,
     )
+    if consumable:
+        apply_effect(student, item)
+        return None
     return InventoryItem.objects.create(student=student, item=item)
+
+
+def apply_effect(student, item: ShopItem) -> None:
+    """Выдать эффект расходника: заморозку стрика или ускоритель опыта."""
+    from apps.gamification.models import GamificationProfile
+
+    if item.effect == ShopItem.Effect.STREAK_FREEZE:
+        profile, _ = GamificationProfile.objects.get_or_create(student=student)
+        GamificationProfile.objects.filter(pk=profile.pk).update(
+            streak_freezes=F("streak_freezes") + max(item.effect_value, 1)
+        )
+    elif item.effect == ShopItem.Effect.XP_BOOST:
+        now = timezone.now()
+        XpBoost.objects.create(
+            student=student, item=item,
+            bonus_percent=max(item.effect_value, 1),
+            starts_at=now,
+            ends_at=now + timedelta(hours=max(item.duration_hours, 1)),
+        )
+
+
+def active_boost(student, now=None) -> XpBoost | None:
+    """Самый сильный действующий ускоритель. Ускорители не складываются."""
+    now = now or timezone.now()
+    return (
+        XpBoost.objects.filter(student=student, starts_at__lte=now, ends_at__gt=now)
+        .order_by("-bonus_percent")
+        .first()
+    )
+
+
+def boosted_xp(student, amount: int, now=None) -> int:
+    """XP с учётом ускорителя. Награда округляется вверх — в пользу ученика."""
+    boost = active_boost(student, now)
+    if boost is None or amount <= 0:
+        return amount
+    return amount + ceil(amount * boost.bonus_percent / 100)
 
 
 @transaction.atomic

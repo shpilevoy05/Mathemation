@@ -98,16 +98,31 @@ class PanelPricingTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.json()["is_running"])
 
+    def test_admin_creates_an_addon(self):
+        response = self.client.post(
+            "/api/admin/addons/",
+            {
+                "code": "extra-hints", "kind": "mentor_hints",
+                "title": "Пакет подсказок", "price_rub": "490.00",
+                "quantity": 50, "unit_label": "подсказок",
+            },
+            "application/json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["price_per_unit"], "9.80")
+
     def test_pricing_sections_are_listed_in_the_panel_page(self):
         page = self.client.get("/panel/").content.decode()
 
         self.assertIn("Способы оплаты", page)
         self.assertIn("Скидки и акции", page)
+        self.assertIn("Докупки (апселлы)", page)
 
     def test_pricing_endpoints_are_closed_for_students(self):
         self.client.force_login(User.objects.create_user("shopper", role=User.Role.STUDENT))
 
-        for url in ("/api/admin/payment-methods/", "/api/admin/promotions/"):
+        for url in ("/api/admin/payment-methods/", "/api/admin/promotions/", "/api/admin/addons/"):
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 403)
 

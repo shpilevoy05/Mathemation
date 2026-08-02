@@ -1,0 +1,31 @@
+"""Косметика ученика для каждого шаблона.
+
+Тема, аватар и рамка меняют весь кабинет, поэтому они нужны в `base.html`, а не
+в контексте отдельной страницы.
+"""
+
+from apps.economy.services import equipped_items
+
+# Темы оформления, которые умеет отрисовать CSS. Купленная тема с неизвестным
+# кодом не должна ломать страницу — она просто игнорируется.
+KNOWN_THEMES = {"dark", "sunrise", "forest", "graphite"}
+KNOWN_AVATARS = {"owl", "fox", "rocket", "sigma"}
+KNOWN_FRAMES = {"coordinates", "flame", "integral", "gold"}
+
+
+def cosmetics(request):
+    student = getattr(getattr(request, "user", None), "student_profile", None)
+    if student is None:
+        return {"ui_theme": "", "ui_avatar": "", "ui_frame": ""}
+
+    equipped = equipped_items(student)
+    def code(slot: str, known: set[str]) -> str:
+        inventory = equipped.get(slot)
+        value = inventory.item.code if inventory else ""
+        return value if value in known else ""
+
+    return {
+        "ui_theme": code("theme", KNOWN_THEMES),
+        "ui_avatar": code("avatar", KNOWN_AVATARS),
+        "ui_frame": code("frame", KNOWN_FRAMES),
+    }

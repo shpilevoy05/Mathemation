@@ -15,6 +15,41 @@
 
   <div class="dashboard-grid">
     <section class="card card-wide">
+      <div class="section-heading">
+        <div><p class="eyebrow">Витрина</p><h2>Ускорители и защита серии</h2></div>
+        <div>
+          {% if streak_freezes %}<span class="boost-chip">🧊 заморозок: {{ streak_freezes }}</span>{% endif %}
+          {% if active_boost %}<span class="boost-chip">⚡ +{{ active_boost.bonus_percent }} % XP до {{ active_boost.ends_at|date:"d.m H:i" }}</span>{% endif %}
+        </div>
+      </div>
+      <p class="empty-copy">Расходники покупаются повторно и срабатывают сразу — надевать их не нужно.</p>
+      {% if boost_items %}
+        <ul class="plain-list shop-list">
+          {% for row in boost_items %}
+            <li class="shop-item" data-shop-item="{{ row.item.id }}">
+              <div>
+                <strong>{{ row.item.title }}</strong>
+                <small>{{ row.item.get_slot_display }} · <span class="price num">{{ row.item.price_coins }} <svg class="sigma-token" width="14" height="14" aria-hidden="true"><use href="#sigma-coin"></use></svg></span></small>
+                <small class="effect-note">{{ row.effect_note }}</small>
+                {% if row.item.description %}<small>{{ row.item.description }}</small>{% endif %}
+              </div>
+              <div class="shop-actions">
+                {% if row.affordable %}
+                  <button class="button button-primary button-small" type="button"
+                          data-shop-action="buy" data-shop-url="/api/shop/items/{{ row.item.id }}/buy/">Купить</button>
+                {% else %}
+                  <span class="empty-copy" data-shop-state>Не хватает сигм</span>
+                {% endif %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-copy">Расходников пока нет.</p>
+      {% endif %}
+    </section>
+
+    <section class="card card-wide">
       <div class="section-heading"><div><p class="eyebrow">Витрина</p><h2>Косметика</h2></div><small>{{ owned_count }} уже куплено</small></div>
       {% if shop_items %}
         <ul class="plain-list shop-list">

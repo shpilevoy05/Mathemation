@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from decimal import Decimal
 
-from .models import Payment, PaymentMethod, Promotion, Subscription, Tariff
+from .models import AddOn, Payment, PaymentMethod, Promotion, Subscription, Tariff
 from .providers import get_provider
 
 
@@ -46,6 +46,11 @@ def new_tariff_version(tariff: Tariff, *, price_rub, **changes) -> Tariff:
 def active_payment_methods():
     """Способы оплаты для витрины, в порядке, заданном администратором."""
     return list(PaymentMethod.objects.filter(is_active=True))
+
+
+def active_addons():
+    """Докупки сверх тарифа: проверка эксперта и подсказки наставника."""
+    return list(AddOn.objects.filter(is_active=True))
 
 
 def running_promotions(now=None):

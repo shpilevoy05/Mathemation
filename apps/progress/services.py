@@ -523,10 +523,18 @@ def build_parent_report(student, week_start=None) -> ParentReport:
             "solved": solved,
             "hints_used": hints_used,
             "mocks_completed": mocks_completed,
+            # Занятия недели считаются по факту закрытия, а не по сроку в
+            # плане: пункт с прошлой недели, сделанный сегодня, — работа этой
+            # недели, а несделанный пункт с этой недели работой не является.
             "plan_items_done": (
                 plan.items.filter(
                     status=StudyPlanItem.Status.DONE,
-                    due_date__gte=week_start, due_date__lt=week_end,
+                    item_type__in=[
+                        StudyPlanItem.ItemType.LESSON,
+                        StudyPlanItem.ItemType.PRACTICE,
+                    ],
+                    completed_at__date__gte=week_start,
+                    completed_at__date__lt=week_end,
                 ).count()
                 if plan
                 else 0

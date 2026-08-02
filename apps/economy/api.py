@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from apps.accounts.api import get_student
 
 from .models import InventoryItem, ShopItem
-from .services import equip, equipped_items, get_wallet, purchase, storefront
+from .services import active_boost, equip, equipped_items, get_wallet, purchase, storefront
 
 
 def _item_payload(item: ShopItem, owned_ids: set[int], equipped_ids: set[int]) -> dict:
@@ -71,10 +71,23 @@ class BuyItemView(views.APIView):
         student = get_student(request)
         item = get_object_or_404(ShopItem, pk=item_id)
         try:
-            purchase(student, item)
+            inventory = purchase(student, item)
         except DjangoValidationError as exc:
             return Response({"detail": " ".join(exc.messages)}, status=400)
-        return Response({"balance": get_wallet(student).balance, "owned": True}, status=201)
+        # Расходник не попадает в инвентарь: он сработал сразу, и надевать
+        # его нечем — клиенту важно отличать эти два случая.
+        boost = active_boost(student)
+        return Response({
+            "balance": get_wallet(student).balance,
+            "owned": inventory is not None,
+            "consumable": inventory is None,
+            "effect": item.effect,
+            "streak_freezes": (
+                student.gamification_profile.streak_freezes
+                if hasattr(student, "gamification_profile") else 0
+            ),
+            "boost_percent": boost.bonus_percent if boost else 0,
+        }, status=201)
 
 
 class EquipItemView(views.APIView):

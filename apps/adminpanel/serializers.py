@@ -9,7 +9,14 @@
 from rest_framework import serializers
 
 from apps.accounts.models import Invite, StudentGroup, StudentProfile
-from apps.billing.models import Payment, PaymentMethod, Promotion, Subscription, Tariff
+from apps.billing.models import (
+    AddOn,
+    Payment,
+    PaymentMethod,
+    Promotion,
+    Subscription,
+    Tariff,
+)
 from apps.content.models import (
     Assignment,
     AssignmentVersion,
@@ -148,6 +155,19 @@ class TariffSerializer(serializers.ModelSerializer):
         fields = "__all__"
         # Цена меняется только новой версией тарифа (действие new_version).
         read_only_fields = ["version"]
+
+
+class AddOnSerializer(serializers.ModelSerializer):
+    price_per_unit = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True
+    )
+
+    class Meta:
+        model = AddOn
+        fields = [
+            "id", "code", "kind", "title", "description", "price_rub",
+            "quantity", "unit_label", "is_active", "order", "price_per_unit",
+        ]
 
 
 class PaymentMethodSerializer(serializers.ModelSerializer):

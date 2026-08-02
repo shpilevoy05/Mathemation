@@ -486,7 +486,9 @@ def track_context(student):
                     "lesson", lesson.title, state_data, position, node.id,
                     task_progress,
                 )
-                if not current_assigned and state_data["state"] in {
+                # Текущей не может быть уже пройденная точка: иначе «продолжить»
+                # ведёт туда, где всё решено.
+                if not current_assigned and not point["is_done"] and state_data["state"] in {
                     "available", "in_progress", "decayed"
                 }:
                     _make_current(point)
@@ -591,9 +593,10 @@ def daily_challenge_context(student) -> dict:
 
 
 def shop_context(student) -> dict:
-    """Витрина косметики: баланс, товары и что уже куплено или надето."""
-    from apps.economy.models import InventoryItem
-    from apps.economy.services import get_wallet, storefront
+    """Витрина: баланс, косметика и расходники с их эффектами."""
+    from apps.economy.models import InventoryItem, ShopItem
+    from apps.economy.services import active_boost, get_wallet, storefront
+    from apps.gamification.models import GamificationProfile
 
     inventory = list(
         InventoryItem.objects.filter(student=student).select_related("item")
@@ -601,21 +604,41 @@ def shop_context(student) -> dict:
     owned = {entry.item_id for entry in inventory}
     equipped = {entry.item_id for entry in inventory if entry.is_equipped}
     wallet = get_wallet(student)
-    items = [
-        {
+    items, boosts = [], []
+    for item in storefront():
+        row = {
             "item": item,
             "owned": item.id in owned,
             "equipped": item.id in equipped,
             "affordable": wallet.balance >= item.price_coins,
+            "is_consumable": item.effect != ShopItem.Effect.NONE,
+            "effect_note": _effect_note(item),
         }
-        for item in storefront()
-    ]
+        (boosts if row["is_consumable"] else items).append(row)
+
+    profile, _ = GamificationProfile.objects.get_or_create(student=student)
+    boost = active_boost(student)
     return {
         "balance": wallet.balance,
         "shop_items": items,
+        "boost_items": boosts,
         "owned_count": len(owned),
         "recent_entries": list(wallet.entries.all()[:10]),
+        "streak_freezes": profile.streak_freezes,
+        "active_boost": boost,
     }
+
+
+def _effect_note(item) -> str:
+    """Человеческая подпись к расходнику: что именно он делает."""
+    from apps.economy.models import ShopItem
+
+    if item.effect == ShopItem.Effect.STREAK_FREEZE:
+        days = max(item.effect_value, 1)
+        return f"Спасает серию при пропуске: {days} дн."
+    if item.effect == ShopItem.Effect.XP_BOOST:
+        return f"+{item.effect_value} % опыта на {item.duration_hours} ч"
+    return ""
 
 
 def node_task_progress(student) -> dict[int, dict]:
@@ -664,13 +687,18 @@ def _track_point(point_type, title, state_data, position, node_id=None,
         f"сейчас {condition['current_mastery']}%"
         for condition in unlock_conditions
     )
+    # Урок считается пройденным, когда решены все его задачи: ученик уже сделал
+    # работу, и точка на дорожке не должна ждать порога освоения темы. Практика
+    # закрывается порогом — это другой критерий и другая точка.
+    tasks_done = progress["total"] > 0 and progress["solved"] >= progress["total"]
+    is_done = state == "mastered" or (point_type == "lesson" and tasks_done)
     if point_type == "review":
         visual_state, marker, url = "review", "↻", reverse("practice_backlog")
     elif point_type == "mock":
         visual_state, marker, url = "mock", "🏆", reverse("mocks")
     else:
-        visual_state = state
-        marker = "✓" if state == "mastered" else ("🔒" if state == "locked" else "●")
+        visual_state = "mastered" if is_done else state
+        marker = "✓" if is_done else ("🔒" if state == "locked" else "●")
         url = reverse("lesson", args=[node_id]) if state != "locked" else None
     return {
         "type": point_type,
@@ -679,7 +707,7 @@ def _track_point(point_type, title, state_data, position, node_id=None,
         "state": state,
         "state_label": NODE_STATE_LABELS.get(state, state),
         "node_id": node_id,
-        "is_done": state == "mastered",
+        "is_done": is_done,
         "is_current": False,
         "visual_state": visual_state,
         "marker": marker,
@@ -761,7 +789,49 @@ def practice_backlog_context(student):
         "backlog_items": [item for item in prepared if not item["is_resolved"]],
         "resolved_items": [item for item in prepared if item["is_resolved"]],
         "due_reviews": due_reviews(student),
+        "expert_reviews": expert_verdicts(student),
     }
+
+
+EXPERT_STATUS_LABELS = {
+    ExpertReviewRequest.Status.SUBMITTED: "на проверке",
+    ExpertReviewRequest.Status.REVIEWED: "проверено",
+    ExpertReviewRequest.Status.NEEDS_RESUBMISSION: "вернули на доработку",
+}
+
+
+def expert_verdicts(student, limit: int = 8) -> list[dict]:
+    """Что сказал эксперт по работам второй части.
+
+    Без этого списка вердикт виден только в полке ошибок, а работа, которую
+    вернули на доработку, не видна ученику нигде — и он не знает, что от него
+    ждут повторной загрузки.
+    """
+    requests = (
+        ExpertReviewRequest.objects.filter(student=student)
+        .select_related("assignment")
+        .order_by("-created_at")[:limit]
+    )
+    return [
+        {
+            "id": review.id,
+            "assignment": review.assignment,
+            "assignment_id": review.assignment_id,
+            "status": review.status,
+            "status_label": EXPERT_STATUS_LABELS.get(review.status, review.status),
+            "needs_resubmission": (
+                review.status == ExpertReviewRequest.Status.NEEDS_RESUBMISSION
+            ),
+            "is_pending": review.status == ExpertReviewRequest.Status.SUBMITTED,
+            "score": review.total_score,
+            "max_score": review.assignment.max_score,
+            "lost_points": review.lost_points,
+            "comment": review.comment,
+            "reviewed_at": review.reviewed_at,
+            "created_at": review.created_at,
+        }
+        for review in requests
+    ]
 
 
 def forecast_context(student):

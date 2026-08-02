@@ -79,6 +79,41 @@ class PaymentMethod(models.Model):
         return not self.provider_key
 
 
+class AddOn(models.Model):
+    """Разовая докупка сверх тарифа.
+
+    Апселлы намеренно не версионируются как тарифы: они не создают подписку, а
+    добавляют конечное число проверок или подсказок к текущему периоду.
+    """
+
+    class Kind(models.TextChoices):
+        EXPERT_REVIEW = "expert_review", "Проверка эксперта"
+        MENTOR_HINTS = "mentor_hints", "Подсказки наставника"
+
+    code = models.SlugField(max_length=64, unique=True)
+    kind = models.CharField(max_length=32, choices=Kind.choices)
+    title = models.CharField(max_length=200)
+    description = models.CharField(max_length=300, blank=True)
+    price_rub = models.DecimalField(max_digits=10, decimal_places=2)
+    # Сколько единиц даёт покупка: работ на проверку или подсказок.
+    quantity = models.PositiveSmallIntegerField(default=1)
+    unit_label = models.CharField(max_length=40, default="шт.")
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "price_rub"]
+
+    def __str__(self):
+        return f"{self.title} ({self.price_rub} ₽)"
+
+    @property
+    def price_per_unit(self):
+        if not self.quantity:
+            return self.price_rub
+        return (self.price_rub / self.quantity).quantize(Decimal("0.01"))
+
+
 class Promotion(models.Model):
     """Скидка или акция на тарифы.
 

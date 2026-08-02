@@ -117,6 +117,9 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # Тема, аватар и рамка меняют весь кабинет, поэтому доступны
+                # в каждом шаблоне, а не только на своей странице.
+                "apps.web.context_processors.cosmetics",
             ],
         },
     },

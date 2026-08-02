@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from apps.accounts.models import StudentProfile, User
 
-from .models import Payment, PaymentMethod, Promotion, Tariff
+from .models import AddOn, Payment, PaymentMethod, Promotion, Tariff
 from .services import (
     active_payment_methods,
     best_promotion,
@@ -180,6 +180,40 @@ class PricingPageTests(TestCase):
 
         self.assertTrue(response.context["promo_failed"])
         self.assertEqual(response.context["quotes"][0]["total_rub"], Decimal("2900.00"))
+
+    def test_addons_are_offered_next_to_the_tariffs(self):
+        AddOn.objects.create(
+            code="extra-expert-check", kind=AddOn.Kind.EXPERT_REVIEW,
+            title="Дополнительная проверка эксперта", price_rub=Decimal("1200.00"),
+            quantity=1, unit_label="работа",
+        )
+        AddOn.objects.create(
+            code="extra-hints", kind=AddOn.Kind.MENTOR_HINTS,
+            title="Пакет подсказок наставника", price_rub=Decimal("490.00"),
+            quantity=50, unit_label="подсказок",
+        )
+
+        response = self.client.get(reverse("pricing"))
+
+        self.assertEqual(len(response.context["addons"]), 2)
+        self.assertContains(response, "Дополнительная проверка эксперта")
+        self.assertContains(response, "Пакет подсказок наставника")
+
+    def test_addon_shows_the_price_per_unit(self):
+        addon = AddOn.objects.create(
+            code="extra-hints", kind=AddOn.Kind.MENTOR_HINTS, title="Подсказки",
+            price_rub=Decimal("490.00"), quantity=50, unit_label="подсказок",
+        )
+
+        self.assertEqual(addon.price_per_unit, Decimal("9.80"))
+
+    def test_disabled_addon_disappears_from_the_page(self):
+        AddOn.objects.create(
+            code="extra-hints", kind=AddOn.Kind.MENTOR_HINTS, title="Подсказки",
+            price_rub=Decimal("490.00"), is_active=False,
+        )
+
+        self.assertEqual(self.client.get(reverse("pricing")).context["addons"], [])
 
     def test_running_promotions_are_announced(self):
         Promotion.objects.create(title="Первый месяц −10%", code="START10", value=10)

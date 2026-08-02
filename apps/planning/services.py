@@ -533,7 +533,8 @@ def complete_item(item: StudyPlanItem) -> StudyPlanItem:
     if item.status == StudyPlanItem.Status.DONE:
         return item
     item.status = StudyPlanItem.Status.DONE
-    item.save(update_fields=["status"])
+    item.completed_at = timezone.now()
+    item.save(update_fields=["status", "completed_at"])
     from apps.gamification.services import record_plan_item_activity
 
     record_plan_item_activity(item.plan.student)

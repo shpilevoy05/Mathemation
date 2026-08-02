@@ -42,6 +42,45 @@
   }
   openInitialDialog();
 
+  // Подписи шкалы прогноза: при низком или максимальном балле «сейчас»,
+  // «цель» и «потолок» сходятся в одну точку. Разводим их по рядам и
+  // прижимаем к краю, чтобы ничего не наезжало и не выходило за карточку.
+  function layoutGaugeLabels() {
+    document.querySelectorAll(".gauge-axis").forEach(axis => {
+      const bounds = axis.getBoundingClientRect();
+      if (!bounds.width) return;
+      const flags = [...axis.querySelectorAll(".gauge-flag")]
+        .map(flag => ({ flag, label: flag.querySelector("span"), left: parseFloat(flag.style.left) || 0 }))
+        .sort((a, b) => a.left - b.left);
+      const placed = [];
+      flags.forEach(entry => {
+        entry.label.classList.remove("is-left", "is-right");
+        entry.flag.removeAttribute("data-row");
+        const width = entry.label.getBoundingClientRect().width;
+        const centre = bounds.width * entry.left / 100;
+        if (centre - width / 2 < 0) entry.label.classList.add("is-left");
+        else if (centre + width / 2 > bounds.width) entry.label.classList.add("is-right");
+        const start = Math.max(0, Math.min(bounds.width - width, centre - width / 2));
+        const end = start + width;
+        let row = 0;
+        while (placed.some(other => other.row === row && start < other.end + 8 && other.start < end + 8)) row += 1;
+        if (row) entry.flag.dataset.row = String(Math.min(row, 2));
+        placed.push({ row, start, end });
+      });
+
+      const caption = axis.querySelector(".gauge-caption-now");
+      if (caption) {
+        caption.classList.remove("is-left", "is-right");
+        const width = caption.getBoundingClientRect().width;
+        const centre = bounds.width * (parseFloat(caption.style.left) || 0) / 100;
+        if (centre - width / 2 < 0) caption.classList.add("is-left");
+        else if (centre + width / 2 > bounds.width) caption.classList.add("is-right");
+      }
+    });
+  }
+  layoutGaugeLabels();
+  window.addEventListener("resize", layoutGaugeLabels);
+
   // Граф карты навыков: координаты приходят с сервера, здесь только отрисовка
   // и подсветка цепочки пререквизитов выбранной темы.
   function renderKnowledgeGraph() {
@@ -93,8 +132,20 @@
       const percent = el("text", { class: "pct", x: node.x, y: node.y + 4 });
       percent.textContent = node.state === "locked" ? "—" : `${node.mastery}%`;
       group.appendChild(percent);
-      const name = el("text", { class: "name", x: node.x, y: node.y + RADIUS + 19 });
-      name.textContent = node.title;
+      // Длинные названия рвём по словам: одной строкой они наезжают на
+      // соседние темы и на рёбра.
+      const name = el("text", { class: "name", x: node.x, y: node.y + RADIUS + 18 });
+      const lines = [];
+      node.title.split(" ").forEach(word => {
+        const last = lines[lines.length - 1];
+        if (last && (last + " " + word).length <= 18) lines[lines.length - 1] = last + " " + word;
+        else lines.push(word);
+      });
+      (lines.length > 2 ? [lines[0], lines.slice(1).join(" ")] : lines).forEach((line, index) => {
+        const span = el("tspan", { x: node.x, dy: index ? "1.15em" : "0" });
+        span.textContent = index === 1 && line.length > 20 ? line.slice(0, 19) + "…" : line;
+        name.appendChild(span);
+      });
       group.appendChild(name);
       nodes.appendChild(group);
     });
@@ -117,10 +168,15 @@
       if (node.state === "mastered") return "Тема освоена. Контрольный повтор запланирован автоматически.";
       return "Тема в работе: порог освоения — 70 %.";
     };
+    const STATE_CHIP = {
+      mastered: "success-soft", in_progress: "chip-progress", available: "chip-progress",
+      decayed: "warning-soft", locked: "chip-locked"
+    };
     const show = node => {
       if (!parts) return;
       parts.title.textContent = node.title;
       parts.state.textContent = node.state_label;
+      parts.state.className = `chip chip-status ${STATE_CHIP[node.state] || ""}`;
       parts.why.textContent = describe(node);
       parts.bar.style.width = `${Math.max(node.mastery, 2)}%`;
       parts.task.textContent = `Освоение ${node.mastery} %`;
@@ -178,6 +234,26 @@
       });
     });
   }
+
+  // Повторная загрузка решения после «вернули на доработку».
+  document.addEventListener("submit", async event => {
+    const form = event.target.closest("[data-resubmit-form]");
+    if (!form) return;
+    event.preventDefault();
+    const button = form.querySelector("button"), error = form.querySelector("[data-resubmit-error]");
+    const file = form.querySelector("input[type=file]").files[0];
+    if (!file) return;
+    button.disabled = true; error.hidden = true;
+    try {
+      const payload = new FormData();
+      payload.append("assignment", form.dataset.assignment);
+      payload.append("file", file);
+      await apiFetch("/api/expert-reviews/submit/", { method: "POST", body: payload });
+      window.location.reload();
+    } catch (exception) {
+      error.hidden = false; error.textContent = exception.message; button.disabled = false;
+    }
+  });
 
   document.addEventListener("click", async event => {
     const startMockButton = event.target.closest("[data-start-mock]");
@@ -325,7 +401,8 @@
       try {
         const data = await apiFetch(shopButton.dataset.shopUrl, { method: "POST", body: "{}" });
         if (typeof data.balance === "number") document.querySelector("[data-shop-balance]").textContent = data.balance;
-        if (shopButton.dataset.shopAction === "buy") { row.classList.add("is-owned"); shopButton.dataset.shopAction = "equip"; shopButton.dataset.shopUrl = shopButton.dataset.shopUrl.replace("/buy/", "/equip/"); shopButton.textContent = "Надеть"; shopButton.disabled = false; }
+        if (data.consumable) { const note = document.createElement("span"); note.className = "boost-chip"; note.textContent = "Куплено — эффект уже действует"; row.querySelector(".shop-actions").append(note); shopButton.disabled = false; }
+        else if (shopButton.dataset.shopAction === "buy") { row.classList.add("is-owned"); shopButton.dataset.shopAction = "equip"; shopButton.dataset.shopUrl = shopButton.dataset.shopUrl.replace("/buy/", "/equip/"); shopButton.textContent = "Надеть"; shopButton.disabled = false; }
         else { document.querySelectorAll("[data-shop-item] [data-shop-state]").forEach(node => { if (node.textContent === "Надето") node.remove(); }); const state = document.createElement("span"); state.className = "quest-check"; state.dataset.shopState = ""; state.textContent = "Надето"; shopButton.replaceWith(state); }
       } catch (exception) { error.hidden = false; error.textContent = exception.message; shopButton.disabled = false; }
     }

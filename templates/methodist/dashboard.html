@@ -4,7 +4,14 @@
 {% if not allowed %}
   <section class="empty-state"><h1>Контент</h1><p>Кабинет методиста недоступен для вашей роли.</p></section>
 {% else %}
-  <header class="page-heading hero"><div><h1>Контент</h1><p>Граф знаний, уроки и банк задач</p></div></header>
+  <header class="page-heading hero">
+    <div><h1>Контент</h1><p>Граф знаний, уроки и банк задач</p></div>
+    <div class="hero-actions">
+      <a class="button button-primary" href="{% url 'admin-panel' %}">Рабочая панель</a>
+      <a class="button" href="{% url 'admin:index' %}">Django-админка</a>
+      <a class="button" href="{% url 'pricing' %}">Тарифы</a>
+    </div>
+  </header>
   <section class="stat-grid" aria-label="Статистика контента">
     <article class="stat-tile"><span class="stat-icon">◉</span><div><strong>{{ node_count }}</strong><h2>Узлов</h2></div></article>
     <article class="stat-tile"><span class="stat-icon">▶</span><div><strong>{{ lesson_count }}</strong><h2>Уроков <small>(с видео {{ video_lesson_count }})</small></h2></div></article>

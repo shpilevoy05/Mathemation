@@ -74,6 +74,33 @@
 </div>
 
 <section class="card">
+  <div class="section-heading">
+    <div><h2>Докупить к тарифу</h2><p class="muted">Разовые опции сверх подписки — покупаются, когда нужны, и не меняют тариф.</p></div>
+  </div>
+  {% if addons %}
+    <div class="pricing-grid">
+      {% for addon in addons %}
+        <article class="card pricing-card addon-card">
+          <div class="section-heading"><h3>{{ addon.title }}</h3><span class="chip">{{ addon.get_kind_display }}</span></div>
+          <p class="price-line">
+            <span class="price-total num">{{ addon.price_rub|floatformat:0 }} ₽</span>
+            <small>за {{ addon.quantity }} {{ addon.unit_label }} · {{ addon.price_per_unit|floatformat:0 }} ₽ за единицу</small>
+          </p>
+          {% if addon.description %}<p>{{ addon.description }}</p>{% endif %}
+          {% if checkout_enabled %}
+            <button class="button" type="button" data-checkout-addon="{{ addon.id }}">Докупить</button>
+          {% else %}
+            <button class="button" type="button" disabled>Оплата скоро</button>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">Дополнительных опций сейчас нет.</p>
+  {% endif %}
+</section>
+
+<section class="card">
   <div class="section-heading"><h2>Способы оплаты</h2><span class="muted">настраиваются администратором</span></div>
   {% if payment_methods %}
     <ul class="plain-list">

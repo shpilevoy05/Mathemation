@@ -49,6 +49,13 @@ def _get_locked_profile(student) -> GamificationProfile:
 def award_xp(student, amount: int, source: str, **event_payload) -> GamificationProfile:
     if amount < 0:
         raise ValueError("XP award cannot be negative.")
+    # Ускоритель из магазина увеличивает награду, но не меняет саму работу:
+    # событие пишется с итоговой суммой и исходной, чтобы аналитика видела обе.
+    from apps.economy.services import boosted_xp
+
+    base_amount, amount = amount, boosted_xp(student, amount)
+    if amount != base_amount:
+        event_payload.setdefault("base_amount", base_amount)
     profile = _get_locked_profile(student)
     profile.xp += amount
     profile.level = level_for_xp(profile.xp)
@@ -81,6 +88,7 @@ def advance_streak(student, activity_date: date | None = None) -> GamificationPr
         return profile
 
     period_step = timedelta(days=1 if streak_mode() == "daily" else 7)
+    frozen_periods = 0
     if previous is None:
         profile.streak_current = 1
         event_type = Event.Type.STREAK_ADVANCED
@@ -88,13 +96,27 @@ def advance_streak(student, activity_date: date | None = None) -> GamificationPr
         profile.streak_current += 1
         event_type = Event.Type.STREAK_ADVANCED
     else:
-        profile.streak_current = 1
-        event_type = Event.Type.STREAK_RESET
+        # Пропуск: заморозка из магазина закрывает пропущенные периоды по
+        # одной штуке за период. Серия продолжается, а не начинается заново —
+        # ровно за это её и покупали.
+        missed = max((period - previous) // period_step - 1, 0)
+        if missed and profile.streak_freezes >= missed:
+            frozen_periods = missed
+            profile.streak_freezes -= missed
+            profile.streak_frozen_periods += missed
+            profile.streak_current += 1
+            event_type = Event.Type.STREAK_ADVANCED
+        else:
+            profile.streak_current = 1
+            event_type = Event.Type.STREAK_RESET
 
     profile.streak_best = max(profile.streak_best, profile.streak_current)
     profile.streak_period_anchor = period
     profile.save(
-        update_fields=["streak_current", "streak_best", "streak_period_anchor"]
+        update_fields=[
+            "streak_current", "streak_best", "streak_period_anchor",
+            "streak_freezes", "streak_frozen_periods",
+        ]
     )
     log_event(
         event_type,
@@ -103,6 +125,8 @@ def advance_streak(student, activity_date: date | None = None) -> GamificationPr
         period_anchor=period.isoformat(),
         streak_current=profile.streak_current,
         streak_best=profile.streak_best,
+        frozen_periods=frozen_periods,
+        freezes_left=profile.streak_freezes,
     )
     return profile
 
@@ -238,12 +262,18 @@ def gamification_snapshot(student, on_date: date | None = None) -> dict:
     on_date = on_date or timezone.localdate()
     quests = generate_weekly_quests(student, week_start_for(on_date))
     profile, _ = GamificationProfile.objects.get_or_create(student=student)
+    from apps.economy.services import active_boost
+
+    boost = active_boost(student)
     return {
         "xp": profile.xp,
         "level": level_for_xp(profile.xp),
         "streak_current": profile.streak_current,
         "streak_best": profile.streak_best,
         "streak_mode": streak_mode(),
+        "streak_freezes": profile.streak_freezes,
+        "xp_boost_percent": boost.bonus_percent if boost else 0,
+        "xp_boost_until": boost.ends_at if boost else None,
         "quests": [
             {
                 "id": quest.id,

@@ -404,18 +404,51 @@ class Command(BaseCommand):
         cosmetics, _ = ShopCategory.objects.update_or_create(
             title="Косметика", defaults={"order": 0}
         )
-        for title, slot, price in [
-            ("Аватар «Сова»", ShopItem.Slot.AVATAR, 40),
-            ("Аватар «Лис»", ShopItem.Slot.AVATAR, 60),
-            ("Рамка «Золото»", ShopItem.Slot.FRAME, 80),
-            ("Тема «Ночь»", ShopItem.Slot.THEME, 120),
-            ("Значок «Стрик 7»", ShopItem.Slot.BADGE, 30),
+        boosters, _ = ShopCategory.objects.update_or_create(
+            title="Ускорители", defaults={"order": 1}
+        )
+        # Косметика: код нужен интерфейсу, чтобы знать, что рисовать.
+        for title, slot, code, price, description in [
+            ("Аватар «Сова»", ShopItem.Slot.AVATAR, "owl", 40, ""),
+            ("Аватар «Лис»", ShopItem.Slot.AVATAR, "fox", 60, ""),
+            ("Аватар «Ракета»", ShopItem.Slot.AVATAR, "rocket", 90, ""),
+            ("Аватар «Сигма»", ShopItem.Slot.AVATAR, "sigma", 70, ""),
+            ("Рамка «Координаты»", ShopItem.Slot.FRAME, "coordinates", 80, ""),
+            ("Рамка «Пламя»", ShopItem.Slot.FRAME, "flame", 110, "Открывается стриком от 7 дней."),
+            ("Рамка «Интеграл»", ShopItem.Slot.FRAME, "integral", 140, ""),
+            ("Тема «Ночь»", ShopItem.Slot.THEME, "dark", 120, "Тёмная тема кабинета."),
+            ("Тема «Рассвет»", ShopItem.Slot.THEME, "sunrise", 150, "Тёплая охра вместо индиго."),
+            ("Тема «Лес»", ShopItem.Slot.THEME, "forest", 150, "Зелёная палитра, спокойный фон."),
+            ("Тема «Графит»", ShopItem.Slot.THEME, "graphite", 180, "Тёмно-серая, без синевы."),
+            ("Значок «Стрик 7»", ShopItem.Slot.BADGE, "streak7", 30, ""),
         ]:
             ShopItem.objects.update_or_create(
                 title=title,
                 defaults={
-                    "category": cosmetics, "slot": slot,
+                    "category": cosmetics, "slot": slot, "code": code,
+                    "description": description,
                     "price_coins": price, "is_active": True,
+                    "effect": ShopItem.Effect.NONE,
+                },
+            )
+        # Расходники: покупаются повторно и срабатывают сразу.
+        for title, effect, value, hours, price, description in [
+            ("Заморозка стрика", ShopItem.Effect.STREAK_FREEZE, 1, 0, 100,
+             "Один пропущенный день не сбрасывает серию."),
+            ("Заморозка стрика ×3", ShopItem.Effect.STREAK_FREEZE, 3, 0, 260,
+             "Три пропуска про запас: болезнь, поездка, форс-мажор."),
+            ("Ускоритель опыта +50 % на сутки", ShopItem.Effect.XP_BOOST, 50, 24, 150,
+             "XP за занятия начисляется в полтора раза быстрее."),
+            ("Ускоритель опыта +100 % на 3 часа", ShopItem.Effect.XP_BOOST, 100, 3, 120,
+             "Двойной опыт на один плотный подход."),
+        ]:
+            ShopItem.objects.update_or_create(
+                title=title,
+                defaults={
+                    "category": boosters, "slot": ShopItem.Slot.BOOST,
+                    "description": description, "price_coins": price,
+                    "is_active": True, "effect": effect,
+                    "effect_value": value, "duration_hours": hours,
                 },
             )
 
@@ -425,7 +458,7 @@ class Command(BaseCommand):
         Эквайринг не подключён: у способов оплаты пустой `provider_key`, и
         витрина честно показывает, что оплата пока идёт через куратора.
         """
-        from apps.billing.models import PaymentMethod, Promotion, Tariff
+        from apps.billing.models import AddOn, PaymentMethod, Promotion, Tariff
 
         for code, title, price, days, description, features in [
             ("solo", "Самостоятельно", 2900, 30,
@@ -460,6 +493,23 @@ class Command(BaseCommand):
                     "title": title, "description": description,
                     "instructions": instructions, "provider_key": "",
                     "is_active": True, "order": order,
+                },
+            )
+
+        for order, (code, kind, title, price, quantity, unit, description) in enumerate([
+            ("extra-expert-check", AddOn.Kind.EXPERT_REVIEW,
+             "Дополнительная проверка пробника экспертом", 1200, 1, "работа",
+             "Разбор второй части живым экспертом сверх лимита тарифа, срок — 24 часа."),
+            ("extra-hints", AddOn.Kind.MENTOR_HINTS,
+             "Пакет подсказок наставника", 490, 50, "подсказок",
+             "50 наводящих подсказок сверх месячного лимита. Готовых решений наставник не выдаёт."),
+        ]):
+            AddOn.objects.update_or_create(
+                code=code,
+                defaults={
+                    "kind": kind, "title": title, "price_rub": price,
+                    "quantity": quantity, "unit_label": unit,
+                    "description": description, "is_active": True, "order": order,
                 },
             )
 

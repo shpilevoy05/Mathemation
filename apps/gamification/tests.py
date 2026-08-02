@@ -173,7 +173,10 @@ class GamificationApiAndDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             set(response.data),
-            {"xp", "level", "streak_current", "streak_best", "streak_mode", "quests"},
+            {
+                "xp", "level", "streak_current", "streak_best", "streak_mode",
+                "streak_freezes", "xp_boost_percent", "xp_boost_until", "quests",
+            },
         )
         self.assertEqual(response.data["xp"], 5)
         self.assertEqual(response.data["streak_mode"], "daily")

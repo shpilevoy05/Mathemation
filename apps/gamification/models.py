@@ -12,6 +12,10 @@ class GamificationProfile(models.Model):
     streak_current = models.PositiveIntegerField(default=0)
     streak_best = models.PositiveIntegerField(default=0)
     streak_period_anchor = models.DateField(null=True, blank=True)
+    # Заморозки, купленные в магазине: одна закрывает один пропущенный период,
+    # чтобы серия не сгорала из-за болезни или поездки.
+    streak_freezes = models.PositiveSmallIntegerField(default=0)
+    streak_frozen_periods = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return f"{self.student}: {self.xp} XP"

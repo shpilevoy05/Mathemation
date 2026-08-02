@@ -66,6 +66,9 @@ SECTIONS = [
     {"group": "Деньги", "items": [
         {"key": "tariffs", "title": "Тарифы",
          "columns": ["id", "code", "version", "title", "price_rub", "period_days", "is_active"]},
+        {"key": "addons", "title": "Докупки (апселлы)",
+         "columns": ["id", "code", "kind", "title", "description", "price_rub",
+                     "quantity", "unit_label", "is_active", "order"]},
         {"key": "payment-methods", "title": "Способы оплаты",
          "columns": ["id", "code", "title", "description", "instructions",
                      "provider_key", "is_active", "order"]},

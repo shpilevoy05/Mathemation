@@ -8,7 +8,13 @@
 from django.shortcuts import render
 
 from .models import PaymentMethod
-from .services import active_payment_methods, active_tariffs, quote, running_promotions
+from .services import (
+    active_addons,
+    active_payment_methods,
+    active_tariffs,
+    quote,
+    running_promotions,
+)
 
 
 def pricing_context(promo_code: str = "") -> dict:
@@ -20,6 +26,7 @@ def pricing_context(promo_code: str = "") -> dict:
     return {
         "quotes": quotes,
         "payment_methods": active_payment_methods(),
+        "addons": active_addons(),
         "promotions": running_promotions(),
         "promo_code": promo_code,
         "promo_applied": applied is not None and bool(promo_code),
