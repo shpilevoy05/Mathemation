@@ -329,6 +329,57 @@
       } catch (error) { item.querySelectorAll("button").forEach(button => button.disabled = false); alert(error.message); }
     }
 
+    // Кнопки магазина и домашек — обычные button, поэтому живут в обработчике
+    // клика: в submit они не попадают и раньше молча ничего не делали.
+    const submitHomework = event.target.closest("[data-submit-homework]");
+    if (submitHomework) {
+      const card = submitHomework.closest("[data-homework]"), error = card.querySelector("[data-homework-error]");
+      submitHomework.disabled = true; if (error) error.hidden = true;
+      try { await apiFetch(submitHomework.dataset.submitHomework, { method: "POST", body: "{}" }); const chip = document.createElement("span"); chip.className = "item-type-chip"; chip.textContent = "Сдано"; submitHomework.replaceWith(chip); }
+      catch (exception) { if (error) { error.hidden = false; error.textContent = exception.message; } submitHomework.disabled = false; }
+    }
+
+    const shopButton = event.target.closest("[data-shop-action]");
+    if (shopButton) {
+      const row = shopButton.closest("[data-shop-item]");
+      const error = row.closest("section")?.querySelector("[data-shop-error]") || document.querySelector("[data-shop-error]");
+      shopButton.disabled = true; if (error) error.hidden = true;
+      try {
+        const data = await apiFetch(shopButton.dataset.shopUrl, { method: "POST", body: "{}" });
+        document.querySelectorAll("[data-shop-balance]").forEach(node => {
+          if (typeof data.balance === "number") node.textContent = data.balance;
+        });
+        if (data.consumable) {
+          const note = document.createElement("span"); note.className = "boost-chip";
+          note.textContent = data.effect === "streak_freeze"
+            ? `Куплено · заморозок: ${data.streak_freezes}`
+            : `Куплено · опыт +${data.boost_percent} %`;
+          row.querySelector("[data-shop-note]")?.remove();
+          note.dataset.shopNote = "";
+          row.querySelector(".shop-actions").append(note);
+          shopButton.disabled = false;
+        } else if (shopButton.dataset.shopAction === "buy") {
+          row.classList.add("is-owned");
+          shopButton.dataset.shopAction = "equip";
+          shopButton.dataset.shopUrl = shopButton.dataset.shopUrl.replace("/buy/", "/equip/");
+          shopButton.textContent = "Надеть";
+          shopButton.disabled = false;
+        } else {
+          document.querySelectorAll("[data-shop-item] [data-shop-state]").forEach(node => { if (node.textContent === "Надето") node.remove(); });
+          const state = document.createElement("span"); state.className = "quest-check"; state.dataset.shopState = ""; state.textContent = "Надето";
+          shopButton.replaceWith(state);
+          // Тема, аватар и рамка меняют весь кабинет — показываем это сразу.
+          if (row.dataset.shopSlot === "theme" || row.dataset.shopSlot === "avatar" || row.dataset.shopSlot === "frame") {
+            window.location.reload();
+          }
+        }
+      } catch (exception) {
+        if (error) { error.hidden = false; error.textContent = exception.message; }
+        else alert(exception.message);
+        shopButton.disabled = false;
+      }
+    }
+
     const nextButton = event.target.closest("[data-next-task]");
     if (nextButton) showNextTask(nextButton.closest("[data-task]"));
   });
@@ -348,7 +399,8 @@
     const layer = shell.querySelector("[data-reward-layer]");
     const outro = shell.querySelector("[data-lesson-outro]");
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const session = { xp: 0, coins: 0, mastery: Number(shell.dataset.mastery) || 0 };
+    const startMastery = Number(shell.dataset.mastery) || 0;
+    const session = { xp: 0, coins: 0, mastery: startMastery };
     let pending = null;
 
     const meter = name => shell.querySelector(`[data-meter-${name}]`);
@@ -449,8 +501,16 @@
 
     function finishLesson() {
       const praise = PRAISE[Math.min(Math.floor(session.xp / 10), PRAISE.length - 1)];
-      outro.querySelector("[data-outro-praise]").textContent = praise;
-      outro.querySelector("[data-outro-mastery]").textContent = `${session.mastery}%`;
+      const gain = Math.round((session.mastery - startMastery) * 10) / 10;
+      outro.querySelector("[data-outro-praise]").textContent =
+        gain > 0 ? `${praise} Освоение темы выросло на ${gain} п. п.` : praise;
+      // Итог показывает движение, а не только конечную точку: «54% → 61%»
+      // говорит о работе больше, чем одно число.
+      outro.querySelector("[data-outro-mastery-from]").textContent = startMastery;
+      outro.querySelector("[data-outro-mastery]").textContent = session.mastery;
+      const bar = outro.querySelector("[data-outro-mastery-bar]");
+      bar.style.width = `${startMastery}%`;
+      setTimeout(() => { bar.style.width = `${session.mastery}%`; }, 80);
       outro.querySelector("[data-outro-xp]").textContent = `+${session.xp}`;
       outro.querySelector("[data-outro-coins]").textContent = `+${session.coins}`;
       showStage("done");
@@ -550,25 +610,6 @@
     }
 
 
-    const submitHomework = event.target.closest("[data-submit-homework]");
-    if (submitHomework) {
-      const card = submitHomework.closest("[data-homework]"), error = card.querySelector("[data-homework-error]");
-      submitHomework.disabled = true; error.hidden = true;
-      try { await apiFetch(submitHomework.dataset.submitHomework, { method: "POST", body: "{}" }); const chip = document.createElement("span"); chip.className = "item-type-chip"; chip.textContent = "Сдано"; submitHomework.replaceWith(chip); }
-      catch (exception) { error.hidden = false; error.textContent = exception.message; submitHomework.disabled = false; }
-    }
-    const shopButton = event.target.closest("[data-shop-action]");
-    if (shopButton) {
-      const row = shopButton.closest("[data-shop-item]"), error = document.querySelector("[data-shop-error]");
-      shopButton.disabled = true; error.hidden = true;
-      try {
-        const data = await apiFetch(shopButton.dataset.shopUrl, { method: "POST", body: "{}" });
-        if (typeof data.balance === "number") document.querySelector("[data-shop-balance]").textContent = data.balance;
-        if (data.consumable) { const note = document.createElement("span"); note.className = "boost-chip"; note.textContent = "Куплено — эффект уже действует"; row.querySelector(".shop-actions").append(note); shopButton.disabled = false; }
-        else if (shopButton.dataset.shopAction === "buy") { row.classList.add("is-owned"); shopButton.dataset.shopAction = "equip"; shopButton.dataset.shopUrl = shopButton.dataset.shopUrl.replace("/buy/", "/equip/"); shopButton.textContent = "Надеть"; shopButton.disabled = false; }
-        else { document.querySelectorAll("[data-shop-item] [data-shop-state]").forEach(node => { if (node.textContent === "Надето") node.remove(); }); const state = document.createElement("span"); state.className = "quest-check"; state.dataset.shopState = ""; state.textContent = "Надето"; shopButton.replaceWith(state); }
-      } catch (exception) { error.hidden = false; error.textContent = exception.message; shopButton.disabled = false; }
-    }
     const attemptForm = event.target.closest("[data-attempt-form]");
     if (attemptForm) {
       event.preventDefault(); const task = attemptForm.closest("[data-task]"), button = attemptForm.querySelector("button"), verdict = task.querySelector("[data-verdict]"); button.disabled = true;

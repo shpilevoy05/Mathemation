@@ -28,6 +28,47 @@
   </section>
 
   <div class="parent-grid">
+    <section class="card">
+      <div class="section-heading"><h2>Прогресс по программе</h2><strong class="num">{{ report_data.progress.program_percent }}%</strong></div>
+      <div class="progress-bar"><span style="width: {{ report_data.progress.program_percent }}%"></span></div>
+      <ul class="plain-list">
+        <li><strong class="num">{{ report_data.progress.nodes_mastered }} из {{ report_data.progress.nodes_total }}</strong><small>тем освоено на пороге и выше</small></li>
+        <li><strong class="num">{{ report_data.progress.nodes_in_progress }}</strong><small>тем в работе{% if report_data.progress.nodes_decayed %}, {{ report_data.progress.nodes_decayed }} подзабылось{% endif %}</small></li>
+        <li><strong class="num">{{ report_data.progress.average_mastery }}%</strong><small>среднее освоение по всем темам</small></li>
+        <li><strong class="num">{{ report_data.progress.plan_items_done }} из {{ report_data.progress.plan_items_total }}</strong><small>пунктов плана закрыто за всё время</small></li>
+        <li><strong class="num">{{ report_data.progress.solved_this_week }}</strong><small>задач решено верно на этой неделе</small></li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <div class="section-heading">
+        <h2>Текущая траектория</h2>
+        {% if report_data.trajectory.title %}
+          <span class="chip {% if report_data.trajectory.keeps_pace %}success-soft{% else %}warning-soft{% endif %}">
+            {% if report_data.trajectory.keeps_pace %}темп держится{% else %}темп ниже плана{% endif %}
+          </span>
+        {% endif %}
+      </div>
+      {% if report_data.trajectory.title %}
+        <p><strong>{{ report_data.trajectory.title }}</strong> — сценарий на {{ report_data.trajectory.target_min }}–{{ report_data.trajectory.target_max }} баллов.</p>
+        <ul class="plain-list">
+          <li><strong class="num">{{ report_data.trajectory.weekly_load_hours }} ч/нед</strong><small>требует сценарий · ученик заявил {{ report_data.trajectory.student_weekly_hours }} ч</small></li>
+          {% if report_data.trajectory.exam_date %}<li><strong>{{ report_data.trajectory.exam_date }}</strong><small>дата экзамена в профиле</small></li>{% endif %}
+          {% if report_data.trajectory.changed_to %}
+            <li>
+              <strong>{% if report_data.trajectory.changed_from %}{{ report_data.trajectory.changed_from }} → {% endif %}{{ report_data.trajectory.changed_to }}</strong>
+              <small>последний переход{% if report_data.trajectory.change_reasons %}: {{ report_data.trajectory.change_reasons|join:", " }}{% endif %}</small>
+            </li>
+          {% endif %}
+        </ul>
+        {% if report_data.trajectory.recovery_actions %}
+          <p class="muted">Что вернуть: {{ report_data.trajectory.recovery_actions|join:"; " }}</p>
+        {% endif %}
+      {% else %}
+        <p class="empty-copy">Траектория назначается после входной диагностики или выбора цели. Пока её нет, план строится по общей программе.</p>
+      {% endif %}
+    </section>
+
     <section class="card dynamics-card">
       <div class="section-heading"><h2>Динамика</h2><strong class="delta delta-{{ delta_class }}">{{ delta_label }}</strong></div>
       <svg class="sparkline sparkline-svg" viewBox="0 0 100 48" preserveAspectRatio="none" width="100%" height="48" role="img" aria-label="Динамика прогноза">

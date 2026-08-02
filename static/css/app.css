@@ -557,6 +557,8 @@ a.track-node-link:hover { transform: translateY(-3px); }
 .outro-stats div { display: grid; gap: 4px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card-2); }
 .outro-stats small { color: var(--muted); font-size: .76rem; }
 .outro-stats strong { font-size: 1.5rem; }
+.outro-stats .bar { height: 6px; margin-top: 8px; background: var(--gray-soft); }
+.outro-stats .bar span { display: block; height: 100%; border-radius: 999px; background: var(--success); transition: width .9s ease; }
 
 /* Слой перехода: показывает, что именно принёс этап. */
 .reward-layer { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(16, 22, 42, .55); backdrop-filter: blur(3px); animation: fade-in .2s ease; }

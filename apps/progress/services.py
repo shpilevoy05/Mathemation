@@ -418,6 +418,80 @@ def create_snapshot(student) -> ProgressSnapshot:
     )
 
 
+def _progress_block(student, week_start, week_end) -> dict:
+    """Прогресс по программе: сколько тем закрыто и что сдвинулось за неделю.
+
+    Прогноз отвечает на «на какой балл идём», а этот блок — на «сколько
+    программы пройдено»: без него родителю видно только колебания прогноза.
+    """
+    from apps.knowledge.services import node_states
+
+    states = node_states(student)
+    total = len(states)
+    mastered = sum(1 for state in states.values() if state["state"] == "mastered")
+    in_progress = sum(1 for state in states.values() if state["state"] == "in_progress")
+    decayed = sum(1 for state in states.values() if state["state"] == "decayed")
+    average = (
+        round(sum(float(state["mastery"]) for state in states.values()) / total, 1)
+        if total else 0.0
+    )
+    plan = get_active_plan(student)
+    done_items = (
+        plan.items.filter(status=StudyPlanItem.Status.DONE).count() if plan else 0
+    )
+    total_items = plan.items.count() if plan else 0
+    solved_week = Attempt.objects.filter(
+        student=student, is_correct=True,
+        created_at__date__gte=week_start, created_at__date__lt=week_end,
+    ).count()
+    return {
+        "nodes_total": total,
+        "nodes_mastered": mastered,
+        "nodes_in_progress": in_progress,
+        "nodes_decayed": decayed,
+        "average_mastery": average,
+        "program_percent": round(mastered * 100 / total) if total else 0,
+        "plan_items_done": done_items,
+        "plan_items_total": total_items,
+        "plan_percent": round(done_items * 100 / total_items) if total_items else 0,
+        "solved_this_week": solved_week,
+    }
+
+
+def _trajectory_block(student, plan) -> dict:
+    """Текущая траектория: какой сценарий выбран и держит ли его ученик."""
+    from apps.planning.models import TrajectoryTransition
+
+    trajectory = plan.trajectory if plan and plan.trajectory_id else None
+    transition = (
+        TrajectoryTransition.objects.filter(student=student)
+        .select_related("from_trajectory", "to_trajectory")
+        .order_by("-created_at")
+        .first()
+    )
+    weekly_hours = student.weekly_hours
+    planned_hours = trajectory.weekly_load_hours if trajectory else weekly_hours
+    return {
+        "title": trajectory.title if trajectory else "",
+        "slug": trajectory.slug if trajectory else "",
+        "target_min": trajectory.target_min if trajectory else None,
+        "target_max": trajectory.target_max if trajectory else None,
+        "weekly_load_hours": planned_hours,
+        "student_weekly_hours": weekly_hours,
+        # «Держит темп» — ученик заявил не меньше часов, чем требует сценарий.
+        "keeps_pace": weekly_hours >= planned_hours,
+        "exam_date": student.exam_date.isoformat() if student.exam_date else None,
+        "changed_at": transition.created_at.isoformat() if transition else None,
+        "changed_from": (
+            transition.from_trajectory.title
+            if transition and transition.from_trajectory_id else ""
+        ),
+        "changed_to": transition.to_trajectory.title if transition else "",
+        "change_reasons": list(transition.reasons) if transition else [],
+        "recovery_actions": list(transition.recovery_actions) if transition else [],
+    }
+
+
 def build_parent_report(student, week_start=None) -> ParentReport:
     """Weekly pulse: факт недели, динамика, риски, слабые темы, следующий шаг."""
     today = timezone.localdate()
@@ -447,6 +521,13 @@ def build_parent_report(student, week_start=None) -> ParentReport:
         completed_at__date__lt=week_end,
     ).count()
 
+    # Замер прогноза делает ночная джоба, но родителю нельзя показывать прочерк
+    # только потому, что Celery не запущен: если сегодняшнего замера нет, он
+    # снимается здесь. Один замер в день — история не засоряется.
+    if not ProgressSnapshot.objects.filter(
+        student=student, created_at__date=today
+    ).exists():
+        create_snapshot(student)
     snapshots = list(
         ProgressSnapshot.objects.filter(student=student).order_by("-created_at")[:8]
     )
@@ -550,6 +631,8 @@ def build_parent_report(student, week_start=None) -> ParentReport:
             "start_score": student.start_score,
             "target_score": student.target_score,
         },
+        "progress": _progress_block(student, week_start, week_end),
+        "trajectory": _trajectory_block(student, plan),
         "risks": risks,
         "weak_topics": weak_topics(student),
         "error_type_distribution": error_type_distribution,

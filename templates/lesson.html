@@ -164,7 +164,11 @@
     <h2 data-outro-title>Занятие пройдено</h2>
     <p data-outro-praise>Тема разобрана, задачи решены, ошибки вернулись в работу.</p>
     <div class="outro-stats">
-      <div><small>Освоение темы</small><strong class="num" data-outro-mastery>{{ mastery_percent }}%</strong></div>
+      <div>
+        <small>Освоение темы</small>
+        <strong class="num"><span data-outro-mastery-from>{{ mastery_percent }}</span>% → <span data-outro-mastery>{{ mastery_percent }}</span>%</strong>
+        <div class="bar"><span data-outro-mastery-bar style="width: {{ mastery_percent }}%"></span></div>
+      </div>
       <div><small>Опыт за занятие</small><strong class="num" data-outro-xp>+0</strong></div>
       <div><small>Сигмы за занятие</small><strong class="num" data-outro-coins>+0</strong></div>
     </div>

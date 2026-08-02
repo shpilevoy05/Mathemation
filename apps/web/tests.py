@@ -509,6 +509,57 @@ class CompletionAndVerdictTests(TestCase):
         self.assertFalse(rows[0]["needs_resubmission"])
 
 
+class ParentReportContentTests(TestCase):
+    """Родителю нужны конкретные числа прогресса и траектории, а не прочерки."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", verbosity=0)
+
+    def setUp(self):
+        self.parent = User.objects.get(username="parent")
+        self.student = User.objects.get(username="student").student_profile
+        self.client.force_login(self.parent)
+
+    def test_progress_block_counts_topics_plan_and_week(self):
+        from apps.progress.services import build_parent_report
+
+        progress = build_parent_report(self.student).payload["progress"]
+
+        self.assertEqual(progress["nodes_total"], KnowledgeNode.objects.count())
+        self.assertGreater(progress["plan_items_total"], 0)
+        self.assertIn("average_mastery", progress)
+        self.assertLessEqual(progress["program_percent"], 100)
+
+    def test_trajectory_block_names_the_scenario_and_the_pace(self):
+        from apps.progress.services import build_parent_report
+
+        trajectory = build_parent_report(self.student).payload["trajectory"]
+
+        self.assertTrue(trajectory["title"])
+        self.assertEqual(trajectory["student_weekly_hours"], self.student.weekly_hours)
+        self.assertIsInstance(trajectory["keeps_pace"], bool)
+
+    def test_forecast_is_measured_even_without_the_nightly_job(self):
+        from apps.progress.models import ProgressSnapshot
+        from apps.progress.services import build_parent_report
+
+        ProgressSnapshot.objects.filter(student=self.student).delete()
+
+        dynamics = build_parent_report(self.student).payload["dynamics"]
+
+        self.assertIsNotNone(dynamics["current_predicted_score"])
+        self.assertEqual(ProgressSnapshot.objects.filter(student=self.student).count(), 1)
+
+    def test_page_shows_both_blocks_with_numbers(self):
+        response = self.client.get(reverse("parent_dashboard"))
+
+        self.assertContains(response, "Прогресс по программе")
+        self.assertContains(response, "Текущая траектория")
+        self.assertContains(response, "тем освоено")
+        self.assertNotContains(response, "Траектория назначается после входной диагностики")
+
+
 class HomeworkAndDailyPageTests(TestCase):
     """Домашки и задание дня видны ученику в кабинете, а не только в API."""
 
