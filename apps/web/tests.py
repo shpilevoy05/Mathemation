@@ -198,10 +198,13 @@ class StudentCabinetTests(TestCase):
 
     def test_dashboard_contains_h1_design_system_markers_and_logo(self):
         response = self.client.get(reverse("dashboard"))
-        self.assertContains(response, 'class="hero student-hero"')
+        self.assertContains(response, 'class="student-hero"')
         self.assertContains(response, 'class="stat-grid"')
         self.assertContains(response, 'class="score-journey"')
         self.assertContains(response, 'class="logo-mark"')
+        # Иконки интерфейса приходят спрайтом, а не эмодзи.
+        self.assertContains(response, 'id="i-flame"')
+        self.assertContains(response, 'href="#i-home"')
 
     def test_knowledge_map_contains_seed_nodes(self):
         response = self.client.get(reverse("knowledge_map"))

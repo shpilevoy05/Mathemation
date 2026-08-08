@@ -2,18 +2,32 @@
 {% block title %}Дорожка — Матемация{% endblock %}
 {% block content %}
 {% if not student %}<section class="empty-state"><h1>Дорожка</h1><p>Этот раздел доступен ученикам.</p></section>{% else %}
-<div class="page-heading"><div><p class="eyebrow">Твой маршрут</p><h1>Дорожка подготовки</h1><p>Двигайся от точки к точке: освоенные темы остаются позади, а следующая цель подсвечена.</p></div></div>
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Твой маршрут</p>
+    <h1>Дорожка подготовки</h1>
+    <p>Освоенное остаётся позади, следующая цель светится. Закрытые точки показывают, чего им не хватает.</p>
+  </div>
+  <div class="track-summary">
+    <div><small>Пройдено</small><strong class="num">{{ track_done }} / {{ track_total }}</strong></div>
+    <div><small>До пробника</small><strong class="num">{{ track_to_mock }}</strong></div>
+  </div>
+</div>
 <div class="track" data-learning-track>
   {% for cluster in track_clusters %}
     <section class="track-unit" style="--cluster-color: {{ cluster.color }}" data-track-cluster>
-      <header class="track-unit-banner"><span>Раздел {{ forloop.counter }}</span><h2>{{ cluster.title }}</h2></header>
+      <header class="track-unit-banner">
+        <span class="unit-icon"><svg aria-hidden="true"><use href="#i-book"></use></svg></span>
+        <div><span>Раздел {{ forloop.counter }}</span><h2>{{ cluster.title }}</h2></div>
+        <div class="unit-progress"><strong class="num">{{ cluster.percent }}%</strong><small>освоено</small></div>
+      </header>
       <div class="track-path">
         {% for point in cluster.points %}
           <div class="track-node-row {{ point.position_class }} track-state-{{ point.visual_state }}" data-track-point data-position="{{ point.position }}" data-state="{{ point.visual_state }}">
             {% if point.is_clickable %}<a class="track-node-link" href="{{ point.url }}" aria-label="{{ point.type_label }}: {{ point.title }}">
             {% else %}<div class="track-node-link is-locked" tabindex="0" title="{{ point.unlock_tooltip }}" aria-label="{{ point.title }}. {{ point.unlock_tooltip }}">
             {% endif %}
-              <span class="track-progress-ring" style="{{ point.progress_style }}"><span class="track-node-button" aria-hidden="true">{{ point.marker }}</span></span>
+              <span class="track-progress-ring" style="{{ point.progress_style }}"><span class="track-node-button" aria-hidden="true">{% if point.icon %}<svg><use href="#{{ point.icon }}"></use></svg>{% else %}{{ point.marker }}{% endif %}</span></span>
               <span class="track-node-copy"><strong>{{ point.title }}</strong><small>{{ point.type_label }} · {{ point.state_label }} · {{ point.mastery_percent }}%{% if point.tasks_total %} · задачи {{ point.tasks_solved }}/{{ point.tasks_total }}{% endif %}</small></span>
               {% if point.unlock_tooltip %}<span class="track-tooltip" role="tooltip">{{ point.unlock_tooltip }}</span>{% endif %}
             {% if point.is_clickable %}</a>{% else %}</div>{% endif %}
@@ -24,9 +38,12 @@
   {% endfor %}
   {% if mock_points %}
     <section class="track-unit mock-cluster" data-track-cluster>
-      <header class="track-unit-banner"><span>Контроль</span><h2>Пробники</h2></header>
+      <header class="track-unit-banner">
+        <span class="unit-icon"><svg aria-hidden="true"><use href="#i-cup"></use></svg></span>
+        <div><span>Контроль</span><h2>Пробники</h2></div>
+      </header>
       <div class="track-path">
-        {% for point in mock_points %}<div class="track-node-row {{ point.position_class }} track-state-{{ point.visual_state }}" data-track-point data-position="{{ point.position }}" data-state="{{ point.visual_state }}"><a class="track-node-link" href="{{ point.url }}"><span class="track-progress-ring" style="{{ point.progress_style }}"><span class="track-node-button" aria-hidden="true">{{ point.marker }}</span></span><span class="track-node-copy"><strong>{{ point.title }}</strong><small>{{ point.type_label }}</small></span></a></div>{% endfor %}
+        {% for point in mock_points %}<div class="track-node-row {{ point.position_class }} track-state-{{ point.visual_state }}" data-track-point data-position="{{ point.position }}" data-state="{{ point.visual_state }}"><a class="track-node-link" href="{{ point.url }}"><span class="track-progress-ring" style="{{ point.progress_style }}"><span class="track-node-button" aria-hidden="true">{% if point.icon %}<svg><use href="#{{ point.icon }}"></use></svg>{% else %}{{ point.marker }}{% endif %}</span></span><span class="track-node-copy"><strong>{{ point.title }}</strong><small>{{ point.type_label }}</small></span></a></div>{% endfor %}
       </div>
     </section>
   {% endif %}

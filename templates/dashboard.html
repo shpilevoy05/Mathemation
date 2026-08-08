@@ -4,21 +4,62 @@
 {% if not student %}
   <section class="empty-state"><h1>Кабинет ученика</h1><p>Для этого аккаунта кабинет ученика недоступен. Выберите подходящий раздел или войдите под аккаунтом ученика.</p></section>
 {% else %}
-  <section class="hero student-hero">
-    <div class="hero-copy">
-      <h1>Привет, {{ user.first_name|default:user.username }}!</h1>
-      {% if trajectory %}<p>Траектория {{ trajectory.title }} · {{ trajectory.weekly_load_hours }} ч/нед · прогноз при текущем темпе</p>{% else %}<p>Траектория появится после диагностики · прогноз при текущем темпе</p>{% endif %}
+  <section class="student-hero">
+    <span class="hero-decor hero-decor--glow"></span>
+    <span class="hero-decor hero-decor--ring"></span>
+    <span class="hero-decor hero-decor--ring-sm"></span>
+    <span class="hero-decor hero-decor--orbit"><span></span></span>
+    <span class="hero-decor hero-decor--beam" style="top: 22%"><span></span></span>
+    <div>
+      <p class="eyebrow">{{ gamification.streak_current }}-й день подряд · до экзамена {{ days_to_exam|default:"—" }} дн.</p>
+      <h1>Привет, {{ user.first_name|default:user.username }}</h1>
+      <p>
+        {% if trajectory %}Траектория <b>{{ trajectory.title }}</b> · {{ trajectory.weekly_load_hours }} ч/нед.{% else %}Траектория появится после диагностики.{% endif %}
+        {% if today_items %}Сегодня {{ today_items|length }} пункт(а) плана — и серия продлится.{% else %}На сегодня пунктов плана нет.{% endif %}
+      </p>
+      <div class="hero-actions">
+        {% if has_diagnostic %}
+          <a class="button hero-button" href="{% url 'track' %}"><svg aria-hidden="true"><use href="#i-bolt"></use></svg>Продолжить занятие</a>
+        {% else %}
+          <a class="button hero-button" href="{% url 'diagnostics' %}"><svg aria-hidden="true"><use href="#i-target"></use></svg>Пройти диагностику</a>
+        {% endif %}
+        {% if week_items %}<button class="button hero-button-ghost" type="button" data-open-dialog="week-plan-dialog">План на неделю</button>{% endif %}
+      </div>
     </div>
-    <div class="hero-streak"><span aria-hidden="true">🔥</span><strong>{{ gamification.streak_current }} дн. подряд</strong></div>
     <div class="score-journey">
-      {% if has_diagnostic %}
-        <div class="journey-labels"><span>Старт {{ snapshot.start_score }}</span><strong>Прогноз {{ snapshot.predicted_score }}</strong><span>🎯 Цель {{ target_score }}</span></div>
-        <div class="journey-track"><span style="width: {{ journey_percent }}%"></span></div>
-      {% else %}
-        <a class="button hero-button" href="{% url 'diagnostics' %}">Пройти диагностику</a>
-      {% endif %}
+      <div class="journey-labels">
+        <div><small>Старт</small><b>{{ snapshot.start_score|default:"—" }}</b></div>
+        <div class="journey-now"><small>Прогноз</small><b>{{ gauge.scaled }}</b></div>
+        <div class="journey-goal"><small>Цель</small><b>{{ target_score }}</b></div>
+      </div>
+      <div class="journey-track">
+        <span style="width: calc({{ gauge.now_percent }}% - 4px)"></span>
+        <span class="journey-flame" style="left: {{ gauge.now_percent }}%"><svg aria-hidden="true"><use href="#i-flame"></use></svg></span>
+        <span class="journey-goal-mark" style="left: {{ gauge.target_percent }}%"></span>
+      </div>
+      <p class="hero-note">До цели <b class="num">{{ gauge.to_target_primary|floatformat:1 }}</b> первичных балла — это примерно {{ gauge.to_target_lessons }} занятий при текущем темпе.</p>
     </div>
   </section>
+
+  {% if daily %}
+    <a class="daily-banner" href="{% url 'daily_challenge' %}">
+      <span class="daily-icon"><svg aria-hidden="true"><use href="#i-star"></use></svg></span>
+      <div class="daily-copy">
+        <div class="section-heading" style="margin-bottom: 4px">
+          <strong>{% if daily.solved %}Задание дня решено{% else %}Задание дня ещё не решено{% endif %}</strong>
+          {% if not daily.solved %}<span class="badge-new">новое</span>{% endif %}
+        </div>
+        <p>{{ daily.title }} · +{{ daily.reward_xp }} XP{% if daily.reward_coins %} и +{{ daily.reward_coins }} Σ{% endif %}, если решить до полуночи.</p>
+      </div>
+      <div class="daily-side">
+        <div style="display: grid; justify-items: end; gap: 2px">
+          <span class="eyebrow" style="margin: 0; color: var(--warm-ink-2)">Осталось</span>
+          <b class="num" style="color: var(--warm-ink)">{{ daily.time_left }}</b>
+        </div>
+        <span class="daily-cta">{% if daily.solved %}Посмотреть{% else %}Решить{% endif %}</span>
+      </div>
+    </a>
+  {% endif %}
 
   <section class="card card-wide forecast-card">
     <div class="section-heading">
@@ -66,14 +107,46 @@
   {% endif %}
 
   <section class="stat-grid" aria-label="Главные показатели">
-    <article class="stat-tile"><span class="stat-icon">📈</span><div><strong>{{ snapshot.predicted_score|default:"—" }}</strong><h2>Прогноз</h2><small>при текущем темпе</small></div></article>
-    <article class="stat-tile"><span class="stat-icon">🚀</span><div><strong>{{ forecast.ceiling_score|default:"—" }}</strong><h2>Потолок</h2><small>при {{ forecast.weekly_hours|default:student.weekly_hours }} ч/нед</small></div></article>
-    <article class="stat-tile"><span class="stat-icon">🔥</span><div><strong>{{ gamification.streak_current }} дн.</strong><h2>Стрик</h2><small>лучший {{ gamification.streak_best }}</small></div></article>
-    <article class="stat-tile"><span class="stat-icon">⭐</span><div><strong>{{ gamification.level }}</strong><h2>Уровень</h2><div class="xp-progress" aria-label="{{ gamification.xp }} XP"><span style="width: {{ gamification.xp_progress_percent }}%"></span></div><small>{{ gamification.xp }} / {{ gamification.level_end_xp }} XP</small></div></article>
+    <article class="stat-tile" style="animation-delay: .04s">
+      <span class="stat-icon"><svg aria-hidden="true"><use href="#i-chart"></use></svg></span>
+      <strong class="num">{{ gauge.scaled }}</strong>
+      <h2>Прогноз</h2>
+      <small>при текущем темпе</small>
+      <svg class="stat-spark" viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 22 14 18 28 20 42 12 56 14 70 7 84 9 100 3" fill="none" stroke="var(--primary)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+      </svg>
+    </article>
+    <article class="stat-tile stat-tile--ceiling" style="animation-delay: .1s">
+      <span class="stat-icon"><svg aria-hidden="true"><use href="#i-target"></use></svg></span>
+      <strong class="num">{{ forecast.ceiling_score|default:"—" }}</strong>
+      <h2>Потолок</h2>
+      <small>при {{ forecast.weekly_hours|default:student.weekly_hours }} ч/нед</small>
+      <svg class="stat-spark" viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 6h100" stroke="var(--violet)" stroke-width="1.5" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>
+        <path d="M0 24C22 24 34 18 48 13S74 7 100 6" fill="none" stroke="var(--violet)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+      </svg>
+    </article>
+    <article class="stat-tile stat-tile--flame" style="animation-delay: .16s">
+      <span class="stat-icon"><svg aria-hidden="true"><use href="#i-flame"></use></svg></span>
+      <strong class="num">{{ gamification.streak_current }}</strong>
+      <h2>Дней подряд</h2>
+      <small>рекорд {{ gamification.streak_best }}{% if gamification.streak_freezes %} · заморозок {{ gamification.streak_freezes }}{% endif %}</small>
+      <div class="streak-bars" aria-hidden="true">
+        {% for day in week_streak %}<span class="{% if day %}is-on{% endif %}"></span>{% endfor %}
+      </div>
+    </article>
+    <article class="stat-tile" style="animation-delay: .22s">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px">
+        <span class="level-ring" style="--level-progress: {{ gamification.xp_progress_percent }}%"><span class="num">{{ gamification.level }}</span></span>
+        <div><h2 style="margin: 0">Уровень</h2><small>{{ gamification.level_end_xp }} XP до следующего</small></div>
+      </div>
+      <div class="xp-progress" aria-label="{{ gamification.xp }} XP"><span style="width: {{ gamification.xp_progress_percent }}%"></span></div>
+      <small class="num" style="display: block; margin-top: 8px">{{ gamification.xp }} / {{ gamification.level_end_xp }} XP</small>
+    </article>
   </section>
 
   <div class="dashboard-grid">
-    <section class="card card-wide quest-card" data-gamification-widget>
+    <section class="card card-wide card-night quest-card" data-gamification-widget>
       <div class="section-heading"><div><p class="eyebrow">Учебная серия</p><h2>Квесты недели</h2></div></div>
       <div class="quest-list">
         {% for quest in gamification.quests %}
@@ -88,7 +161,21 @@
 
     <section class="card card-wide today-card">
       <div class="section-heading"><div><p class="eyebrow">Сегодня</p><h2>План на сегодня</h2></div>{% if week_items %}<button class="link-button" type="button" data-open-dialog="week-plan-dialog">Показать неделю</button>{% endif %}</div>
-      {% if today_items %}<ul class="check-list today-list">{% for item in today_items %}<li data-plan-item class="{% if item.status == 'done' %}is-done{% endif %}">{% if item.status != 'done' %}<button class="plan-check" type="button" aria-label="Отметить выполненным" data-complete-plan="/api/plan/items/{{ item.id }}/complete/">✓</button>{% endif %}<div><strong>{{ item.node.title }}</strong><small>{{ item.ui_status_label }}</small></div><span class="item-type-chip">{{ item.ui_type_label }}</span></li>{% endfor %}</ul>{% else %}<p class="empty-copy">На сегодня пунктов плана нет. Можно заглянуть в карту навыков.</p>{% endif %}
+      {% if today_items %}
+        <ul class="today-list">
+          {% for item in today_items %}
+            <li data-plan-item class="{% if item.status == 'done' %}is-done{% elif forloop.first %}is-current{% endif %}">
+              {% if item.status == 'done' %}
+                <span class="plan-done-mark"><svg aria-hidden="true"><use href="#i-check"></use></svg></span>
+              {% else %}
+                <button class="plan-check" type="button" aria-label="Отметить выполненным" data-complete-plan="/api/plan/items/{{ item.id }}/complete/"><svg aria-hidden="true"><use href="#i-check"></use></svg></button>
+              {% endif %}
+              <div><strong>{{ item.node.title }}</strong><small>{{ item.ui_type_label }} · {{ item.ui_status_label }}</small></div>
+              {% if item.status == 'done' %}<span class="chip success-soft">готово</span>{% else %}<span class="item-type-chip">{{ item.ui_type_label }}</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}<p class="empty-copy">На сегодня пунктов плана нет. Можно заглянуть в карту навыков.</p>{% endif %}
     </section>
 
     <section class="card">

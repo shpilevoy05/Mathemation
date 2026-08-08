@@ -271,6 +271,45 @@ def dashboard_context(student):
         "journey_percent": score_journey_percent,
         "gauge": primary_gauge(student, forecast),
         "wallet_balance": _wallet_balance(student),
+        "days_to_exam": (
+            max((student.exam_date - today).days, 0) if student.exam_date else None
+        ),
+        "week_streak": _week_streak(student, today),
+        "daily": _daily_banner(student),
+    }
+
+
+def _week_streak(student, today) -> list[bool]:
+    """Были ли занятия в каждый день этой недели — семь ячеек для полосы серии."""
+    week_start = today - timedelta(days=today.weekday())
+    active_days = set(
+        Attempt.objects.filter(
+            student=student, created_at__date__gte=week_start, created_at__date__lte=today
+        )
+        .values_list("created_at__date", flat=True)
+        .distinct()
+    )
+    return [(week_start + timedelta(days=offset)) in active_days for offset in range(7)]
+
+
+def _daily_banner(student) -> dict | None:
+    """Полоса задания дня для кабинета: награда и сколько осталось до полуночи."""
+    from apps.content.services import challenge_state
+
+    state = challenge_state(student)
+    challenge = state.get("challenge")
+    if challenge is None:
+        return None
+    now = timezone.localtime()
+    midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    left = midnight - now
+    hours, remainder = divmod(int(left.total_seconds()), 3600)
+    return {
+        "title": challenge.title or challenge.assignment.title,
+        "solved": state.get("solved", False),
+        "reward_xp": state.get("reward_xp", 0),
+        "reward_coins": getattr(challenge, "reward_coins", 0),
+        "time_left": f"{hours:02d}:{remainder // 60:02d}",
     }
 
 
@@ -313,6 +352,12 @@ def primary_gauge(student, forecast=None) -> dict:
         "target_scaled": student.target_score,
         "target_percent": percent(target_primary),
         "to_target_primary": round(max(target_primary - interval["primary"], 0), 1),
+        # Сколько занятий это примерно значит: один пункт плана ≈ 0,5 первичного
+        # балла по демо-данным — числу верить нельзя как прогнозу, но масштаб
+        # ученику нужен.
+        "to_target_lessons": max(
+            1, round(max(target_primary - interval["primary"], 0) / 0.5)
+        ) if target_primary > interval["primary"] else 0,
         "ticks": [round(maximum * step / 8, 1) for step in range(9)],
         "ceiling_primary": None,
         "ceiling_percent": None,
@@ -518,7 +563,13 @@ def track_context(student):
                 )
             )
             position += 1
-        clusters.append({"title": cluster.title, "color": cluster.color, "points": points})
+        done_points = sum(1 for point in points if point["is_done"])
+        clusters.append({
+            "title": cluster.title,
+            "color": cluster.color,
+            "points": points,
+            "percent": round(done_points * 100 / len(points)) if points else 0,
+        })
     mocks = []
     for mock in MockExam.objects.filter(is_active=True):
         mocks.append(
@@ -530,7 +581,25 @@ def track_context(student):
             )
         )
         position += 1
-    return {"track_clusters": clusters, "mock_points": mocks}
+    all_points = [point for cluster in clusters for point in cluster["points"]]
+    done = sum(1 for point in all_points if point["is_done"])
+    # «До пробника» — сколько тем осталось закрыть в текущем разделе: у ученика
+    # это единственный ориентир, зачем ему следующие точки.
+    current_cluster = next(
+        (cluster for cluster in clusters if any(p["is_current"] for p in cluster["points"])),
+        None,
+    )
+    to_mock = (
+        sum(1 for point in current_cluster["points"] if not point["is_done"])
+        if current_cluster else 0
+    )
+    return {
+        "track_clusters": clusters,
+        "mock_points": mocks,
+        "track_done": done,
+        "track_total": len(all_points),
+        "track_to_mock": f"{to_mock} тем" if to_mock else "готово",
+    }
 
 
 def homework_context(student) -> dict:
@@ -694,14 +763,18 @@ def _track_point(point_type, title, state_data, position, node_id=None,
     # закрывается порогом — это другой критерий и другая точка.
     tasks_done = progress["total"] > 0 and progress["solved"] >= progress["total"]
     is_done = state == "mastered" or (point_type == "lesson" and tasks_done)
+    # Иконка точки берётся из спрайта: символы в тексте выглядели служебными.
     if point_type == "review":
         visual_state, marker, url = "review", "↻", reverse("practice_backlog")
+        icon = "i-repeat"
     elif point_type == "mock":
         visual_state, marker, url = "mock", "🏆", reverse("mocks")
+        icon = "i-cup"
     else:
         visual_state = "mastered" if is_done else state
         marker = "✓" if is_done else ("🔒" if state == "locked" else "●")
         url = reverse("lesson", args=[node_id]) if state != "locked" else None
+        icon = "i-check" if is_done else ("i-lock" if state == "locked" else "i-bolt")
     return {
         "type": point_type,
         "type_label": POINT_TYPE_LABELS[point_type],
@@ -713,6 +786,7 @@ def _track_point(point_type, title, state_data, position, node_id=None,
         "is_current": False,
         "visual_state": visual_state,
         "marker": marker,
+        "icon": icon,
         "mastery_percent": mastery_percent,
         "progress_style": f"--track-progress: {mastery_percent}%",
         # Прогресс по задачам темы: «решено 3 из 5» видно сразу после ответа.

@@ -33,7 +33,7 @@
       <li class="step {% if stage.is_done %}is-done{% endif %} {% if stage.is_current %}is-current{% endif %}"
           data-step="{{ stage.key }}" aria-current="{% if stage.is_current %}step{% else %}false{% endif %}">
         <button type="button" data-step-jump="{{ stage.key }}">
-          <span class="step-dot" aria-hidden="true">{{ forloop.counter }}</span>
+          <span class="step-dot" aria-hidden="true">{% if stage.is_done %}<svg><use href="#i-check"></use></svg>{% else %}{{ forloop.counter }}{% endif %}</span>
           <span class="step-copy">
             <strong>{{ stage.title }}</strong>
             <small data-step-caption>{{ stage.caption }}</small>
@@ -100,15 +100,15 @@
               <label for="answer-{{ task.assignment.id }}">Твой ответ</label>
               <div class="answer-row">
                 <input id="answer-{{ task.assignment.id }}" name="answer" autocomplete="off" required>
-                <button class="button button-primary" type="submit">Проверить</button>
+                <button class="button button-success" type="submit">Проверить</button>
               </div>
             </form>
             <div class="verdict" data-verdict hidden aria-live="polite"></div>
             <div class="answer-progress" data-answer-progress hidden aria-live="polite"></div>
             <button class="button" type="button" data-next-task hidden>Следующая задача →</button>
             {% if mentor_enabled %}
-              <section class="mentor-panel" data-mentor-panel>
-                <div class="mentor-heading"><span>?</span><div><h3>Наставник</h3><small>Наводит вопросами, но не выдаёт ответ</small></div></div>
+              <section class="mentor-panel card-night" data-mentor-panel>
+                <div class="mentor-heading"><span><svg aria-hidden="true"><use href="#i-chat"></use></svg></span><div><h3>Наставник</h3><small>Наводит вопросами, но не выдаёт ответ</small></div></div>
                 <div class="mentor-history" data-mentor-history>{% if task.hint_session %}{% for message in task.hint_session.messages.all %}<p class="message message-{{ message.role }}">{{ message.text }}</p>{% endfor %}{% endif %}</div>
                 <form data-hint-form>
                   <label for="hint-{{ task.assignment.id }}">Где именно не складывается?</label>
@@ -160,7 +160,7 @@
 
   <!-- Итог занятия -->
   <section class="card lesson-outro" data-lesson-outro hidden>
-    <span class="success-icon">✓</span>
+    <span class="success-icon"><svg aria-hidden="true"><use href="#i-check"></use></svg></span>
     <h2 data-outro-title>Занятие пройдено</h2>
     <p data-outro-praise>Тема разобрана, задачи решены, ошибки вернулись в работу.</p>
     <div class="outro-stats">

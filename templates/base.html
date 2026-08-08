@@ -6,10 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Матемация{% endblock %}</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 64'%3E%3Cpath fill='%23FF9E2C' d='M24 1c3 8-6 12-3 19 2 5 8 4 9 0 4 9-1 15-7 15-9 0-14-9-8-17-5 2-7 8-5 13C5 24 10 10 24 1z'/%3E%3Ctext x='24' y='59' text-anchor='middle' font-family='Arial' font-weight='900' font-size='30' fill='%233D6BE5'%3EΣ%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="{% static 'js/app.js' %}" defer></script>
 </head>
 <body{% if not user.is_authenticated %} class="no-rail"{% endif %}>
+  {% include "partials/icons.html" %}
   <svg width="0" height="0" aria-hidden="true" style="position:absolute">
     <defs>
       <linearGradient id="sigmaCoin" x1="0" y1="0" x2="1" y2="1">
@@ -50,38 +55,53 @@
         {% is_methodist user as methodist_access %}
         <nav class="main-nav" aria-label="Основная навигация">
           {% if expert_access %}
-            <a class="{% if request.resolver_match.url_name == 'expert_queue' or request.resolver_match.url_name == 'expert_review' %}is-active{% endif %}" href="{% url 'expert_queue' %}"><span class="nav-icon">🧾</span><span>Проверка</span></a>
+            <a class="{% if request.resolver_match.url_name == 'expert_queue' or request.resolver_match.url_name == 'expert_review' %}is-active{% endif %}" href="{% url 'expert_queue' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-doc"></use></svg></span><span>Проверка</span></a>
           {% endif %}
           {% if methodist_access %}
-            <a class="{% if request.resolver_match.url_name == 'methodist_dashboard' %}is-active{% endif %}" href="{% url 'methodist_dashboard' %}"><span class="nav-icon">📚</span><span>Контент</span></a>
-            <a class="{% if request.resolver_match.url_name == 'admin-panel' %}is-active{% endif %}" href="{% url 'admin-panel' %}"><span class="nav-icon">▦</span><span>Панель</span></a>
-            <a href="{% url 'admin:index' %}"><span class="nav-icon">⚙</span><span>Django-админка</span></a>
-            <a class="{% if request.resolver_match.url_name == 'pricing' %}is-active{% endif %}" href="{% url 'pricing' %}"><span class="nav-icon">₽</span><span>Тарифы</span></a>
+            <a class="{% if request.resolver_match.url_name == 'methodist_dashboard' %}is-active{% endif %}" href="{% url 'methodist_dashboard' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-book"></use></svg></span><span>Контент</span></a>
+            <a class="{% if request.resolver_match.url_name == 'admin-panel' %}is-active{% endif %}" href="{% url 'admin-panel' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-map"></use></svg></span><span>Панель</span></a>
+            <a href="{% url 'admin:index' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-target"></use></svg></span><span>Django-админка</span></a>
+            <a class="{% if request.resolver_match.url_name == 'pricing' %}is-active{% endif %}" href="{% url 'pricing' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-ruble"></use></svg></span><span>Тарифы</span></a>
           {% endif %}
           {% if not expert_access and not methodist_access and user.student_profile %}
-            <a class="{% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}"><span class="nav-icon">🏠</span><span>Кабинет</span></a>
-            <a class="{% if request.resolver_match.url_name == 'knowledge_map' or request.resolver_match.url_name == 'knowledge_node' %}is-active{% endif %}" href="{% url 'knowledge_map' %}"><span class="nav-icon">🗺️</span><span class="desktop-label">Карта навыков</span><span class="mobile-label">Карта</span></a>
-            <a class="{% if request.resolver_match.url_name == 'track' or request.resolver_match.url_name == 'lesson' %}is-active{% endif %}" href="{% url 'track' %}"><span class="nav-icon">🛤️</span><span>Дорожка</span></a>
-            <a class="{% if request.resolver_match.url_name == 'practice_backlog' %}is-active{% endif %}" href="{% url 'practice_backlog' %}"><span class="nav-icon">🔁</span><span>Отработка</span></a>
-            <a class="{% if request.resolver_match.url_name == 'diagnostics' or request.resolver_match.url_name == 'diagnostic_run' %}is-active{% endif %}" href="{% url 'diagnostics' %}"><span class="nav-icon">◎</span><span>Диагностика</span></a>
-            <a class="{% if request.resolver_match.url_name == 'homework' %}is-active{% endif %}" href="{% url 'homework' %}"><span class="nav-icon">📝</span><span>Домашки</span></a>
-            <a class="{% if request.resolver_match.url_name == 'daily_challenge' %}is-active{% endif %}" href="{% url 'daily_challenge' %}"><span class="nav-icon">⭐</span><span class="desktop-label">Задание дня</span><span class="mobile-label">Задание</span></a>
-            <a class="{% if request.resolver_match.url_name == 'mocks' or request.resolver_match.url_name == 'mock_run' or request.resolver_match.url_name == 'mock_result' %}is-active{% endif %}" href="{% url 'mocks' %}"><span class="nav-icon">🏆</span><span>Пробники</span></a>
-            <a class="{% if request.resolver_match.url_name == 'forecast' %}is-active{% endif %}" href="{% url 'forecast' %}"><span class="nav-icon">📈</span><span>Прогноз</span></a>
-            <a class="{% if request.resolver_match.url_name == 'shop' %}is-active{% endif %}" href="{% url 'shop' %}"><span class="nav-icon">Σ</span><span>Магазин</span></a>
-            <a class="{% if request.resolver_match.url_name == 'pricing' %}is-active{% endif %}" href="{% url 'pricing' %}"><span class="nav-icon">₽</span><span>Тарифы</span></a>
+            <a class="{% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-home"></use></svg></span><span>Кабинет</span></a>
+            <a class="{% if request.resolver_match.url_name == 'knowledge_map' or request.resolver_match.url_name == 'knowledge_node' %}is-active{% endif %}" href="{% url 'knowledge_map' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-map"></use></svg></span><span class="desktop-label">Карта навыков</span><span class="mobile-label">Карта</span></a>
+            <a class="{% if request.resolver_match.url_name == 'track' or request.resolver_match.url_name == 'lesson' %}is-active{% endif %}" href="{% url 'track' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-track"></use></svg></span><span>Дорожка</span></a>
+            <a class="{% if request.resolver_match.url_name == 'practice_backlog' %}is-active{% endif %}" href="{% url 'practice_backlog' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-repeat"></use></svg></span><span>Отработка</span></a>
+            <a class="{% if request.resolver_match.url_name == 'diagnostics' or request.resolver_match.url_name == 'diagnostic_run' %}is-active{% endif %}" href="{% url 'diagnostics' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-target"></use></svg></span><span>Диагностика</span></a>
+            <a class="{% if request.resolver_match.url_name == 'homework' %}is-active{% endif %}" href="{% url 'homework' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-doc"></use></svg></span><span>Домашки</span></a>
+            <a class="{% if request.resolver_match.url_name == 'daily_challenge' %}is-active{% endif %}" href="{% url 'daily_challenge' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-star"></use></svg></span><span class="desktop-label">Задание дня</span><span class="mobile-label">Задание</span></a>
+            <a class="{% if request.resolver_match.url_name == 'mocks' or request.resolver_match.url_name == 'mock_run' or request.resolver_match.url_name == 'mock_result' %}is-active{% endif %}" href="{% url 'mocks' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-cup"></use></svg></span><span>Пробники</span></a>
+            <a class="{% if request.resolver_match.url_name == 'forecast' %}is-active{% endif %}" href="{% url 'forecast' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-chart"></use></svg></span><span>Прогноз</span></a>
+            <a class="{% if request.resolver_match.url_name == 'shop' %}is-active{% endif %}" href="{% url 'shop' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-sigma"></use></svg></span><span>Магазин</span></a>
+            <a class="{% if request.resolver_match.url_name == 'pricing' %}is-active{% endif %}" href="{% url 'pricing' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-ruble"></use></svg></span><span>Тарифы</span></a>
           {% elif not expert_access and not methodist_access and user.parent_profile %}
-            <a class="{% if request.resolver_match.url_name == 'parent_dashboard' %}is-active{% endif %}" href="{% url 'parent_dashboard' %}"><span class="nav-icon">📋</span><span>Отчёт</span></a>
-            <a class="{% if request.resolver_match.url_name == 'pricing' %}is-active{% endif %}" href="{% url 'pricing' %}"><span class="nav-icon">₽</span><span>Тарифы и оплата</span></a>
+            <a class="{% if request.resolver_match.url_name == 'parent_dashboard' %}is-active{% endif %}" href="{% url 'parent_dashboard' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-doc"></use></svg></span><span>Отчёт</span></a>
+            <a class="{% if request.resolver_match.url_name == 'pricing' %}is-active{% endif %}" href="{% url 'pricing' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-ruble"></use></svg></span><span>Тарифы и оплата</span></a>
           {% endif %}
         </nav>
-        <div class="account-menu">
-          {% if user.student_profile %}{% include "partials/avatar.html" with size="sm" %}{% endif %}
-          {% if not expert_access and not methodist_access and user.student_profile %}<span class="streak-chip">🔥 {{ user.student_profile.gamification_profile.streak_current|default:0 }} дн.</span>{% endif %}
-          <span>{{ user.get_full_name|default:user.username }}</span>
-          <form method="post" action="{% url 'logout' %}">
-            {% csrf_token %}<button class="button button-secondary button-small" type="submit">Выйти</button>
-          </form>
+        <div class="rail-foot">
+          {% if not expert_access and not methodist_access and user.student_profile %}
+            <div class="rail-streak">
+              <svg aria-hidden="true"><use href="#i-flame"></use></svg>
+              <div>
+                <strong>{{ user.student_profile.gamification_profile.streak_current|default:0 }} дн.</strong>
+                <small>серия жива, если заниматься сегодня</small>
+              </div>
+            </div>
+          {% endif %}
+          <div class="account-menu">
+            {% if user.student_profile %}{% include "partials/avatar.html" with size="sm" %}{% endif %}
+            <span class="account-name">
+              <strong>{{ user.get_full_name|default:user.username }}</strong>
+              {% if user.student_profile %}
+                <small class="num">уровень {{ user.student_profile.gamification_profile.level|default:1 }} · Σ {{ user.student_profile.wallet.balance|default:0 }}</small>
+              {% endif %}
+            </span>
+            <form method="post" action="{% url 'logout' %}">
+              {% csrf_token %}<button class="button" type="submit">Выйти</button>
+            </form>
+          </div>
         </div>
       {% endif %}
     </div>
