@@ -3,6 +3,9 @@ __pycache__/
 db.sqlite3
 media/
 .env
+# Прод-окружение: единственное место, где живут боевые секреты.
+.env.production
+infra/production/certs/
 .venv/
 staticfiles/
 .mcp.json

@@ -68,6 +68,21 @@ def hardening_settings(*, debug: bool, behind_proxy: bool = True) -> dict:
     return hardened
 
 
+def postgres_ssl_options(*, sslmode: str = "", sslrootcert: str = "") -> dict:
+    """Параметры TLS для подключения к базе.
+
+    Пустой `sslmode` означает «решает драйвер»: локальный Postgres в контейнере
+    рядом обычно работает без TLS, а управляемая база в облаке требует
+    `verify-full` и корневой сертификат провайдера.
+    """
+    options: dict[str, str] = {}
+    if sslmode:
+        options["sslmode"] = sslmode
+    if sslrootcert:
+        options["sslrootcert"] = sslrootcert
+    return options
+
+
 def _is_inside(child: Path, parent: Path) -> bool:
     try:
         child.resolve().relative_to(parent.resolve())

@@ -6,6 +6,7 @@ from .security import (
     DEV_SECRET_KEY,
     HSTS_SECONDS,
     hardening_settings,
+    postgres_ssl_options,
     validate_production_config,
 )
 
@@ -105,3 +106,23 @@ class ValidateProductionConfigTests(SimpleTestCase):
         message = str(ctx.exception)
         self.assertIn("DJANGO_SECRET_KEY", message)
         self.assertIn("DJANGO_ALLOWED_HOSTS", message)
+
+
+class PostgresSslOptionsTests(SimpleTestCase):
+    """Управляемая база в облаке требует проверяемого TLS."""
+
+    def test_empty_settings_leave_the_driver_alone(self):
+        self.assertEqual(postgres_ssl_options(), {})
+
+    def test_verify_full_carries_the_root_certificate(self):
+        options = postgres_ssl_options(
+            sslmode="verify-full", sslrootcert="/app/certs/db-root.crt"
+        )
+
+        self.assertEqual(options["sslmode"], "verify-full")
+        self.assertEqual(options["sslrootcert"], "/app/certs/db-root.crt")
+
+    def test_mode_without_certificate_is_still_applied(self):
+        # `require` шифрует канал, но не проверяет сертификат: это осознанный
+        # промежуточный режим, и ломать его отсутствием файла нельзя.
+        self.assertEqual(postgres_ssl_options(sslmode="require"), {"sslmode": "require"})

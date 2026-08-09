@@ -1,0 +1,35 @@
+# В образ едет только код. Всё остальное — либо секреты, либо данные, либо
+# мусор сборки, и каждый лишний файл здесь оказывается на проде.
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+
+# Секреты и локальные данные.
+.env
+.env.production
+db.sqlite3
+media/
+private-media/
+infra/production/certs/
+
+# Собирается внутри образа.
+staticfiles/
+
+# Инструменты разработки и агентов.
+.claude/
+.agents/
+agent-skills/
+scripts/
+docs/
+*.md
+
+# Выгрузка макетов из Claude Design.
+_ds/
+assets/
+uploads/
+source/
+*.dc.html
+support.js
+.thumbnail

@@ -269,7 +269,7 @@ python manage.py shell -c "from apps.knowledge.tasks import apply_decay_all; app
 ## 8. Автотесты и проверки
 
 ```powershell
-python manage.py test apps config              # весь набор, сейчас 450 тестов
+python manage.py test apps config              # весь набор, сейчас 453 теста
 python manage.py test apps.progress            # прогноз, калибровка, интервал
 python manage.py test apps.economy apps.billing
 python manage.py test apps.adminpanel          # права панели и её действия
@@ -347,6 +347,12 @@ $env:VIDEO_ALLOWED_HOSTS = "kinescope.io,rutube.ru"
 В личном кабинете плеер получает `referrerpolicy="strict-origin-when-cross-origin"`:
 общая политика сайта срезает Referer, а домен-whitelist на стороне хостинга
 без него не работает.
+
+Выкладка в прод, откат, бэкапы и репетиция восстановления описаны отдельно —
+`docs/deploy.md`. Манифест лежит в `infra/production/`: образ приложения,
+compose с вебом, воркером, расписанием и nginx, пример окружения, скрипты
+снятия и разворачивания копии. Локальная разработка не затронута: `gunicorn`
+стоит в отдельном `requirements-production.txt` и на Windows не ставится.
 
 Система навыков агентов:
 

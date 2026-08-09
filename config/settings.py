@@ -50,6 +50,7 @@ _load_env(BASE_DIR / ".env")
 from .security import (  # noqa: E402 — после загрузки .env
     DEV_SECRET_KEY,
     hardening_settings,
+    postgres_ssl_options,
     validate_production_config,
 )
 
@@ -140,6 +141,13 @@ if os.environ.get("POSTGRES_DB"):
             "PORT": os.environ.get("POSTGRES_PORT", "5432"),
             "CONN_MAX_AGE": int(os.environ.get("POSTGRES_CONN_MAX_AGE") or 60),
             "CONN_HEALTH_CHECKS": True,
+            # Управляемая база живёт в чужой сети: трафик до неё шифруется, а
+            # сертификат проверяется. `verify-full` требует корневой сертификат
+            # провайдера — путь к нему задаётся POSTGRES_SSLROOTCERT.
+            "OPTIONS": postgres_ssl_options(
+                sslmode=os.environ.get("POSTGRES_SSLMODE", ""),
+                sslrootcert=os.environ.get("POSTGRES_SSLROOTCERT", ""),
+            ),
         }
     }
 else:
@@ -466,6 +474,14 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 # --- Security ---
+# Пороги защиты от перебора. Значения по умолчанию заданы в
+# apps/accounts/throttling.py; здесь они становятся настраиваемыми на сервере,
+# не требуя выкладки кода.
+LOGIN_MAX_ATTEMPTS = int(os.environ.get("LOGIN_MAX_ATTEMPTS") or 10)
+LOGIN_BLOCK_SECONDS = int(os.environ.get("LOGIN_BLOCK_SECONDS") or 15 * 60)
+INVITE_MAX_ATTEMPTS = int(os.environ.get("INVITE_MAX_ATTEMPTS") or 20)
+INVITE_BLOCK_SECONDS = int(os.environ.get("INVITE_BLOCK_SECONDS") or 60 * 60)
+
 # Значения зависят от режима; логика и её тесты — в config/security.py.
 SECURE_HTTPS_BEHIND_PROXY = _env_bool("DJANGO_BEHIND_PROXY", default=True)
 globals().update(hardening_settings(debug=DEBUG, behind_proxy=SECURE_HTTPS_BEHIND_PROXY))
