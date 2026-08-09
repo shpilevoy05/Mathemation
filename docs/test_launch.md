@@ -269,7 +269,7 @@ python manage.py shell -c "from apps.knowledge.tasks import apply_decay_all; app
 ## 8. Автотесты и проверки
 
 ```powershell
-python manage.py test apps config              # весь набор, сейчас 392 теста
+python manage.py test apps config              # весь набор, сейчас 417 тестов
 python manage.py test apps.progress            # прогноз, калибровка, интервал
 python manage.py test apps.economy apps.billing
 python manage.py test apps.adminpanel          # права панели и её действия
@@ -289,6 +289,19 @@ Remove-Item Env:DJANGO_DEBUG,Env:DJANGO_SECRET_KEY,Env:DJANGO_ALLOWED_HOSTS
 
 С `DEBUG=0` и ключом разработки процесс намеренно не поднимется — это
 fail-fast из `config/security.py`.
+
+Эксплуатация:
+
+```powershell
+curl http://127.0.0.1:8000/healthz   # процесс жив
+curl http://127.0.0.1:8000/readyz    # база и кеш отвечают
+```
+
+`/readyz` возвращает 503, если отвалилась база или кеш — на него вешается
+проверка балансировщика. Лимиты частоты настраиваются переменными
+`THROTTLE_ATTEMPT`, `THROTTLE_HINT`, `THROTTLE_PURCHASE`, `THROTTLE_UPLOAD`,
+`LOGIN_MAX_ATTEMPTS`; в проде нужен `REDIS_URL`, иначе счётчик у каждого
+воркера свой. С `DJANGO_DEBUG=0` процесс не поднимется на SQLite.
 
 Система навыков агентов:
 

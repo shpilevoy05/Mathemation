@@ -1,8 +1,9 @@
 """Study plan building and adaptation."""
 from datetime import timedelta
+from math import ceil
 
 from django.conf import settings
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from apps.content.models import Assignment
@@ -148,19 +149,7 @@ def build_study_plan(student, reason: str = "initial") -> StudyPlan:
         trajectory=trajectory,
     )
 
-    weekly_hours = trajectory.weekly_load_hours if trajectory else student.weekly_hours
-    nodes_per_week = max(1, weekly_hours // settings.HOURS_PER_NODE)
-    today = timezone.localdate()
-    order = 0
-    for i, node in enumerate(order_pending_nodes(student)):
-        week = i // nodes_per_week
-        due = today + timedelta(days=7 * week + (i % nodes_per_week))
-        for item_type in (StudyPlanItem.ItemType.LESSON, StudyPlanItem.ItemType.PRACTICE):
-            StudyPlanItem.objects.create(
-                plan=plan, node=node, item_type=item_type,
-                order=order, week_index=week, due_date=due,
-            )
-            order += 1
+    _fill_plan_items(student, plan, trajectory)
     from apps.events.models import Event
     from apps.events.services import log_event
 
@@ -172,6 +161,140 @@ def build_study_plan(student, reason: str = "initial") -> StudyPlan:
         reason=reason,
         is_major=reason != "initial",
     )
+    return plan
+
+
+def _weekly_hours(student, trajectory) -> int:
+    return trajectory.weekly_load_hours if trajectory else student.weekly_hours
+
+
+def _fill_plan_items(student, plan: StudyPlan, trajectory, *, done_pairs=None) -> int:
+    """Разложить темы по дням: сначала выгодные, дальше — по бюджету часов.
+
+    Бюджет считается в часах, а не в темах: узел на четыре часа не должен
+    занимать столько же места в неделе, сколько узел на два. Если до экзамена
+    времени меньше, чем нужно плану, дни сжимаются — лучше показать честно
+    плотный график, чем расписание, уходящее за дату экзамена.
+    """
+    weekly_hours = max(1, _weekly_hours(student, trajectory))
+    today = timezone.localdate()
+    nodes = order_pending_nodes(student)
+    done_pairs = done_pairs or set()
+    # Уже закрытые пункты не возвращаем: исключаем пару «тема + тип пункта», а
+    # не тему целиком — закрытый урок не отменяет практику по той же теме.
+    nodes = [
+        node for node in nodes
+        if any(
+            (node.id, item_type) not in done_pairs
+            for item_type in (StudyPlanItem.ItemType.LESSON, StudyPlanItem.ItemType.PRACTICE)
+        )
+    ]
+    if not nodes:
+        return 0
+
+    total_hours = sum(_node_hours(node) for node in nodes)
+    weeks_needed = max(1, ceil(total_hours / weekly_hours))
+    weeks_left = None
+    if student.exam_date:
+        weeks_left = max(1, ceil((student.exam_date - today).days / 7))
+    # Сжатие: если недель до экзамена меньше, чем требует бюджет, кладём тот же
+    # объём в оставшиеся недели.
+    weeks = min(weeks_needed, weeks_left) if weeks_left else weeks_needed
+    hours_per_week = total_hours / weeks if weeks else float(weekly_hours)
+
+    order = 0
+    week = 0
+    hours_in_week = 0.0
+    day_in_week = 0
+    for node in nodes:
+        node_hours = _node_hours(node)
+        if hours_in_week and hours_in_week + node_hours > hours_per_week:
+            week += 1
+            hours_in_week = 0.0
+            day_in_week = 0
+        due = today + timedelta(days=7 * week + min(day_in_week, 6))
+        if student.exam_date and due > student.exam_date:
+            due = student.exam_date
+        for item_type in (StudyPlanItem.ItemType.LESSON, StudyPlanItem.ItemType.PRACTICE):
+            if (node.id, item_type) in done_pairs:
+                continue
+            StudyPlanItem.objects.create(
+                plan=plan, node=node, item_type=item_type,
+                order=order, week_index=week, due_date=due,
+            )
+            order += 1
+        hours_in_week += node_hours
+        day_in_week += 1
+    return order
+
+
+def _node_hours(node) -> float:
+    """Часы на тему: собственная оценка узла, иначе дефолт по части экзамена."""
+    hours = getattr(node, "effective_hours", None)
+    if hours:
+        return float(hours)
+    return float(
+        settings.HOURS_PER_NODE_BY_PART.get(node.exam_part, settings.HOURS_PER_NODE)
+    )
+
+
+@transaction.atomic
+def reprioritize_plan(student) -> StudyPlan | None:
+    """Пересобрать очередь активного плана под текущее освоение.
+
+    План строится один раз по событию, но ученик растёт каждый день: закрытая
+    тема меняет и пороги пререквизитов, и выгоду остальных тем. Без переоценки
+    остаток плана остаётся в приоритете, посчитанном на старых данных, — это
+    прямо противоречит обещанию «быстрее к баллу».
+
+    Сделанное не трогаем: закрытые пункты остаются в плане как история, а
+    пересобирается только незакрытая часть.
+    """
+    plan = get_active_plan(student)
+    if plan is None:
+        return None
+
+    done_items = list(plan.items.filter(status=StudyPlanItem.Status.DONE))
+    done_pairs = {
+        (item.node_id, item.item_type) for item in done_items if item.node_id
+    }
+    before = list(
+        plan.items.exclude(status=StudyPlanItem.Status.DONE)
+        .order_by("order")
+        .values_list("node_id", "item_type")
+    )
+
+    plan.items.exclude(status=StudyPlanItem.Status.DONE).delete()
+    # Закрытые пункты уходят в начало очереди: они уже история, и новая
+    # нумерация не должна их перемешивать с актуальными.
+    for index, item in enumerate(sorted(done_items, key=lambda entry: entry.order)):
+        if item.order != index:
+            item.order = index
+            item.save(update_fields=["order"])
+    trajectory = plan.trajectory
+    created = _fill_plan_items(student, plan, trajectory, done_pairs=done_pairs)
+    if created:
+        StudyPlanItem.objects.filter(
+            plan=plan, status=StudyPlanItem.Status.PENDING
+        ).update(order=models.F("order") + len(done_items))
+
+    after = list(
+        plan.items.exclude(status=StudyPlanItem.Status.DONE)
+        .order_by("order")
+        .values_list("node_id", "item_type")
+    )
+    if before != after:
+        from apps.events.models import Event
+        from apps.events.services import log_event
+
+        log_event(
+            Event.Type.PLAN_REBUILT,
+            student=student,
+            plan_id=plan.id,
+            reason="reprioritized",
+            is_major=False,
+            items=len(after),
+        )
     return plan
 
 
@@ -193,10 +316,22 @@ def reinsert_node(student, node, reason: str, description: str = "",
         node=node, status=StudyPlanItem.Status.PENDING
     ).exists()
     if not has_pending:
-        last_order = plan.items.order_by("-order").values_list("order", flat=True).first() or 0
+        # Возвращённая тема — самое срочное, что есть в плане: её срок «завтра».
+        # Раньше она получала последний порядковый номер и уезжала в конец
+        # списка, то есть срок и порядок противоречили друг другу.
+        first_pending = (
+            plan.items.filter(status=StudyPlanItem.Status.PENDING)
+            .order_by("order")
+            .values_list("order", flat=True)
+            .first()
+        )
+        order = (first_pending if first_pending is not None else 0)
+        plan.items.filter(
+            status=StudyPlanItem.Status.PENDING, order__gte=order
+        ).update(order=models.F("order") + 1)
         item = StudyPlanItem.objects.create(
             plan=plan, node=node, item_type=StudyPlanItem.ItemType.PRACTICE,
-            order=last_order + 1, due_date=timezone.localdate() + timedelta(days=in_days),
+            order=order, due_date=timezone.localdate() + timedelta(days=in_days),
         )
     else:
         item = None
@@ -541,6 +676,24 @@ def complete_item(item: StudyPlanItem) -> StudyPlanItem:
     return item
 
 
+@transaction.atomic
+def carry_over_overdue(student, on_date=None) -> int:
+    """Перенести просроченные пункты на сегодня.
+
+    Пропущенный день не должен превращаться в мёртвый груз: пункт с прошедшей
+    датой остаётся первым по очереди, но получает сегодняшний срок, иначе
+    «просрочено» копится и перестаёт что-либо значить.
+    """
+    plan = get_active_plan(student)
+    if plan is None:
+        return 0
+    today = on_date or timezone.localdate()
+    overdue = plan.items.filter(
+        status=StudyPlanItem.Status.PENDING, due_date__lt=today
+    )
+    return overdue.update(due_date=today)
+
+
 def items_for_period(student, start, end):
     plan = get_active_plan(student)
     if plan is None:
@@ -575,7 +728,13 @@ def autocomplete_items_for_node(student, node) -> list[StudyPlanItem]:
     pending = plan.items.filter(
         node=node, item_type__in=finished_types
     ).exclude(status=StudyPlanItem.Status.DONE)
-    return [complete_item(item) for item in pending]
+    closed = [complete_item(item) for item in pending]
+    if closed:
+        # Закрытая тема меняет выгоду остальных: пороги пререквизитов открылись,
+        # а часть плана могла обесцениться. Переоцениваем очередь сразу, пока
+        # ученик ещё в занятии.
+        reprioritize_plan(student)
+    return closed
 
 
 def autocomplete_review_items(student, node) -> list[StudyPlanItem]:

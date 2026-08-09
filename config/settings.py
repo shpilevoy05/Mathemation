@@ -399,6 +399,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.progress.tasks.detect_inactivity",
         "schedule": crontab(hour=4, minute=0),
     },
+    # После забывания и просрочек — переоценка очереди: за ночь мог измениться
+    # и порядок тем, и то, что вообще осталось в плане.
+    "refresh-plans-daily": {
+        "task": "apps.planning.tasks.refresh_plans",
+        "schedule": crontab(hour=4, minute=30),
+    },
     "weekly-parent-reports": {
         "task": "apps.progress.tasks.generate_weekly_parent_reports",
         "schedule": crontab(day_of_week="mon", hour=8, minute=0),
