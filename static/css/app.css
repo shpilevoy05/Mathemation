@@ -145,16 +145,17 @@ h3 { margin-bottom: 6px; font-size: 1rem; font-weight: 600; }
 .site-header { position: fixed; z-index: 20; inset: 0 auto 0 0; width: var(--rail); border-right: 0; background: var(--night); color: var(--night-ink); }
 .header-inner { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: auto; height: 100%; padding: 22px 14px; margin: 0; overflow-y: auto; }
 .brand { flex: 0 0 auto; padding: 2px 8px 22px; color: #fff; }
-.logo { display: inline-flex; align-items: center; gap: 10px; color: #fff; }
-.logo-mark { flex: 0 0 auto; width: 30px; height: 44px; object-fit: contain; }
+/* Знак стоит на той же линии, что и написание: по центру он «висел» выше
+   строки и разъезжался с ней на разных кеглях. */
+.logo { display: inline-flex; align-items: flex-end; gap: 10px; color: #fff; }
+.logo-mark { flex: 0 0 auto; width: auto; height: 34px; object-fit: contain; object-position: bottom; }
 .logo-word {
-  display: inline-flex; align-items: center; gap: 2px;
   font-family: var(--display); font-weight: 800; font-size: 15px;
   letter-spacing: .13em; line-height: 1; text-transform: uppercase; color: #fff;
 }
-.logo-word svg { display: block; width: 14px; height: 14px; color: currentColor; }
-.logo--lg .logo-mark { width: 44px; height: 64px; }
-.logo--lg .logo-word { font-size: 1.35rem; }
+.logo-e { color: var(--sigma); }
+.logo--lg .logo-mark { height: 54px; }
+.logo--lg .logo-word { font-size: 1.5rem; }
 .main-nav { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
 .main-nav a {
   position: relative; display: flex; align-items: center; gap: 11px;
@@ -740,7 +741,7 @@ a.track-node-link:hover { transform: translateY(-3px); }
 
 /* Логотип на светлом фоне (вход, регистрация) должен быть чернильным. */
 body.no-rail .logo-word, .auth-card .logo-word { color: var(--ink); }
-body.no-rail .logo-word svg, .auth-card .logo-word svg { color: var(--sigma); }
+body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 
 /* — Этапы занятия — */
 .step-dot { width: 54px; height: 54px; border: 0; box-shadow: 0 5px 0 var(--line-strong); background: var(--card); color: var(--muted-2); }

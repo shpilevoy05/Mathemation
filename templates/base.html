@@ -47,6 +47,11 @@
       </symbol>
     </defs>
   </svg>
+  {% comment %}
+  Рельс — навигация вошедшего. На входе и регистрации навигации нет, поэтому и
+  панели быть не должно: пустая тёмная полоса выглядела обрезанным экраном.
+  {% endcomment %}
+  {% if user.is_authenticated %}
   <header class="site-header">
     <div class="header-inner">
       <a class="brand" href="/" aria-label="Матемация">{% include "partials/logo.html" with size="sm" %}</a>
@@ -106,6 +111,7 @@
       {% endif %}
     </div>
   </header>
+  {% endif %}
   <main class="page-shell">
     {% if messages %}{% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}{% endif %}
     {% block content %}{% endblock %}
