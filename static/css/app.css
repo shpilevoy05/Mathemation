@@ -153,7 +153,9 @@ h3 { margin-bottom: 6px; font-size: 1rem; font-weight: 600; }
   font-family: var(--display); font-weight: 800; font-size: 15px;
   letter-spacing: .13em; line-height: 1; text-transform: uppercase; color: #fff;
 }
-.logo-e { color: var(--sigma); }
+/* Коробка сигмы обрезана по самой букве, поэтому её высота — это высота
+   прописной, а низ стоит на базовой линии, как у соседних букв. */
+.logo-e { display: inline-block; width: auto; height: .72em; margin: 0 .04em; color: var(--sigma); vertical-align: baseline; }
 .logo--lg .logo-mark { height: 54px; }
 .logo--lg .logo-word { font-size: 1.5rem; }
 .main-nav { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
@@ -741,7 +743,9 @@ a.track-node-link:hover { transform: translateY(-3px); }
 
 /* Логотип на светлом фоне (вход, регистрация) должен быть чернильным. */
 body.no-rail .logo-word, .auth-card .logo-word { color: var(--ink); }
-body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
+body.no-rail .logo-e, .auth-card /* Коробка сигмы обрезана по самой букве, поэтому её высота — это высота
+   прописной, а низ стоит на базовой линии, как у соседних букв. */
+.logo-e { display: inline-block; width: auto; height: .72em; margin: 0 .04em; color: var(--sigma); vertical-align: baseline; }
 
 /* — Этапы занятия — */
 .step-dot { width: 54px; height: 54px; border: 0; box-shadow: 0 5px 0 var(--line-strong); background: var(--card); color: var(--muted-2); }
@@ -848,6 +852,7 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 .avatar-badge.frame-gold::after { position: absolute; inset: 0; border: 2px solid var(--card); border-radius: 50%; content: ""; }
 
 /* Расходники: заморозка стрика и ускоритель опыта. */
+.boost-chip svg { width: 15px; height: 15px; }
 .boost-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; color: var(--reward-ink); background: var(--reward-soft); font-family: var(--data); font-size: .78rem; font-weight: 700; }
 .shop-group { margin-top: 22px; }
 .shop-group > h3 { margin-bottom: 4px; }

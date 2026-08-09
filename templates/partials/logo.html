@@ -1,11 +1,12 @@
 {% load static %}
 {% comment %}
 Знак из макета: растровый mark.png (пламя над Σ) и написание, где «Е» заменена
-сигмой. Сигма набирается тем же шрифтом и тем же кеглем, что остальные буквы —
-иконка выбивалась из строки размером и весом.
+сигмой. Сигма нарисована как буква: её коробка равна высоте прописных и стоит
+на базовой линии, поэтому она не зависит от того, есть ли греческий алфавит в
+подключённом шрифте.
 {% endcomment %}
 <span class="logo logo--{{ size|default:'sm' }}">
   <img class="logo-mark" src="{% static 'img/mark.png' %}" alt="" aria-hidden="true">
-  <span class="logo-word">МАТ<span class="logo-e">Σ</span>МАЦИЯ</span>
+  <span class="logo-word">МАТ<svg class="logo-e" viewBox="4 3 16 18" aria-hidden="true"><use href="#i-sigma-letter"></use></svg>МАЦИЯ</span>
   <span class="visually-hidden">Матемация</span>
 </span>

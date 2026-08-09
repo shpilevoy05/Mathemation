@@ -18,8 +18,8 @@
       <div class="section-heading">
         <div><p class="eyebrow">Витрина</p><h2>Ускорители и защита серии</h2></div>
         <div>
-          {% if streak_freezes %}<span class="boost-chip">🧊 заморозок: {{ streak_freezes }}</span>{% endif %}
-          {% if active_boost %}<span class="boost-chip">⚡ +{{ active_boost.bonus_percent }} % XP до {{ active_boost.ends_at|date:"d.m H:i" }}</span>{% endif %}
+          {% if streak_freezes %}<span class="boost-chip"><svg aria-hidden="true"><use href="#i-snow"></use></svg>заморозок: {{ streak_freezes }}</span>{% endif %}
+          {% if active_boost %}<span class="boost-chip"><svg aria-hidden="true"><use href="#i-bolt"></use></svg>+{{ active_boost.bonus_percent }} % XP до {{ active_boost.ends_at|date:"d.m H:i" }}</span>{% endif %}
         </div>
       </div>
       <p class="empty-copy">Расходники покупаются повторно и срабатывают сразу — надевать их не нужно.</p>
