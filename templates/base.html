@@ -86,6 +86,20 @@
           {% endif %}
         </nav>
         <div class="rail-foot">
+          {% if access_state and not access_state.is_active %}
+            <a class="rail-access {% if not access_state.in_trial %}is-locked{% endif %}" href="{% url 'pricing' %}">
+              <svg aria-hidden="true"><use href="#i-ruble"></use></svg>
+              <div>
+                {% if access_state.in_trial %}
+                  <strong>Пробный период</strong>
+                  <small>осталось {{ access_state.trial_days_left }} дн. — продлить доступ</small>
+                {% else %}
+                  <strong>Подписка не активна</strong>
+                  <small>занятия и пробники закрыты</small>
+                {% endif %}
+              </div>
+            </a>
+          {% endif %}
           {% if not expert_access and not methodist_access and user.student_profile %}
             <div class="rail-streak">
               <svg aria-hidden="true"><use href="#i-flame"></use></svg>

@@ -4,6 +4,7 @@
 в контексте отдельной страницы.
 """
 
+from apps.billing.access import is_enforced, subscription_state
 from apps.economy.services import equipped_items
 
 # Темы оформления, которые умеет отрисовать CSS. Купленная тема с неизвестным
@@ -29,3 +30,15 @@ def cosmetics(request):
         "ui_avatar": code("avatar", KNOWN_AVATARS),
         "ui_frame": code("frame", KNOWN_FRAMES),
     }
+
+
+def access(request):
+    """Состояние подписки в шапке кабинета.
+
+    Пока гейт выключен, блока нет вовсе: показывать «доступ открыт» там, где он
+    открыт всем и всегда, — шум.
+    """
+    student = getattr(getattr(request, "user", None), "student_profile", None)
+    if student is None or not is_enforced():
+        return {"access_state": None}
+    return {"access_state": subscription_state(student)}

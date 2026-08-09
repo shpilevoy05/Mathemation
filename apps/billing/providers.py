@@ -13,6 +13,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 from abc import ABC, abstractmethod
 
 from django.conf import settings
@@ -33,6 +35,26 @@ class PaymentProvider(ABC):
     def refund(self, payment) -> bool:
         """Вернуть деньги. По умолчанию не поддерживается."""
         raise NotImplementedError("Провайдер не поддерживает возвраты.")
+
+    # --- Подпись колбэка ---
+    # Заголовок с подписью у каждого эквайринга свой, поэтому имя — атрибут
+    # провайдера, а не константа вебхука.
+    signature_header = "X-Signature"
+
+    def verify_callback(self, body: bytes, signature: str) -> bool:
+        """Проверить, что колбэк действительно от провайдера.
+
+        Реализация по умолчанию — HMAC-SHA256 сырого тела на общем секрете:
+        так делают большинство российских эквайрингов, а те, кто подписывает
+        иначе, переопределяют метод. Без секрета проверка не проходит никогда:
+        неподписанный колбэк — это возможность выдать себе подписку запросом
+        из интернета.
+        """
+        secret = getattr(settings, "BILLING_WEBHOOK_SECRET", "")
+        if not secret or not signature:
+            return False
+        expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, signature.strip().lower())
 
 
 class MockPaymentProvider(PaymentProvider):

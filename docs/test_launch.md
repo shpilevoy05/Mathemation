@@ -269,7 +269,7 @@ python manage.py shell -c "from apps.knowledge.tasks import apply_decay_all; app
 ## 8. Автотесты и проверки
 
 ```powershell
-python manage.py test apps config              # весь набор, сейчас 417 тестов
+python manage.py test apps config              # весь набор, сейчас 438 тестов
 python manage.py test apps.progress            # прогноз, калибровка, интервал
 python manage.py test apps.economy apps.billing
 python manage.py test apps.adminpanel          # права панели и её действия
@@ -302,6 +302,27 @@ curl http://127.0.0.1:8000/readyz    # база и кеш отвечают
 `THROTTLE_ATTEMPT`, `THROTTLE_HINT`, `THROTTLE_PURCHASE`, `THROTTLE_UPLOAD`,
 `LOGIN_MAX_ATTEMPTS`; в проде нужен `REDIS_URL`, иначе счётчик у каждого
 воркера свой. С `DJANGO_DEBUG=0` процесс не поднимется на SQLite.
+
+Доступ к платной части:
+
+```powershell
+$env:BILLING_ENFORCED = "1"   # включить гейт
+$env:TRIAL_DAYS = "7"         # пробный период от даты регистрации
+$env:FREE_FEATURES = "practice"  # что остаётся бесплатным
+```
+
+Гейт закрывает занятия (`lessons`), отработку (`practice`), пробники (`mocks`),
+проверку эксперта (`expert_review`) и подсказки наставника (`ai_hints`).
+Страница уводит на `/pricing/?locked=<возможность>`, API отвечает 403 с
+`code=subscription_required`. Сотрудники и родители под гейт не попадают.
+Проверить вручную: включить `BILLING_ENFORCED`, зайти учеником без подписки и
+открыть `/lesson/<id>/` — должна открыться витрина с объяснением.
+
+Колбэк эквайринга: `POST /api/billing/webhook/`, подпись тела HMAC-SHA256 на
+`BILLING_WEBHOOK_SECRET` в заголовке `X-Signature`. Без секрета или с чужой
+подписью запрос получает 403 и ничего не меняет; повторная доставка не
+продлевает подписку дважды. С `DJANGO_DEBUG=0` и небоевым провайдером процесс
+не поднимется без секрета.
 
 Система навыков агентов:
 

@@ -3,6 +3,9 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
+from apps.billing.access import Feature
+from apps.billing.gate import require_feature
+
 from apps.practice.models import Attempt
 
 from . import services
@@ -45,6 +48,7 @@ def track(request):
 
 
 @login_required
+@require_feature(Feature.LESSONS)
 def lesson(request, node_id):
     context = request.GET.get("context", Attempt.Context.LESSON)
     return _render_student_page(
@@ -62,6 +66,7 @@ def shop(request):
 
 
 @login_required
+@require_feature(Feature.LESSONS)
 def homework(request):
     return _render_student_page(request, "homework.html", services.homework_context)
 
@@ -86,6 +91,7 @@ def diagnostic_run(request, result_id):
 
 
 @login_required
+@require_feature(Feature.PRACTICE)
 def practice_backlog(request):
     return _render_student_page(
         request, "practice_backlog.html", services.practice_backlog_context
@@ -98,11 +104,13 @@ def forecast(request):
 
 
 @login_required
+@require_feature(Feature.MOCKS)
 def mocks(request):
     return _render_student_page(request, "mocks.html", services.mocks_context)
 
 
 @login_required
+@require_feature(Feature.MOCKS)
 def mock_run(request, result_id):
     return _render_student_page(
         request, "mock_run.html", services.mock_run_context, result_id=result_id
@@ -110,6 +118,7 @@ def mock_run(request, result_id):
 
 
 @login_required
+@require_feature(Feature.MOCKS)
 def mock_result(request, result_id):
     return _render_student_page(
         request, "mock_result.html", services.mock_result_context, result_id=result_id

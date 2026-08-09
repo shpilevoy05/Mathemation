@@ -120,6 +120,9 @@ TEMPLATES = [
                 # Тема, аватар и рамка меняют весь кабинет, поэтому доступны
                 # в каждом шаблоне, а не только на своей странице.
                 "apps.web.context_processors.cosmetics",
+                # Состояние подписки видно в шапке на любой странице: ученик
+                # не должен узнавать о закрытом доступе, только упёршись в него.
+                "apps.web.context_processors.access",
             ],
         },
     },
@@ -190,6 +193,9 @@ REST_FRAMEWORK = {
         "hint": os.environ.get("THROTTLE_HINT") or "30/hour",
         "purchase": os.environ.get("THROTTLE_PURCHASE") or "30/hour",
         "upload": os.environ.get("THROTTLE_UPLOAD") or "40/hour",
+        # Колбэк приходит без сессии: лимит держим широким (провайдер повторяет
+        # доставку), но конечным — иначе это открытая точка входа.
+        "webhook": os.environ.get("THROTTLE_WEBHOOK") or "600/hour",
     },
 }
 
@@ -342,6 +348,25 @@ BILLING_PROVIDER = os.environ.get(
     "BILLING_PROVIDER", "apps.billing.providers.MockPaymentProvider"
 ) or "apps.billing.providers.MockPaymentProvider"
 
+# Секрет подписи колбэков. Без него вебхук отклоняет любой запрос: колбэк
+# приходит из интернета без сессии, и единственное доказательство источника —
+# подпись тела провайдером.
+BILLING_WEBHOOK_SECRET = os.environ.get("BILLING_WEBHOOK_SECRET", "")
+
+# --- Доступ к платной части ---
+# Гейт выключен по умолчанию: пока эквайринг не подключён, закрывать доступ
+# нечем. Включение — решение владельца продукта, а не побочный эффект деплоя.
+BILLING_ENFORCED = _env_bool("BILLING_ENFORCED", default=False)
+# Что остаётся бесплатным при включённом гейте. Разрез меняет маркетинг, а не
+# релиз, поэтому он в настройке, а не в коде.
+FREE_FEATURES = [
+    item.strip()
+    for item in (os.environ.get("FREE_FEATURES") or "").split(",")
+    if item.strip()
+]
+# Пробный период от даты регистрации ученика, дней. 0 — без пробного периода.
+TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS") or 7)
+
 # --- Forgetting curve (индикатор забывания) ---
 # Days after the last practice before a skill starts to decay.
 DECAY_GRACE_DAYS = 14
@@ -405,6 +430,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.planning.tasks.refresh_plans",
         "schedule": crontab(hour=4, minute=30),
     },
+    "expire-subscriptions-daily": {
+        "task": "apps.billing.tasks.expire_subscriptions_task",
+        "schedule": crontab(hour=2, minute=0),
+    },
     "weekly-parent-reports": {
         "task": "apps.progress.tasks.generate_weekly_parent_reports",
         "schedule": crontab(day_of_week="mon", hour=8, minute=0),
@@ -425,4 +454,6 @@ validate_production_config(
     private_media_root=PRIVATE_MEDIA_ROOT,
     media_root=MEDIA_ROOT,
     database_engine=DATABASES["default"]["ENGINE"],
+    billing_provider=BILLING_PROVIDER,
+    billing_webhook_secret=BILLING_WEBHOOK_SECRET,
 )

@@ -84,6 +84,8 @@ def validate_production_config(
     private_media_root: os.PathLike | str | None = None,
     media_root: os.PathLike | str | None = None,
     database_engine: str | None = None,
+    billing_provider: str | None = None,
+    billing_webhook_secret: str | None = None,
 ) -> list[str]:
     """Проверить прод-конфигурацию. Возвращает список проблем и поднимает
     :class:`ImproperlyConfigured`, если он не пуст.
@@ -119,6 +121,17 @@ def validate_production_config(
         problems.append(
             "С DEBUG=0 база должна быть PostgreSQL: задайте POSTGRES_DB "
             "(и POSTGRES_USER/PASSWORD/HOST)."
+        )
+
+    # Боевой эквайринг без секрета подписи означает, что колбэк об оплате
+    # может прислать кто угодно и получить подписку бесплатно.
+    if (
+        billing_provider
+        and not billing_provider.endswith("MockPaymentProvider")
+        and not billing_webhook_secret
+    ):
+        problems.append(
+            "BILLING_WEBHOOK_SECRET не задан: колбэк эквайринга нечем проверить."
         )
 
     if problems:

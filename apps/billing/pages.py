@@ -7,6 +7,7 @@
 
 from django.shortcuts import render
 
+from .access import FEATURE_TITLES, LOCKED_EXPIRED, subscription_state
 from .models import PaymentMethod
 from .services import (
     active_addons,
@@ -40,5 +41,28 @@ def pricing_context(promo_code: str = "") -> dict:
     }
 
 
+def _lock_context(request) -> dict:
+    """Пришёл ли человек с закрытой страницы и что именно ему закрыли."""
+    feature = request.GET.get("locked", "")
+    if feature not in FEATURE_TITLES:
+        return {"locked_feature": ""}
+    expired = request.GET.get("reason") == LOCKED_EXPIRED
+    return {
+        "locked_feature": feature,
+        "locked_title": FEATURE_TITLES[feature],
+        "locked_expired": expired,
+        "locked_message": (
+            "Подписка закончилась. Прогресс сохранён — продлите доступ, и занятия "
+            "откроются с того же места."
+            if expired
+            else "Эта часть платформы входит в подписку."
+        ),
+    }
+
+
 def pricing(request):
-    return render(request, "pricing.html", pricing_context(request.GET.get("promo", "")))
+    context = pricing_context(request.GET.get("promo", ""))
+    context.update(_lock_context(request))
+    student = getattr(request.user, "student_profile", None)
+    context["subscription_state"] = subscription_state(student) if student else None
+    return render(request, "pricing.html", context)

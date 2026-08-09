@@ -1,8 +1,10 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import views
+from rest_framework import permissions, views
 from rest_framework.response import Response
 
 from apps.accounts.api import get_student
+from apps.billing.access import Feature
+from apps.billing.gate import HasFeature
 from apps.content.api import AssignmentSerializer
 from apps.content.models import Assignment
 
@@ -19,6 +21,9 @@ class MockListView(views.APIView):
 
 
 class StartMockView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated, HasFeature]
+    feature = Feature.MOCKS
+
     def post(self, request, exam_id):
         student = get_student(request)
         exam = get_object_or_404(MockExam, pk=exam_id, is_active=True)
@@ -36,6 +41,9 @@ class SubmitMockView(views.APIView):
 
     Part-2 solutions go separately through /api/expert-reviews/.
     """
+
+    permission_classes = [permissions.IsAuthenticated, HasFeature]
+    feature = Feature.MOCKS
 
     def post(self, request, result_id):
         student = get_student(request)

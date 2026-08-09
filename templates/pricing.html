@@ -9,6 +9,42 @@
   </div>
 </div>
 
+{% if locked_feature %}
+  <section class="card locked-banner">
+    <div class="section-heading">
+      <h2>{{ locked_title }}</h2>
+      <span class="chip{% if locked_expired %} danger-soft{% endif %}">
+        {% if locked_expired %}подписка закончилась{% else %}по подписке{% endif %}
+      </span>
+    </div>
+    <p>{{ locked_message }}</p>
+  </section>
+{% endif %}
+
+{% if subscription_state %}
+  <section class="card subscription-state">
+    <div class="section-heading">
+      <h2>Ваш доступ</h2>
+      {% if subscription_state.is_active %}
+        <span class="chip success-soft">активна</span>
+      {% elif subscription_state.in_trial %}
+        <span class="chip">пробный период</span>
+      {% else %}
+        <span class="chip danger-soft">нет подписки</span>
+      {% endif %}
+    </div>
+    {% if subscription_state.is_active %}
+      <p>{{ subscription_state.tariff.title }} — до {{ subscription_state.ends_at|date:"d.m.Y" }}
+        (осталось <b class="num">{{ subscription_state.days_left }}</b> дн.).</p>
+    {% elif subscription_state.in_trial %}
+      <p>Пробный период: осталось <b class="num">{{ subscription_state.trial_days_left }}</b> дн.
+        Дальше занятия, пробники и проверка эксперта открываются по подписке.</p>
+    {% else %}
+      <p>Занятия, отработка, пробники и проверка эксперта открываются по подписке.</p>
+    {% endif %}
+  </section>
+{% endif %}
+
 {% if promotions %}
   <section class="card promo-strip">
     <div class="section-heading"><h2>Идут акции</h2><span class="chip">{{ promotions|length }}</span></div>

@@ -10,6 +10,7 @@ from apps.accounts import views as account_views
 from apps.accounts.api import MeView, TargetScoreView
 from apps.ai_mentor.api import HintView, ParentAiLogView
 from apps.billing import pages as billing_pages
+from apps.billing.api import PaymentWebhookView, SubscriptionView
 from apps.content.api import AssignmentViewSet, LessonViewSet, TrackView
 from apps.content.lesson_api import LessonStageView, lesson_summary
 from apps.content.student_api import (
@@ -112,6 +113,9 @@ api_urls = [
     path("parent/report/", ParentReportView.as_view()),
     path("parent/ai-log/", ParentAiLogView.as_view()),
     path("gamification/", GamificationView.as_view()),
+    path("billing/subscription/", SubscriptionView.as_view()),
+    # Колбэк эквайринга: без сессии, проверяется подписью тела.
+    path("billing/webhook/", PaymentWebhookView.as_view(), name="billing-webhook"),
 ]
 
 from apps.adminpanel.urls import api_urls as panel_api_urls, page_urls as panel_page_urls

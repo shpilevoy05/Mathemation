@@ -4,10 +4,12 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
-from rest_framework import views
+from rest_framework import permissions, views
 from rest_framework.response import Response
 
 from apps.accounts.api import get_student
+from apps.billing.access import Feature
+from apps.billing.gate import HasFeature, require_feature
 from apps.knowledge.models import KnowledgeNode
 
 from .lessons import (
@@ -33,6 +35,9 @@ def _stage_payload(student, node) -> dict:
 class LessonStageView(views.APIView):
     """GET — состояние этапов, POST — отметить материал просмотренным."""
 
+    permission_classes = [permissions.IsAuthenticated, HasFeature]
+    feature = Feature.LESSONS
+
     def get(self, request, node_id: int):
         student = get_student(request)
         node = get_object_or_404(KnowledgeNode, pk=node_id)
@@ -46,6 +51,7 @@ class LessonStageView(views.APIView):
 
 
 @login_required
+@require_feature(Feature.LESSONS)
 def lesson_summary(request, node_id: int):
     """Конспект занятия файлом.
 

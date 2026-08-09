@@ -13,6 +13,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
 from apps.accounts.api import get_student
+from apps.billing.access import Feature
+from apps.billing.gate import HasFeature
 from apps.content.models import Assignment
 from apps.knowledge.models import KnowledgeNode
 from apps.practice.models import MistakeBacklogItem
@@ -95,6 +97,8 @@ class SubmitSolutionView(views.APIView):
     # Загрузка файлов — самый дорогой запрос по трафику и диску.
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "upload"
+    permission_classes = [permissions.IsAuthenticated, HasFeature]
+    feature = Feature.EXPERT_REVIEW
     """POST multipart: assignment=<id>, file=<решение (фото/PDF)>."""
 
     parser_classes = [MultiPartParser, FormParser]

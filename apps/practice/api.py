@@ -1,9 +1,11 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import serializers, views
+from rest_framework import permissions, serializers, views
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
 from apps.accounts.api import get_student
+from apps.billing.access import Feature
+from apps.billing.gate import HasFeature
 from apps.content.models import Assignment
 
 from .models import Attempt, MistakeBacklogItem, ReviewSchedule
@@ -21,6 +23,8 @@ class SubmitAttemptView(views.APIView):
     # Ответы идут в append-only лог и двигают mastery: поток ограничиваем.
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "attempt"
+    permission_classes = [permissions.IsAuthenticated, HasFeature]
+    feature = Feature.PRACTICE
 
     def post(self, request, assignment_id):
         student = get_student(request)
@@ -165,6 +169,9 @@ class DueReviewsView(views.APIView):
 
 
 class CompleteReviewView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated, HasFeature]
+    feature = Feature.PRACTICE
+
     def post(self, request, review_id):
         student = get_student(request)
         review = get_object_or_404(
@@ -188,6 +195,9 @@ class CompleteReviewView(views.APIView):
 class NodePracticeView(views.APIView):
     """GET /api/nodes/<id>/practice/ — очередь занятия: сначала 1-2 задачи
     на старые слабые места, затем задачи новой темы."""
+
+    permission_classes = [permissions.IsAuthenticated, HasFeature]
+    feature = Feature.PRACTICE
 
     def get(self, request, node_id):
         from apps.content.api import AssignmentSerializer

@@ -51,6 +51,31 @@ class ProductionConfigTests(TestCase):
 
         self.assertEqual(problems, [])
 
+    def test_live_acquiring_without_webhook_secret_is_rejected(self):
+        with self.assertRaises(ImproperlyConfigured) as error:
+            validate_production_config(
+                debug=False,
+                secret_key="x" * 60 + "aBc9!",
+                allowed_hosts=["matemacia.ru"],
+                database_engine="django.db.backends.postgresql",
+                billing_provider="apps.billing.providers.YooKassaProvider",
+                billing_webhook_secret="",
+            )
+
+        self.assertIn("BILLING_WEBHOOK_SECRET", str(error.exception))
+
+    def test_mock_provider_needs_no_webhook_secret(self):
+        problems = validate_production_config(
+            debug=False,
+            secret_key="x" * 60 + "aBc9!",
+            allowed_hosts=["matemacia.ru"],
+            database_engine="django.db.backends.postgresql",
+            billing_provider="apps.billing.providers.MockPaymentProvider",
+            billing_webhook_secret="",
+        )
+
+        self.assertEqual(problems, [])
+
     def test_dev_mode_checks_nothing(self):
         self.assertEqual(
             validate_production_config(

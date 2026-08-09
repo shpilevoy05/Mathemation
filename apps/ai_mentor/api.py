@@ -1,9 +1,11 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import views
+from rest_framework import permissions, views
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
 from apps.accounts.api import get_student
+from apps.billing.access import Feature
+from apps.billing.gate import HasFeature
 from apps.content.models import Assignment
 from apps.practice.models import Attempt
 
@@ -14,6 +16,8 @@ class HintView(views.APIView):
     # Каждая подсказка — платный запрос к LLM.
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "hint"
+    permission_classes = [permissions.IsAuthenticated, HasFeature]
+    feature = Feature.AI_HINTS
     """POST /api/assignments/<id>/hint/ {"question": "...", "context": "lesson"}"""
 
     def post(self, request, assignment_id):
