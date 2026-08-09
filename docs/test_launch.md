@@ -269,7 +269,7 @@ python manage.py shell -c "from apps.knowledge.tasks import apply_decay_all; app
 ## 8. Автотесты и проверки
 
 ```powershell
-python manage.py test apps config              # весь набор, сейчас 438 тестов
+python manage.py test apps config              # весь набор, сейчас 450 тестов
 python manage.py test apps.progress            # прогноз, калибровка, интервал
 python manage.py test apps.economy apps.billing
 python manage.py test apps.adminpanel          # права панели и её действия
@@ -323,6 +323,30 @@ $env:FREE_FEATURES = "practice"  # что остаётся бесплатным
 подписью запрос получает 403 и ничего не меняет; повторная доставка не
 продлевает подписку дважды. С `DJANGO_DEBUG=0` и небоевым провайдером процесс
 не поднимется без секрета.
+
+Видео занятий:
+
+```powershell
+$env:KINESCOPE_SIGNING_KEY = "..."   # ключ подписи приватных роликов
+$env:KINESCOPE_KEY_ID = "..."        # уходит в заголовок токена как kid
+$env:VIDEO_LINK_TTL_SECONDS = "600"  # сколько живёт выданная ссылка
+$env:VIDEO_ALLOWED_HOSTS = "kinescope.io,rutube.ru"
+```
+
+Ссылка на плеер не рендерится в HTML: страница несёт только адрес выдачи
+`/api/lessons/<id>/playback/`, а ссылку отдаёт запрос — он проходит через гейт
+подписки, пишется в лог `matemacia.integrations` и живёт `VIDEO_LINK_TTL_SECONDS`.
+Проверить: открыть занятие, посмотреть исходник — домена видеохостинга в нём
+быть не должно; нажать «Смотреть занятие» — плеер появляется.
+
+Без `KINESCOPE_SIGNING_KEY` ссылки остаются публичными, и ответ честно говорит
+об этом полем `is_private: false`. Подключение приватных роликов — это ключ в
+переменных и, если контракт хостинга отличается, имена полей токена
+(`KINESCOPE_TOKEN_PARAM`, `KINESCOPE_TOKEN_CLAIMS`); код менять не нужно.
+Хост видео проверяется при сохранении урока — и в Django-админке, и в панели.
+В личном кабинете плеер получает `referrerpolicy="strict-origin-when-cross-origin"`:
+общая политика сайта срезает Referer, а домен-whitelist на стороне хостинга
+без него не работает.
 
 Система навыков агентов:
 

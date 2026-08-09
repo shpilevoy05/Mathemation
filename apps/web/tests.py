@@ -235,10 +235,10 @@ class StudentCabinetTests(TestCase):
         self.assertContains(self.client.get(url), 'data-mentor-panel')
         self.assertNotContains(self.client.get(f"{url}?context=review"), 'data-mentor-panel')
 
-    def test_https_video_is_embedded_on_lesson_page(self):
+    def test_lesson_page_asks_for_the_link_instead_of_carrying_it(self):
         lesson = Lesson.objects.get(node=self.node)
         lesson.video_provider = Lesson.VideoProvider.OTHER
-        lesson.video_url = "https://videos.example/embed/lesson"
+        lesson.video_url = "https://rutube.ru/video/lesson/"
         lesson.video_duration_minutes = 15
         lesson.save(
             update_fields=["video_provider", "video_url", "video_duration_minutes"]
@@ -246,21 +246,11 @@ class StudentCabinetTests(TestCase):
 
         response = self.client.get(reverse("lesson", args=[self.node.id]))
 
-        self.assertContains(
-            response, '<iframe src="https://videos.example/embed/lesson"', html=False
-        )
+        # Сохранённая страница не должна давать доступ к видео: в HTML лежит
+        # только адрес выдачи, а сама ссылка приходит отдельным запросом.
+        self.assertNotContains(response, "rutube.ru")
+        self.assertContains(response, f'data-video="/api/lessons/{lesson.id}/playback/"')
         self.assertContains(response, "Длительность: 15 мин.")
-
-    def test_http_video_is_a_link_and_is_not_embedded(self):
-        lesson = Lesson.objects.get(node=self.node)
-        lesson.video_provider = Lesson.VideoProvider.OTHER
-        lesson.video_url = "http://videos.example/embed/lesson"
-        lesson.save(update_fields=["video_provider", "video_url"])
-
-        response = self.client.get(reverse("lesson", args=[self.node.id]))
-
-        self.assertNotContains(response, '<iframe src="http://videos.example/embed/lesson"')
-        self.assertContains(response, 'href="http://videos.example/embed/lesson"')
 
     def test_forecast_contains_required_caveat(self):
         response = self.client.get(reverse("forecast"))

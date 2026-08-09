@@ -13,6 +13,7 @@ from apps.billing import pages as billing_pages
 from apps.billing.api import PaymentWebhookView, SubscriptionView
 from apps.content.api import AssignmentViewSet, LessonViewSet, TrackView
 from apps.content.lesson_api import LessonStageView, lesson_summary
+from apps.content.video_api import LessonPlaybackView
 from apps.content.student_api import (
     DailyChallengeView,
     MyHomeworkView,
@@ -102,6 +103,8 @@ api_urls = [
     path("homework/<int:submission_id>/submit/", SubmitHomeworkView.as_view()),
     path("daily/", DailyChallengeView.as_view()),
     path("lessons/<int:node_id>/stages/", LessonStageView.as_view()),
+    # Ссылка на видео выдаётся запросом, а не рендерится в HTML.
+    path("lessons/<int:lesson_id>/playback/", LessonPlaybackView.as_view(), name="lesson-playback"),
     path("wallet/", WalletView.as_view()),
     path("shop/", ShopView.as_view()),
     path("shop/items/<int:item_id>/buy/", BuyItemView.as_view()),

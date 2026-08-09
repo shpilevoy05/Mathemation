@@ -41,26 +41,20 @@ class Lesson(models.Model):
     def is_published(self) -> bool:
         return self.status == self.Status.PUBLISHED
 
-    @property
-    def video_embed_url(self) -> str:
-        """Ссылка для встраивания.
+    def clean(self):
+        """Ссылка на видео проверяется при сохранении, а не при показе.
 
-        Для Kinescope достаточно идентификатора ролика: методисту не нужно
-        помнить формат embed-ссылки, а опечатка в нём ломала бы плеер.
+        Поле заполняет методист, а результат исполняется в iframe на странице
+        ученика: чужой хост здесь — это чужой код в нашем интерфейсе.
         """
-        value = (self.video_url or "").strip()
-        if not value:
-            return ""
-        if self.video_provider == self.VideoProvider.KINESCOPE:
-            if value.startswith("https://kinescope.io/embed/"):
-                return value
-            identifier = value.rstrip("/").rsplit("/", 1)[-1]
-            return f"https://kinescope.io/embed/{identifier}"
-        return value
+        from .video import validate_video_url
+
+        super().clean()
+        validate_video_url(self.video_url)
 
     @property
-    def video_is_embeddable(self) -> bool:
-        return self.video_embed_url.startswith("https://")
+    def has_video(self) -> bool:
+        return bool((self.video_url or "").strip())
 
 
 class TheoryBlock(models.Model):

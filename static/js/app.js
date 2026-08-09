@@ -416,6 +416,40 @@
       catch (exception) { alert(exception.message); resetLook.disabled = false; }
     }
 
+    // Плеер собирается по клику: ссылка живёт минуты, поэтому запрашивать её
+    // при загрузке страницы бессмысленно — к просмотру она уже протухнет.
+    const playButton = event.target.closest("[data-video-play]");
+    if (playButton) {
+      const frame = playButton.closest("[data-video]");
+      const note = frame.querySelector("[data-video-note]");
+      playButton.disabled = true;
+      note.textContent = "Готовим плеер…";
+      try {
+        const link = await apiFetch(frame.dataset.video);
+        if (!link.can_embed) {
+          note.replaceChildren();
+          const outside = document.createElement("a");
+          outside.className = "button"; outside.href = link.url;
+          outside.rel = "noopener noreferrer"; outside.target = "_blank";
+          outside.textContent = "Открыть видео";
+          note.append(outside);
+          return;
+        }
+        const player = document.createElement("iframe");
+        player.src = link.url;
+        player.title = `Видео: ${frame.dataset.title || "занятие"}`;
+        player.loading = "lazy";
+        player.allowFullscreen = true;
+        // Хостинг проверяет домен по Referer, а общая политика сайта его
+        // срезает: для плеера отправляем origin, но не путь.
+        player.referrerPolicy = "strict-origin-when-cross-origin";
+        frame.replaceChildren(player);
+      } catch (error) {
+        playButton.disabled = false;
+        note.textContent = error.message;
+      }
+    }
+
     const nextButton = event.target.closest("[data-next-task]");
     if (nextButton) showNextTask(nextButton.closest("[data-task]"));
   });

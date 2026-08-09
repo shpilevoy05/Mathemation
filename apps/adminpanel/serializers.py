@@ -6,6 +6,7 @@
 таблицы обходило бы правила домена.
 """
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from apps.accounts.models import Invite, StudentGroup, StudentProfile
@@ -37,6 +38,18 @@ class LessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
         fields = "__all__"
+
+    def validate_video_url(self, value):
+        """Ссылку проверяем здесь же: панель — обычный путь заполнения урока,
+        и правило про разрешённые хосты не должно действовать только в админке.
+        """
+        from apps.content.video import validate_video_url
+
+        try:
+            validate_video_url(value)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(error.messages)
+        return value
 
 
 class TheoryBlockSerializer(serializers.ModelSerializer):

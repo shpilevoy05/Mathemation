@@ -51,11 +51,10 @@
       <article class="card video-lesson">
         <h3>{{ lesson.title }}</h3>
         {% if lesson.video_duration_minutes %}<p class="muted">Длительность: {{ lesson.video_duration_minutes }} мин.</p>{% endif %}
-        {% if lesson.video_is_embeddable %}
-          <iframe src="{{ lesson.video_embed_url }}" title="Видео: {{ lesson.title }}" loading="lazy" allowfullscreen></iframe>
-        {% else %}
-          <p><a class="button" href="{{ lesson.video_embed_url }}">Открыть видео</a></p>
-        {% endif %}
+        <div class="video-frame" data-video="{% url 'lesson-playback' lesson.id %}" data-title="{{ lesson.title }}">
+          <button class="button button-primary" type="button" data-video-play>Смотреть занятие</button>
+          <p class="muted" data-video-note>Ссылка на плеер выдаётся на время просмотра.</p>
+        </div>
       </article>
     {% empty %}
       <article class="card"><h3>Видео к этой теме пока нет</h3><p class="muted">Разбор ведётся конспектом и задачами ниже.</p></article>

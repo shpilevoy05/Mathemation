@@ -367,6 +367,31 @@ FREE_FEATURES = [
 # Пробный период от даты регистрации ученика, дней. 0 — без пробного периода.
 TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS") or 7)
 
+# --- Видео занятий ---
+# Хосты, чей плеер разрешено встраивать. iframe исполняется в контексте
+# страницы ученика, поэтому список закрытый: опечатка или чужая ссылка в поле
+# урока не должна превращаться в чужой код на нашей странице.
+VIDEO_ALLOWED_HOSTS = [
+    host.strip().lower()
+    for host in (
+        os.environ.get("VIDEO_ALLOWED_HOSTS")
+        or "kinescope.io,youtube.com,youtu.be,vk.com,vkvideo.ru,rutube.ru"
+    ).split(",")
+    if host.strip()
+]
+# Сколько живёт выданная ссылка на плеер. Минуты, а не часы: пересланная
+# ссылка должна протухать раньше, чем ею успеют воспользоваться.
+VIDEO_LINK_TTL_SECONDS = int(os.environ.get("VIDEO_LINK_TTL_SECONDS") or 600)
+
+# Приватные ролики Kinescope. Без ключа подписи ссылки остаются публичными —
+# это видно в ответе API полем `is_private`.
+KINESCOPE_SIGNING_KEY = os.environ.get("KINESCOPE_SIGNING_KEY", "")
+KINESCOPE_KEY_ID = os.environ.get("KINESCOPE_KEY_ID", "")
+KINESCOPE_TOKEN_PARAM = os.environ.get("KINESCOPE_TOKEN_PARAM") or "token"
+# Имена полей токена: если контракт хостинга отличается, подстраивается
+# конфигурация, а не код.
+KINESCOPE_TOKEN_CLAIMS = {}
+
 # --- Forgetting curve (индикатор забывания) ---
 # Days after the last practice before a skill starts to decay.
 DECAY_GRACE_DAYS = 14
