@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers, views
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from apps.accounts.api import get_student
 from apps.content.models import Assignment
@@ -17,6 +18,9 @@ class AttemptSerializer(serializers.ModelSerializer):
 
 class SubmitAttemptView(views.APIView):
     """POST /api/assignments/<id>/attempt/ {"answer": "...", "context": "lesson"}"""
+    # Ответы идут в append-only лог и двигают mastery: поток ограничиваем.
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "attempt"
 
     def post(self, request, assignment_id):
         student = get_student(request)

@@ -21,6 +21,9 @@ class Event(models.Model):
         STREAK_ADVANCED = "streak_advanced"
         STREAK_RESET = "streak_reset"
         QUEST_COMPLETED = "quest_completed"
+        # Действия бэкофиса: кто опубликовал урок, поменял цену,
+        # начислил сигмы или вернул деньги.
+        ADMIN_ACTION = "admin_action"
 
     student = models.ForeignKey(
         "accounts.StudentProfile",
@@ -34,6 +37,12 @@ class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
+        # Индексы под горячие выборки: без них ленты ученика и ночные
+        # джобы читают таблицу целиком уже на первой тысяче учеников.
+        indexes = [
+            models.Index(fields=["event_type", "-created_at"], name="event_type_recent"),
+            models.Index(fields=["student", "-created_at"], name="event_student_recent"),
+        ]
         ordering = ["-created_at"]
 
     def save(self, *args, **kwargs):

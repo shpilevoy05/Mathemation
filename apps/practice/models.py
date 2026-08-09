@@ -33,6 +33,15 @@ class Attempt(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        # Индексы под горячие выборки: без них ленты ученика и ночные
+        # джобы читают таблицу целиком уже на первой тысяче учеников.
+        indexes = [
+            models.Index(fields=["student", "-created_at"], name="attempt_student_recent"),
+            models.Index(fields=["student", "assignment", "is_correct"], name="attempt_solved"),
+            models.Index(fields=["mock_result"], name="attempt_mock_result"),
+        ]
+
 
 class MistakeBacklogItem(models.Model):
     class Status(models.TextChoices):
@@ -83,3 +92,8 @@ class ReviewSchedule(models.Model):
 
     class Meta:
         ordering = ["due_date"]
+        # Индексы под горячие выборки: без них ленты ученика и ночные
+        # джобы читают таблицу целиком уже на первой тысяче учеников.
+        indexes = [
+            models.Index(fields=["status", "due_date"], name="review_due_queue"),
+        ]

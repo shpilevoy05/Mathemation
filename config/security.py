@@ -83,6 +83,7 @@ def validate_production_config(
     allowed_hosts: list[str],
     private_media_root: os.PathLike | str | None = None,
     media_root: os.PathLike | str | None = None,
+    database_engine: str | None = None,
 ) -> list[str]:
     """Проверить прод-конфигурацию. Возвращает список проблем и поднимает
     :class:`ImproperlyConfigured`, если он не пуст.
@@ -110,6 +111,14 @@ def validate_production_config(
         problems.append(
             "PRIVATE_MEDIA_ROOT находится внутри MEDIA_ROOT: работы учеников "
             "будут раздаваться веб-сервером как статика."
+        )
+    # Молчаливый откат на SQLite — это файл рядом с кодом, блокировки на записи
+    # и потеря данных при пересоздании контейнера. С DEBUG=0 это ошибка старта,
+    # а не «работает и ладно».
+    if database_engine and "sqlite" in database_engine:
+        problems.append(
+            "С DEBUG=0 база должна быть PostgreSQL: задайте POSTGRES_DB "
+            "(и POSTGRES_USER/PASSWORD/HOST)."
         )
 
     if problems:

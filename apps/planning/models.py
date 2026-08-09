@@ -65,6 +65,13 @@ class StudyPlanItem(models.Model):
 
     class Meta:
         ordering = ["order"]
+        # Индексы под горячие выборки: без них ленты ученика и ночные
+        # джобы читают таблицу целиком уже на первой тысяче учеников.
+        indexes = [
+            models.Index(fields=["plan", "status", "order"], name="plan_item_queue"),
+            models.Index(fields=["plan", "due_date"], name="plan_item_due"),
+            models.Index(fields=["status", "completed_at"], name="plan_item_done_at"),
+        ]
 
 
 class PlanChangeLog(models.Model):

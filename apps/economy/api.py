@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from rest_framework import views
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from apps.accounts.api import get_student
 
@@ -75,6 +76,9 @@ class ShopView(views.APIView):
 
 class BuyItemView(views.APIView):
     """POST /api/shop/items/<id>/buy/"""
+    # Покупка меняет баланс: перебор кнопки не должен доходить до домена.
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "purchase"
 
     def post(self, request, item_id: int):
         student = get_student(request)

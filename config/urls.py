@@ -4,6 +4,8 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from config.health import healthz, readyz
+
 from apps.accounts import views as account_views
 from apps.accounts.api import MeView, TargetScoreView
 from apps.ai_mentor.api import HintView, ParentAiLogView
@@ -115,11 +117,16 @@ api_urls = [
 from apps.adminpanel.urls import api_urls as panel_api_urls, page_urls as panel_page_urls
 
 urlpatterns = [
+    path("healthz", healthz, name="healthz"),
+    path("readyz", readyz, name="readyz"),
     path("admin/", admin.site.urls),
     path("api/admin/", include(panel_api_urls)),
     path("panel/", include(panel_page_urls)),
     path("api/", include(api_urls)),
     path("api-auth/", include("rest_framework.urls")),
+    # Свой вход стоит перед стандартными маршрутами: он тот же, но считает
+    # неудачные попытки и блокирует перебор.
+    path("accounts/login/", account_views.ThrottledLoginView.as_view(), name="login"),
     path("accounts/", include("django.contrib.auth.urls")),
     path("pricing/", billing_pages.pricing, name="pricing"),
     path("invite/", account_views.register_by_invite, name="register"),

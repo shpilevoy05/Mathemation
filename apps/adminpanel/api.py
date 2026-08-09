@@ -51,6 +51,7 @@ from apps.progress.models import ForecastObservation
 from apps.planning.services import log_plan_change
 
 from . import serializers as panel
+from .audit import log_admin_action
 
 
 def _domain_errors(function, *args, **kwargs):
@@ -72,11 +73,16 @@ class LessonViewSet(PanelViewSet):
     @action(detail=True, methods=["post"])
     def publish(self, request, pk=None):
         lesson = _domain_errors(publish_lesson, self.get_object())
+        log_admin_action(request.user, "lesson.publish", target=f"lesson:{lesson.pk}",
+                         title=lesson.title)
         return Response(self.get_serializer(lesson).data)
 
     @action(detail=True, methods=["post"])
     def unpublish(self, request, pk=None):
-        return Response(self.get_serializer(unpublish_lesson(self.get_object())).data)
+        lesson = unpublish_lesson(self.get_object())
+        log_admin_action(request.user, "lesson.unpublish", target=f"lesson:{lesson.pk}",
+                         title=lesson.title)
+        return Response(self.get_serializer(lesson).data)
 
 
 class TheoryBlockViewSet(PanelViewSet):
@@ -144,6 +150,11 @@ class HomeworkViewSet(PanelViewSet):
             if not students:
                 raise ValidationError({"students": "Не выбран ни один активный ученик."})
             submissions = _domain_errors(assign_homework, homework, list(students))
+        log_admin_action(
+            request.user, "homework.assign", target=f"homework:{homework.pk}",
+            title=homework.title, assigned=len(submissions),
+            group_id=group_id or None,
+        )
         return Response({"assigned": len(submissions)}, status=status.HTTP_201_CREATED)
 
 
@@ -168,11 +179,17 @@ class StudentViewSet(PanelViewSet):
     @action(detail=True, methods=["post"])
     def deactivate(self, request, pk=None):
         # Удаление увело бы за собой попытки, ошибки и работы второй части.
-        return Response(self.get_serializer(deactivate_student(self.get_object())).data)
+        student = deactivate_student(self.get_object())
+        log_admin_action(request.user, "student.deactivate", target=f"student:{student.pk}",
+                         student=student)
+        return Response(self.get_serializer(student).data)
 
     @action(detail=True, methods=["post"])
     def reactivate(self, request, pk=None):
-        return Response(self.get_serializer(reactivate_student(self.get_object())).data)
+        student = reactivate_student(self.get_object())
+        log_admin_action(request.user, "student.reactivate", target=f"student:{student.pk}",
+                         student=student)
+        return Response(self.get_serializer(student).data)
 
     @action(detail=True, methods=["post"], url_path="grant-coins")
     def grant_coins(self, request, pk=None):
@@ -186,6 +203,10 @@ class StudentViewSet(PanelViewSet):
         entry = _domain_errors(
             grant, student, amount, LedgerEntry.Reason.ADMIN_GRANT, reference,
             comment=comment, created_by=request.user,
+        )
+        log_admin_action(
+            request.user, "student.grant_coins", target=f"student:{student.pk}",
+            student=student, amount=amount, comment=comment, reference=reference,
         )
         return Response({"balance": entry.balance_after})
 
@@ -249,9 +270,15 @@ class TariffViewSet(PanelViewSet):
         price = request.data.get("price_rub")
         if price in (None, ""):
             raise ValidationError({"price_rub": "Укажите цену."})
+        previous = self.get_object()
         updated = _domain_errors(
-            new_tariff_version, self.get_object(), price_rub=price,
-            title=request.data.get("title", self.get_object().title),
+            new_tariff_version, previous, price_rub=price,
+            title=request.data.get("title", previous.title),
+        )
+        log_admin_action(
+            request.user, "tariff.new_version", target=f"tariff:{updated.pk}",
+            code=updated.code, version=updated.version,
+            price_from=str(previous.price_rub), price_to=str(updated.price_rub),
         )
         return Response(self.get_serializer(updated).data, status=status.HTTP_201_CREATED)
 
@@ -291,6 +318,10 @@ class PaymentViewSet(PanelViewSet):
     @action(detail=True, methods=["post"])
     def refund(self, request, pk=None):
         payment = _domain_errors(refund_payment, self.get_object())
+        log_admin_action(
+            request.user, "payment.refund", target=f"payment:{payment.pk}",
+            student=payment.student, amount=str(payment.amount_rub),
+        )
         return Response(self.get_serializer(payment).data)
 
 

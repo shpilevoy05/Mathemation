@@ -135,6 +135,8 @@ if os.environ.get("POSTGRES_DB"):
             "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
             "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
             "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+            "CONN_MAX_AGE": int(os.environ.get("POSTGRES_CONN_MAX_AGE") or 60),
+            "CONN_HEALTH_CHECKS": True,
         }
     }
 else:
@@ -175,6 +177,20 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
+    # Лимиты частоты. Общий потолок защищает базу, именованные — то, что стоит
+    # денег (подсказка наставника) или меняет баланс.
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "user": os.environ.get("THROTTLE_USER") or "600/hour",
+        "anon": os.environ.get("THROTTLE_ANON") or "60/hour",
+        "attempt": os.environ.get("THROTTLE_ATTEMPT") or "120/hour",
+        "hint": os.environ.get("THROTTLE_HINT") or "30/hour",
+        "purchase": os.environ.get("THROTTLE_PURCHASE") or "30/hour",
+        "upload": os.environ.get("THROTTLE_UPLOAD") or "40/hour",
+    },
 }
 
 LANGUAGE_CODE = "ru"
@@ -217,6 +233,60 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_TASK_ALWAYS_EAGER = _env_bool("CELERY_EAGER", default=False)
+
+# --- Кеш ---
+# Общий кеш обязателен для ограничения частоты запросов: с локальным кешем у
+# каждого воркера свой счётчик, и лимит перестаёт быть лимитом. В разработке и
+# тестах Redis не нужен — там процесс один.
+if os.environ.get("REDIS_URL") and not DEBUG:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": os.environ["REDIS_URL"],
+            "KEY_PREFIX": "matemacia",
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "matemacia-dev",
+        }
+    }
+
+# --- Логи ---
+# Без логов запуск слепой: пишем в stdout (его собирает docker/systemd), а
+# события безопасности выносим в отдельный логгер, чтобы их можно было
+# отфильтровать и завести на них алерт.
+import sys  # noqa: E402 — нужен только для режима тестов
+
+# В тестах логи мешают читать результат: сам факт срабатывания лимита или
+# аудита проверяется тестом, а не глазами в выводе.
+_TESTING = "test" in sys.argv
+LOG_LEVEL = os.environ.get(
+    "DJANGO_LOG_LEVEL", "ERROR" if _TESTING else ("INFO" if not DEBUG else "WARNING")
+)
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "plain": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "plain"},
+    },
+    "root": {"handlers": ["console"], "level": LOG_LEVEL},
+    "loggers": {
+        "django.request": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "django.security": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        # Попытки перебора, срабатывания лимитов, отказ провайдеров.
+        "matemacia.security": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "matemacia.integrations": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+    },
+}
 
 # --- Mathemation domain config ---
 # Streak period is an MVP experiment: "daily" or "weekly".
@@ -348,4 +418,5 @@ validate_production_config(
     allowed_hosts=ALLOWED_HOSTS,
     private_media_root=PRIVATE_MEDIA_ROOT,
     media_root=MEDIA_ROOT,
+    database_engine=DATABASES["default"]["ENGINE"],
 )

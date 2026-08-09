@@ -10,6 +10,7 @@ from rest_framework import permissions, serializers, status
 from rest_framework import views
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from apps.accounts.api import get_student
 from apps.content.models import Assignment
@@ -91,6 +92,9 @@ class ExpertReviewListView(views.APIView):
 
 
 class SubmitSolutionView(views.APIView):
+    # Загрузка файлов — самый дорогой запрос по трафику и диску.
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "upload"
     """POST multipart: assignment=<id>, file=<решение (фото/PDF)>."""
 
     parser_classes = [MultiPartParser, FormParser]
