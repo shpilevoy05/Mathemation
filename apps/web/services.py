@@ -643,9 +643,14 @@ def homework_context(student) -> dict:
     }
 
 
+WEEKDAY_LABELS = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+WEEKDAY_SHORT = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
+
+
 def daily_challenge_context(student) -> dict:
-    """Задание дня: сама задача, награда и статус."""
+    """Задание дня: сама задача, награда, серия и неделя занятий."""
     from apps.content.services import challenge_state
+    from apps.gamification.models import GamificationProfile
 
     state = challenge_state(student)
     challenge = state.get("challenge")
@@ -653,12 +658,32 @@ def daily_challenge_context(student) -> dict:
     if challenge is not None:
         tag = challenge.assignment.skill_tags.select_related("node").first()
         node = tag.node if tag else None
+
+    today = timezone.localdate()
+    week = _week_streak(student, today)
+    profile, _ = GamificationProfile.objects.get_or_create(student=student)
+    banner = _daily_banner(student)
     return {
         "challenge": challenge,
         "solved": state.get("solved", False),
         "reward_xp": state.get("reward_xp", 0),
         "node": node,
         "attempt_context": Attempt.Context.LESSON,
+        "today": today,
+        "time_left": banner["time_left"] if banner else "—",
+        "streak_current": profile.streak_current,
+        "next_streak": profile.streak_current + 1,
+        # Неделя серии: закрашенные дни — те, в которые ученик отвечал.
+        "week_days": [
+            {
+                "done": done,
+                "is_today": index == today.weekday(),
+                "label": WEEKDAY_LABELS[index],
+                "short": WEEKDAY_SHORT[index],
+            }
+            for index, done in enumerate(week)
+        ],
+        "week_done": sum(week),
     }
 
 
@@ -692,11 +717,60 @@ def shop_context(student) -> dict:
         "balance": wallet.balance,
         "shop_items": items,
         "boost_items": boosts,
+        "shop_cards": [_shop_card(row, wallet.balance) for row in boosts + items],
         "owned_count": len(owned),
         "recent_entries": list(wallet.entries.all()[:10]),
         "streak_freezes": profile.streak_freezes,
         "active_boost": boost,
         "has_equipped": bool(equipped),
+    }
+
+
+# Витрина макета показывает предмет карточкой: иконка в тонированном квадрате,
+# ярлык, описание и цена. Иконку и тон выбираем по слоту и эффекту — товар
+# должен читаться до того, как ученик прочитал название.
+SHOP_ICONS = {
+    "avatar": ("i-star", "indigo"),
+    "frame": ("i-medal", "gold"),
+    "theme": ("i-moon", "violet"),
+    "badge": ("i-medal", "gold"),
+    "boost": ("i-bolt", "indigo"),
+}
+SHOP_EFFECT_ICONS = {
+    "streak_freeze": ("i-snow", "ice"),
+    "xp_boost": ("i-bolt", "indigo"),
+}
+
+
+def _shop_card(row: dict, balance: int) -> dict:
+    """Карточка витрины: что нарисовать и что написать на ярлыке."""
+    from apps.economy.models import ShopItem
+
+    item = row["item"]
+    icon, tone = SHOP_EFFECT_ICONS.get(
+        item.effect, SHOP_ICONS.get(item.slot, ("i-sigma", "indigo"))
+    )
+    if row["equipped"]:
+        tag, tag_class = "надето", "success-soft"
+    elif row["owned"]:
+        tag, tag_class = "куплено", "chip-mute"
+    elif item.effect == ShopItem.Effect.STREAK_FREEZE:
+        tag, tag_class = "защита серии", "chip-brand"
+    elif item.effect == ShopItem.Effect.XP_BOOST:
+        tag, tag_class = "ускоритель", "warning-soft"
+    else:
+        tag, tag_class = item.get_slot_display().lower(), "chip-mute"
+    return {
+        **row,
+        "icon": icon,
+        "tone": tone,
+        "tag": tag,
+        "tag_class": tag_class,
+        "frosted": item.effect == ShopItem.Effect.STREAK_FREEZE,
+        "group": "boost" if row["is_consumable"] else item.slot,
+        "description": item.description or row.get("effect_note") or "Оформление кабинета.",
+        "available": row["owned"] or row["affordable"],
+        "missing": max(item.price_coins - balance, 0),
     }
 
 

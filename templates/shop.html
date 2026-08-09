@@ -4,97 +4,83 @@
 {% if not student %}
   <section class="empty-state"><h1>Магазин</h1><p>Витрина доступна ученику.</p></section>
 {% else %}
-  <section class="hero">
-    <div class="hero-copy">
-      <p class="eyebrow">Награды за занятия</p>
-      <h1>Магазин</h1>
-      <p>Сигмы начисляются за решённые задачи, закрытые ошибки, пройденные пункты плана и пробники. Косметика не влияет на обучение, план и прогноз.</p>
+  <section class="shop-hero">
+    <span class="hero-decor hero-decor--glow"></span>
+    <div>
+      <p class="eyebrow">Магазин наград</p>
+      <h1>Трать сигмы с умом</h1>
+      <p>Σ начисляются за занятия, серии и закрытые квесты. Заморозка серии и ускорители — самое полезное вложение перед пробником.</p>
     </div>
-    <div class="hero-streak sigma-amount"><svg class="sigma-token" width="34" height="34" aria-hidden="true"><use href="#i-sigma"></use></svg><strong data-shop-balance>{{ balance }}</strong><small>сигм</small></div>
+    <div class="shop-hero-stats">
+      <div>
+        <span class="eyebrow">Баланс</span>
+        <b class="num"><svg aria-hidden="true"><use href="#i-sigma"></use></svg><span data-shop-balance>{{ balance }}</span></b>
+      </div>
+      <div>
+        <span class="eyebrow">Заморозки</span>
+        <b class="num"><svg aria-hidden="true"><use href="#i-snow"></use></svg>{{ streak_freezes }}</b>
+      </div>
+      {% if active_boost %}
+        <div>
+          <span class="eyebrow">Ускоритель</span>
+          <b class="num"><svg aria-hidden="true"><use href="#i-bolt"></use></svg>+{{ active_boost.bonus_percent }}%</b>
+        </div>
+      {% endif %}
+    </div>
   </section>
 
-  <div class="dashboard-grid">
-    <section class="card card-wide">
-      <div class="section-heading">
-        <div><p class="eyebrow">Витрина</p><h2>Ускорители и защита серии</h2></div>
-        <div>
-          {% if streak_freezes %}<span class="boost-chip"><svg aria-hidden="true"><use href="#i-snow"></use></svg>заморозок: {{ streak_freezes }}</span>{% endif %}
-          {% if active_boost %}<span class="boost-chip"><svg aria-hidden="true"><use href="#i-bolt"></use></svg>+{{ active_boost.bonus_percent }} % XP до {{ active_boost.ends_at|date:"d.m H:i" }}</span>{% endif %}
-        </div>
-      </div>
-      <p class="empty-copy">Расходники покупаются повторно и срабатывают сразу — надевать их не нужно.</p>
-      {% if boost_items %}
-        <ul class="plain-list shop-list">
-          {% for row in boost_items %}
-            <li class="shop-item" data-shop-item="{{ row.item.id }}" data-shop-slot="{{ row.item.slot }}">
-              <div>
-                <strong>{{ row.item.title }}</strong>
-                <small>{{ row.item.get_slot_display }} · <span class="price num">{{ row.item.price_coins }} <svg class="sigma-token" width="14" height="14" aria-hidden="true"><use href="#sigma-coin"></use></svg></span></small>
-                <small class="effect-note">{{ row.effect_note }}</small>
-                {% if row.item.description %}<small>{{ row.item.description }}</small>{% endif %}
-              </div>
-              <div class="shop-actions">
-                {% if row.affordable %}
-                  <button class="button button-primary button-small" type="button"
-                          data-shop-action="buy" data-shop-url="/api/shop/items/{{ row.item.id }}/buy/">Купить</button>
-                {% else %}
-                  <span class="empty-copy" data-shop-state>Не хватает сигм</span>
-                {% endif %}
-              </div>
-            </li>
-          {% endfor %}
-        </ul>
-        <p class="form-error" data-shop-error hidden></p>
-      {% else %}
-        <p class="empty-copy">Расходников пока нет.</p>
-      {% endif %}
-    </section>
+  <div class="shop-filters" data-shop-filters role="tablist" aria-label="Разделы витрины">
+    <button class="is-on" type="button" data-shop-filter="all">Всё</button>
+    <button type="button" data-shop-filter="boost">Серия и ускорители</button>
+    <button type="button" data-shop-filter="avatar">Аватары</button>
+    <button type="button" data-shop-filter="frame">Рамки</button>
+    <button type="button" data-shop-filter="theme">Оформление</button>
+  </div>
 
-    <section class="card card-wide">
-      <div class="section-heading">
-        <div><p class="eyebrow">Витрина</p><h2>Косметика</h2></div>
-        <div class="shop-actions">
-          <small>{{ owned_count }} уже куплено</small>
-          {% if has_equipped %}<button class="button button-small" type="button" data-reset-look>Базовое оформление</button>{% endif %}
+  <div class="shop-grid">
+    {% for row in shop_cards %}
+      <article class="shop-card {% if row.equipped %}is-equipped{% endif %} {% if not row.available %}is-locked{% endif %}"
+               data-shop-item="{{ row.item.id }}" data-shop-slot="{{ row.item.slot }}" data-shop-group="{{ row.group }}">
+        <div class="shop-card-top">
+          <span class="shop-card-icon shop-card-icon--{{ row.tone }}">
+            <svg aria-hidden="true"><use href="#{{ row.icon }}"></use></svg>
+            {% if row.frosted %}<svg class="frost frost-a" aria-hidden="true"><use href="#i-snow"></use></svg><svg class="frost frost-b" aria-hidden="true"><use href="#i-snow"></use></svg>{% endif %}
+          </span>
+          <span class="chip {{ row.tag_class }}">{{ row.tag }}</span>
         </div>
-      </div>
-      {% if shop_items %}
-        <ul class="plain-list shop-list">
-          {% for row in shop_items %}
-            <li class="shop-item {% if row.owned %}is-owned{% endif %}" data-shop-item="{{ row.item.id }}" data-shop-slot="{{ row.item.slot }}">
-              <div>
-                <strong>{{ row.item.title }}</strong>
-                <small>{{ row.item.get_slot_display }} · <span class="price num">{{ row.item.price_coins }} <svg class="sigma-token" width="14" height="14" aria-hidden="true"><use href="#sigma-coin"></use></svg></span></small>
-                {% if row.item.description %}<small>{{ row.item.description }}</small>{% endif %}
-              </div>
-              <div class="shop-actions">
-                {% if row.owned %}
-                  {% if row.equipped %}
-                    <span class="quest-check" data-shop-state>Надето</span>
-                    <button class="button button-small" type="button"
-                            data-shop-action="unequip" data-shop-url="/api/shop/items/{{ row.item.id }}/unequip/">Снять</button>
-                  {% else %}
-                    <button class="button button-secondary button-small" type="button"
-                            data-shop-action="equip" data-shop-url="/api/shop/items/{{ row.item.id }}/equip/">Надеть</button>
-                  {% endif %}
-                {% elif row.affordable %}
-                  <button class="button button-primary button-small" type="button"
-                          data-shop-action="buy" data-shop-url="/api/shop/items/{{ row.item.id }}/buy/">Купить</button>
-                {% else %}
-                  <span class="empty-copy" data-shop-state>Не хватает сигм</span>
-                {% endif %}
-              </div>
-            </li>
-          {% endfor %}
-        </ul>
-        <p class="form-error" data-shop-error hidden></p>
-      {% else %}
-        <p class="empty-copy">Витрина пока пуста — методист ещё не добавил товары.</p>
-      {% endif %}
-    </section>
+        <div class="shop-card-copy">
+          <h2>{{ row.item.title }}</h2>
+          <p>{{ row.description }}</p>
+        </div>
+        <div class="shop-card-foot">
+          <b class="price num"><svg aria-hidden="true"><use href="#i-sigma"></use></svg>{{ row.item.price_coins }}</b>
+          <div class="shop-actions">
+            {% if row.equipped %}
+              <button class="button button-small" type="button"
+                      data-shop-action="unequip" data-shop-url="/api/shop/items/{{ row.item.id }}/unequip/">Снять</button>
+            {% elif row.owned %}
+              <button class="button button-primary button-small" type="button"
+                      data-shop-action="equip" data-shop-url="/api/shop/items/{{ row.item.id }}/equip/">Надеть</button>
+            {% elif row.affordable %}
+              <button class="button button-primary button-small" type="button"
+                      data-shop-action="buy" data-shop-url="/api/shop/items/{{ row.item.id }}/buy/">Купить</button>
+            {% else %}
+              <span class="chip chip-mute" data-shop-state>Не хватает {{ row.missing }} Σ</span>
+            {% endif %}
+          </div>
+        </div>
+      </article>
+    {% empty %}
+      <p class="empty-copy">Витрина пока пуста — методист ещё не добавил товары.</p>
+    {% endfor %}
+  </div>
+  <p class="form-error" data-shop-error hidden></p>
 
+  <div class="dashboard-grid" style="margin-top: 20px">
     <section class="card">
-      <p class="eyebrow">Кошелёк</p><h2>Последние начисления</h2>
+      <div class="section-heading"><div><p class="eyebrow">Кошелёк</p><h2>Последние начисления</h2></div>
+        {% if has_equipped %}<button class="button button-small" type="button" data-reset-look>Базовое оформление</button>{% endif %}
+      </div>
       {% if recent_entries %}
         <ul class="plain-list">
           {% for entry in recent_entries %}
@@ -107,6 +93,14 @@
       {% else %}
         <p class="empty-copy">Пока пусто. Реши задачу — сигмы появятся.</p>
       {% endif %}
+    </section>
+    <section class="card">
+      <p class="eyebrow">Как это работает</p><h2>Правила витрины</h2>
+      <ul class="plain-list">
+        <li><strong>Косметика ничего не ускоряет</strong><small>аватар, рамка и тема меняют только вид кабинета</small></li>
+        <li><strong>Расходники срабатывают сразу</strong><small>заморозка и ускоритель покупаются повторно, надевать их не нужно</small></li>
+        <li><strong>В слоте один предмет</strong><small>надетое можно снять и вернуться к базовому оформлению</small></li>
+      </ul>
     </section>
   </div>
 {% endif %}

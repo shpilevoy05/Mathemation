@@ -219,6 +219,20 @@
   }
   renderKnowledgeGraph();
 
+  // Фильтры витрины: серия, аватары, рамки, оформление.
+  const shopFilters = document.querySelector("[data-shop-filters]");
+  if (shopFilters) {
+    shopFilters.addEventListener("click", event => {
+      const button = event.target.closest("button[data-shop-filter]");
+      if (!button) return;
+      shopFilters.querySelectorAll("button").forEach(item => item.classList.toggle("is-on", item === button));
+      const group = button.dataset.shopFilter;
+      document.querySelectorAll("[data-shop-group]").forEach(card => {
+        card.hidden = group !== "all" && card.dataset.shopGroup !== group;
+      });
+    });
+  }
+
   const viewSwitch = document.querySelector("[data-view-switch]");
   if (viewSwitch) {
     viewSwitch.addEventListener("click", event => {

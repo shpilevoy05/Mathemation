@@ -563,6 +563,73 @@ class ParentReportContentTests(TestCase):
         self.assertNotContains(response, "Траектория назначается после входной диагностики")
 
 
+class ShopAndDailyVisualTests(TestCase):
+    """Витрина и задание дня собраны по макету: карточки, ярлыки, неделя серии."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo", verbosity=0)
+        cls.user = User.objects.get(username="student")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_every_shop_item_becomes_a_card_with_an_icon_and_a_tag(self):
+        cards = self.client.get(reverse("shop")).context["shop_cards"]
+
+        self.assertTrue(cards)
+        for card in cards:
+            with self.subTest(item=card["item"].title):
+                self.assertTrue(card["icon"].startswith("i-"))
+                self.assertTrue(card["tag"])
+                self.assertIn(card["group"], {"boost", "avatar", "frame", "theme", "badge"})
+
+    def test_unaffordable_item_says_how_much_is_missing(self):
+        from apps.economy.models import ShopItem
+
+        expensive = ShopItem.objects.filter(effect=ShopItem.Effect.NONE).order_by(
+            "-price_coins"
+        ).first()
+
+        card = next(
+            row for row in self.client.get(reverse("shop")).context["shop_cards"]
+            if row["item"] == expensive
+        )
+
+        self.assertFalse(card["affordable"])
+        self.assertEqual(card["missing"], expensive.price_coins)
+
+    def test_freeze_card_is_frosted_and_boosts_group_together(self):
+        cards = {
+            row["item"].effect: row
+            for row in self.client.get(reverse("shop")).context["shop_cards"]
+        }
+
+        self.assertTrue(cards["streak_freeze"]["frosted"])
+        self.assertEqual(cards["streak_freeze"]["group"], "boost")
+        self.assertEqual(cards["xp_boost"]["group"], "boost")
+
+    def test_daily_page_shows_the_week_of_the_streak(self):
+        response = self.client.get(reverse("daily_challenge"))
+
+        week = response.context["week_days"]
+        self.assertEqual(len(week), 7)
+        self.assertEqual(sum(1 for day in week if day["is_today"]), 1)
+        self.assertContains(response, "Неделя серии")
+
+    def test_solved_challenge_reports_the_streak_instead_of_the_form(self):
+        challenge = DailyChallenge.objects.get(date=timezone.localdate())
+        submit_attempt(
+            self.user.student_profile, challenge.assignment,
+            challenge.assignment.correct_answer, Attempt.Context.LESSON,
+        )
+
+        response = self.client.get(reverse("daily_challenge"))
+
+        self.assertTrue(response.context["solved"])
+        self.assertContains(response, "Серия продлена")
+
+
 class HomeworkAndDailyPageTests(TestCase):
     """Домашки и задание дня видны ученику в кабинете, а не только в API."""
 

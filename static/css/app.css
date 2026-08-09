@@ -37,20 +37,21 @@
 
 /* Тёмная тема — не инверсия: контраст и акцент подобраны отдельно. */
 :root[data-theme="dark"] {
-  --bg: #080D18; --grid-ink: rgba(124, 144, 248, .07);
-  --card: #111828; --card-2: #0D1423; --card-3: #0B1220;
-  --night: #060A14; --night-2: #101728; --night-ink: #C7CFEA; --night-muted: #8592B4;
-  --success-tint: #0F2A20; --success-line: #1C4433;
-  --warm-tint: #241B0E; --warm-tint-2: #2E2413; --warm-line: #3A2E17;
-  --warm-ink: #E1A845; --warm-ink-2: #C79A4E; --violet: #A78BFF; --violet-soft: #221B3A;
-  --primary: #7C90F8; --primary-2: #9EAEFF; --primary-dark: #AFBEFF; --primary-soft: #1B2444;
-  --ink: #E8EDFF; --ink-2: #BAC4E0; --muted: #8592B4;
-  --success: #3FC78D; --success-soft: #0F2A20;
+  --bg: #10142A; --grid-ink: rgba(124, 144, 248, .08);
+  --card: #171D33; --card-2: #1E2540; --card-3: #1E2540;
+  --night: #2C3763; --night-2: #4A5CB8; --night-ink: #A6B2CE; --night-muted: #93A0BE;
+  --primary: #7C90F8; --primary-2: #9BAAFF; --primary-3: #9BAAFF;
+  --primary-dark: #5B6FE8; --primary-deep: #4A5CB8; --primary-soft: #232C4C;
+  --ink: #EEF1FA; --ink-2: #A6B2CE; --muted: #A6B2CE; --muted-2: #93A0BE;
+  --line: #2A3252; --line-strong: #2A3252; --gray-soft: #202742;
+  --sigma: #7C90F8; --sigma-soft: #232C4C;
+  --reward-soft: #232C4C; --reward-ink: #5B6FE8;
+  --success: #3FC78D; --success-2: #5BD3A0; --success-soft: #12301F;
+  --success-tint: #12291F; --success-line: #1F4634;
   --warning: #E1A845; --warning-soft: #2C2312;
-  --danger: #F0697D; --danger-soft: #31191F;
-  --sigma: #8FA2FF; --sigma-soft: #1D2647;
-  --line: #212B45; --line-strong: #32405F; --gray-soft: #192136;
-  --reward-soft: #1D2647; --reward-ink: #AFBEFF;
+  --warm-tint: #241B0E; --warm-tint-2: #2E2413; --warm-line: #3A2E17;
+  --warm-ink: #E1A845; --warm-ink-2: #C79A4E;
+  --danger: #F0697D; --danger-soft: #331A21; --violet: #A78BFF; --violet-soft: #221B3A;
   --shadow: 0 1px 2px rgba(0,0,0,.5), 0 16px 34px -22px rgba(0,0,0,.9);
   --shadow-lift: 0 3px 8px rgba(0,0,0,.55), 0 22px 44px -24px rgba(0,0,0,1);
 }
@@ -58,37 +59,43 @@
 /* Купленные темы. Каждая — самостоятельный набор токенов, а не оттенок:
    тема должна ощущаться сменой обстановки, иначе за неё не платят. */
 :root[data-theme="sunrise"] {
-  --bg: #FFF4EC; --grid-ink: rgba(214, 106, 46, .12);
-  --card: #FFFFFF; --card-2: #FFF8F3; --card-3: #FFFBF7; --gray-soft: #FCEBE0;
-  --night: #3A1B08; --night-2: #4A250D; --night-ink: #F6DCC8; --night-muted: #C9A188;
-  --primary: #D9611F; --primary-2: #F08C4B; --primary-dark: #A8410C; --primary-soft: #FCE6D6;
-  --ink: #2A1508; --ink-2: #573A24; --muted: #8A6A55;
-  --line: #F2DDCD; --line-strong: #E2C3AC;
-  --sigma: #D9611F; --sigma-soft: #FCE6D6; --reward-soft: #FCE6D6; --reward-ink: #A8410C;
+  --bg: #F9F0E3; --grid-ink: rgba(124, 144, 248, .08);
+  --card: #FFFDF9; --card-2: #FDF4E8; --card-3: #FDF4E8;
+  --night: #3B2611; --night-2: #8A4A06; --night-ink: #8A6A46; --night-muted: #A98E68;
+  --primary: #DE7A1B; --primary-2: #F2A94D; --primary-3: #F2A94D;
+  --primary-dark: #AE5B0A; --primary-deep: #8A4A06; --primary-soft: #FFF1DC;
+  --ink: #2E1E0C; --ink-2: #8A6A46; --muted: #8A6A46; --muted-2: #A98E68;
+  --line: #F0DFC6; --line-strong: #F0DFC6; --gray-soft: #FBF1E3;
+  --sigma: #DE7A1B; --sigma-soft: #FFF1DC;
+  --reward-soft: #FFF1DC; --reward-ink: #AE5B0A;
 }
 :root[data-theme="forest"] {
-  --bg: #EDF6EF; --grid-ink: rgba(23, 106, 71, .12);
-  --card: #FFFFFF; --card-2: #F4FAF5; --card-3: #FAFDFB; --gray-soft: #E1EFE5;
-  --night: #0C2A1E; --night-2: #123A29; --night-ink: #CFE8D9; --night-muted: #8FB5A0;
-  --primary: #1A7A55; --primary-2: #45A87E; --primary-dark: #0E5539; --primary-soft: #DCF0E5;
-  --ink: #0F2119; --ink-2: #37503F; --muted: #5F7A69;
-  --line: #D6E7DA; --line-strong: #B7D2BF;
-  --sigma: #1A7A55; --sigma-soft: #DCF0E5; --reward-soft: #DCF0E5; --reward-ink: #0E5539;
+  --bg: #EAF3EC; --grid-ink: rgba(124, 144, 248, .08);
+  --card: #FFFFFF; --card-2: #F1F8F3; --card-3: #F1F8F3;
+  --night: #123B2B; --night-2: #1F7A54; --night-ink: #4F6E5E; --night-muted: #7C9A8A;
+  --primary: #1F8A5B; --primary-2: #3FC78D; --primary-3: #3FC78D;
+  --primary-dark: #14653F; --primary-deep: #1F7A54; --primary-soft: #DFF3E9;
+  --ink: #0F2419; --ink-2: #4F6E5E; --muted: #4F6E5E; --muted-2: #7C9A8A;
+  --line: #D5E7DA; --line-strong: #D5E7DA; --gray-soft: #EDF6F0;
+  --sigma: #1F8A5B; --sigma-soft: #DFF3E9;
+  --reward-soft: #DFF3E9; --reward-ink: #14653F;
 }
 :root[data-theme="graphite"] {
-  --bg: #1A1C21; --grid-ink: rgba(220, 226, 240, .07);
-  --card: #23262D; --card-2: #1E2127; --card-3: #202329; --gray-soft: #2C3038;
-  --night: #12141A; --night-2: #1B1E25; --night-ink: #D8DEEC; --night-muted: #98A0B2;
-  --success-tint: #17251E; --success-line: #274236;
-  --warm-tint: #24211A; --warm-tint-2: #2B2620; --warm-line: #3A342A;
-  --warm-ink: #DDA652; --warm-ink-2: #C29B60; --violet: #B9A6F5; --violet-soft: #262233;
-  --primary: #C9D2E8; --primary-2: #E3E9F7; --primary-dark: #EEF2FB; --primary-soft: #333947;
-  --ink: #F2F4F9; --ink-2: #C6CCDA; --muted: #8F97A8;
-  --line: #333741; --line-strong: #454B58;
-  --success: #57C08D; --success-soft: #1B3128;
-  --warning: #DDA652; --warning-soft: #332B18;
-  --danger: #E9707F; --danger-soft: #351E23;
-  --sigma: #C9D2E8; --sigma-soft: #333947; --reward-soft: #333947; --reward-ink: #EEF2FB;
+  --bg: #15171C; --grid-ink: rgba(124, 144, 248, .08);
+  --card: #1D2027; --card-2: #252932; --card-3: #252932;
+  --night: #363C48; --night-2: #4E5665; --night-ink: #AEB4C0; --night-muted: #99A0AC;
+  --primary: #5D6470; --primary-2: #9AA3B2; --primary-3: #9AA3B2;
+  --primary-dark: #3F4550; --primary-deep: #4E5665; --primary-soft: #2A2E38;
+  --ink: #ECEEF2; --ink-2: #AEB4C0; --muted: #AEB4C0; --muted-2: #99A0AC;
+  --line: #333842; --line-strong: #333842; --gray-soft: #262A33;
+  --sigma: #5D6470; --sigma-soft: #2A2E38;
+  --reward-soft: #2A2E38; --reward-ink: #3F4550;
+  --success: #3FC78D; --success-2: #5BD3A0; --success-soft: #12301F;
+  --success-tint: #12291F; --success-line: #1F4634;
+  --warning: #E1A845; --warning-soft: #2C2312;
+  --warm-tint: #241B0E; --warm-tint-2: #2E2413; --warm-line: #3A2E17;
+  --warm-ink: #E1A845; --warm-ink-2: #C79A4E;
+  --danger: #F0697D; --danger-soft: #331A21; --violet: #A78BFF; --violet-soft: #221B3A;
   --shadow: 0 1px 2px rgba(0,0,0,.5), 0 16px 34px -22px rgba(0,0,0,.9);
   --shadow-lift: 0 3px 8px rgba(0,0,0,.55), 0 22px 44px -24px rgba(0,0,0,1);
 }
@@ -96,20 +103,21 @@ html[data-theme="graphite"], html[data-theme="dark"] { color-scheme: dark; }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="sunrise"]):not([data-theme="forest"]):not([data-theme="graphite"]) {
-    --bg: #080D18; --grid-ink: rgba(124, 144, 248, .07);
-    --card: #111828; --card-2: #0D1423; --card-3: #0B1220;
-    --night: #060A14; --night-2: #101728; --night-ink: #C7CFEA; --night-muted: #8592B4;
-    --success-tint: #0F2A20; --success-line: #1C4433;
-    --warm-tint: #241B0E; --warm-tint-2: #2E2413; --warm-line: #3A2E17;
-    --warm-ink: #E1A845; --warm-ink-2: #C79A4E; --violet: #A78BFF; --violet-soft: #221B3A;
-    --primary: #7C90F8; --primary-2: #9EAEFF; --primary-dark: #AFBEFF; --primary-soft: #1B2444;
-    --ink: #E8EDFF; --ink-2: #BAC4E0; --muted: #8592B4;
-    --success: #3FC78D; --success-soft: #0F2A20;
+    --bg: #10142A; --grid-ink: rgba(124, 144, 248, .08);
+    --card: #171D33; --card-2: #1E2540; --card-3: #1E2540;
+    --night: #2C3763; --night-2: #4A5CB8; --night-ink: #A6B2CE; --night-muted: #93A0BE;
+    --primary: #7C90F8; --primary-2: #9BAAFF; --primary-3: #9BAAFF;
+    --primary-dark: #5B6FE8; --primary-deep: #4A5CB8; --primary-soft: #232C4C;
+    --ink: #EEF1FA; --ink-2: #A6B2CE; --muted: #A6B2CE; --muted-2: #93A0BE;
+    --line: #2A3252; --line-strong: #2A3252; --gray-soft: #202742;
+    --sigma: #7C90F8; --sigma-soft: #232C4C;
+    --reward-soft: #232C4C; --reward-ink: #5B6FE8;
+    --success: #3FC78D; --success-2: #5BD3A0; --success-soft: #12301F;
+    --success-tint: #12291F; --success-line: #1F4634;
     --warning: #E1A845; --warning-soft: #2C2312;
-    --danger: #F0697D; --danger-soft: #31191F;
-    --sigma: #8FA2FF; --sigma-soft: #1D2647;
-    --line: #212B45; --line-strong: #32405F; --gray-soft: #192136;
-    --reward-soft: #1D2647; --reward-ink: #AFBEFF;
+    --warm-tint: #241B0E; --warm-tint-2: #2E2413; --warm-line: #3A2E17;
+    --warm-ink: #E1A845; --warm-ink-2: #C79A4E;
+    --danger: #F0697D; --danger-soft: #331A21; --violet: #A78BFF; --violet-soft: #221B3A;
     --shadow: 0 1px 2px rgba(0,0,0,.5), 0 16px 34px -22px rgba(0,0,0,.9);
     --shadow-lift: 0 3px 8px rgba(0,0,0,.55), 0 22px 44px -24px rgba(0,0,0,1);
   }
@@ -764,6 +772,78 @@ body.no-rail .logo-e, .auth-card /* Коробка сигмы обрезана �
 .page-shell > .card + .parent-section,
 .page-shell > .hero + .card { margin-top: 18px; }
 .forecast-card { margin-bottom: 18px; }
+
+.grid-lesson { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 980px) { .grid-lesson { grid-template-columns: minmax(0, 1fr); } }
+
+/* — Витрина магазина — */
+.shop-hero {
+  position: relative; display: flex; flex-wrap: wrap; justify-content: space-between;
+  align-items: center; gap: 24px; padding: 26px 32px; border-radius: var(--radius-xl);
+  overflow: hidden; color: #fff;
+  background: linear-gradient(125deg, var(--primary-deep), var(--primary) 60%, var(--primary-2));
+  box-shadow: 0 24px 50px -28px rgba(46, 69, 184, .75); animation: riseIn .45s ease both;
+}
+.shop-hero > div { position: relative; }
+.shop-hero h1 { margin-bottom: 8px; font-size: clamp(1.5rem, 2.4vw, 1.9rem); }
+.shop-hero p { margin: 0; max-width: 52ch; font-size: 14.5px; opacity: .86; }
+.shop-hero .eyebrow { color: #fff; opacity: .72; }
+.shop-hero-stats { display: flex; flex: 0 0 auto; gap: 12px; }
+.shop-hero-stats > div { display: grid; gap: 2px; padding: 16px 22px; border: 1px solid rgba(255, 255, 255, .24); border-radius: 18px; background: rgba(255, 255, 255, .14); }
+.shop-hero-stats b { display: flex; align-items: center; gap: 8px; font-size: 30px; font-weight: 700; }
+.shop-hero-stats svg { width: 22px; height: 22px; }
+
+.shop-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 14px; }
+.shop-filters button { padding: 9px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--muted); font: inherit; font-size: .84rem; font-weight: 600; cursor: pointer; }
+.shop-filters button.is-on { border-color: transparent; background: var(--night); color: #fff; font-weight: 700; }
+
+.shop-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.shop-card { display: grid; gap: 14px; align-content: start; padding: 22px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--card); box-shadow: 0 12px 30px -24px rgba(16, 22, 42, .6); transition: transform .2s ease, box-shadow .2s ease; }
+.shop-card:hover { transform: translateY(-4px); box-shadow: 0 24px 44px -26px rgba(16, 22, 42, .6); }
+.shop-card.is-equipped { border-color: var(--success); }
+.shop-card.is-locked { opacity: .74; }
+.shop-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.shop-card-icon { position: relative; display: grid; place-items: center; width: 54px; height: 54px; border-radius: 18px; }
+.shop-card-icon svg { width: 28px; height: 28px; }
+.shop-card-icon .frost { position: absolute; width: 11px; height: 11px; color: #8CC8FF; }
+.shop-card-icon .frost-a { top: 6px; right: 7px; }
+.shop-card-icon .frost-b { bottom: 8px; left: 8px; width: 8px; height: 8px; color: #B6DEFF; }
+.shop-card-icon--indigo { background: var(--primary-soft); color: var(--primary); }
+.shop-card-icon--violet { background: var(--violet-soft); color: var(--violet); }
+.shop-card-icon--gold { background: var(--warm-tint); color: var(--warning); }
+.shop-card-icon--ice { background: #E4F2FF; color: #2E7FD8; }
+.shop-card-copy h2 { margin: 0 0 6px; font-size: 1.02rem; }
+.shop-card-copy p { margin: 0; color: var(--muted); font-size: .84rem; line-height: 1.45; }
+.shop-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: auto; }
+.shop-card-foot .price { font-size: 1.1rem; color: var(--ink); }
+.shop-card-foot .price svg { width: 17px; height: 17px; color: var(--primary); }
+
+/* — Задание дня — */
+.daily-hero {
+  position: relative; padding: 26px 28px; border-radius: 24px; overflow: hidden; color: #fff;
+  background: linear-gradient(140deg, var(--primary-dark), var(--primary) 55%, var(--primary-2));
+  box-shadow: 0 22px 46px -28px rgba(59, 79, 216, .95); animation: riseIn .45s ease both;
+}
+.daily-hero > * { position: relative; }
+.daily-hero-row { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; }
+.daily-hero h2 { margin: 0 0 14px; font-size: clamp(1.3rem, 2.2vw, 1.65rem); color: #fff; }
+.daily-hero .eyebrow { color: #fff; opacity: .7; }
+.daily-progress { height: 14px; border-radius: 999px; background: rgba(255, 255, 255, .22); overflow: hidden; }
+.daily-progress span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--flame-1), #FFE9A8); box-shadow: 0 0 18px rgba(255, 211, 78, .7); transition: width .6s ease; }
+.daily-streak { display: flex; flex: 0 0 auto; flex-direction: column; align-items: center; gap: 4px; padding: 14px 22px; border: 1px solid rgba(255, 255, 255, .24); border-radius: 20px; background: rgba(255, 255, 255, .14); }
+.daily-streak svg { width: 30px; height: 30px; }
+.daily-streak b { font-family: var(--data); font-variant-numeric: tabular-nums; font-size: 26px; line-height: 1; }
+.daily-clock { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border: 1px solid var(--warm-line); border-radius: var(--radius); background: var(--warm-tint); }
+.daily-clock svg { width: 18px; height: 18px; color: var(--flame-2); }
+.daily-clock small { color: var(--warm-ink-2); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; }
+.daily-clock b { color: var(--warm-ink); font-family: var(--data); font-variant-numeric: tabular-nums; }
+.week-dots { display: flex; flex-wrap: wrap; gap: 8px; }
+.week-dots span { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 12px; background: var(--card-2); color: var(--muted-2); font-family: var(--data); font-size: .78rem; }
+.week-dots span.is-on { border-color: transparent; background: linear-gradient(150deg, var(--flame-1), var(--flame-2)); color: #3A2500; font-weight: 700; }
+.week-dots span.is-today { box-shadow: 0 0 0 3px var(--primary-soft); }
+
+@media (max-width: 1100px) { .shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .shop-grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* Скрытая панель должна оставаться скрытой: у графа и списка тем свои
    display-правила, которые иначе перебивают атрибут hidden. */
