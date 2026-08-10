@@ -103,6 +103,9 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     # Без этого middleware настройка X_FRAME_OPTIONS не действует.
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Второй фактор проверяется перед каждым запросом сотрудника: входов в
+    # систему несколько (своя форма, /admin/login/), а правило должно быть одно.
+    "apps.accounts.middleware.TwoFactorMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -374,6 +377,20 @@ FREE_FEATURES = [
 ]
 # Пробный период от даты регистрации ученика, дней. 0 — без пробного периода.
 TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS") or 7)
+
+# --- Второй фактор ---
+# Сотрудник видит чужие персональные данные, публикует контент и двигает
+# деньги: одного пароля для бэкофиса мало. Ученику и родителю фактор не
+# навязываем — он не открывает чужих данных, а порог входа поднимает заметно.
+TWO_FACTOR_ENFORCED = _env_bool("TWO_FACTOR_ENFORCED", default=not DEBUG)
+TWO_FACTOR_REQUIRED_ROLES = [
+    role.strip()
+    for role in (
+        os.environ.get("TWO_FACTOR_REQUIRED_ROLES") or "methodist,expert"
+    ).split(",")
+    if role.strip()
+]
+TWO_FACTOR_ISSUER = os.environ.get("TWO_FACTOR_ISSUER") or "Матемация"
 
 # --- Видео занятий ---
 # Хосты, чей плеер разрешено встраивать. iframe исполняется в контексте

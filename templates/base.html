@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="{% static 'js/app.js' %}" defer></script>
 </head>
-<body{% if not user.is_authenticated %} class="no-rail"{% endif %}>
+<body{% if not user.is_authenticated or hide_nav %} class="no-rail"{% endif %}>
   {% include "partials/icons.html" %}
   <svg width="0" height="0" aria-hidden="true" style="position:absolute">
     <defs>
@@ -50,8 +50,10 @@
   {% comment %}
   Рельс — навигация вошедшего. На входе и регистрации навигации нет, поэтому и
   панели быть не должно: пустая тёмная полоса выглядела обрезанным экраном.
+  На странице второго фактора рельс тоже скрыт: человек ещё не вошёл до конца,
+  и ссылки, по которым его всё равно вернут назад, только путают.
   {% endcomment %}
-  {% if user.is_authenticated %}
+  {% if user.is_authenticated and not hide_nav %}
   <header class="site-header">
     <div class="header-inner">
       <a class="brand" href="/" aria-label="Матемация">{% include "partials/logo.html" with size="sm" %}</a>

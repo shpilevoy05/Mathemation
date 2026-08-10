@@ -357,6 +357,13 @@ input:focus { border-color: var(--primary); outline: 3px solid var(--primary-sof
 .stack-form label, .task-card label { display: block; margin-bottom: 6px; color: var(--muted); font-size: .88rem; font-weight: 700; }
 .stack-form input { margin-bottom: 15px; }
 .stack-form .button { margin-top: 5px; }
+/* Второй фактор: ключ и резервные коды переписывают руками, поэтому им нужны
+   моноширинные цифры и разрядка — иначе 0 и O не различить. */
+.auth-card .secret-key { padding: 12px; border: 1px dashed var(--line); border-radius: var(--radius); background: var(--gray-soft); font-size: 1.1rem; letter-spacing: .12em; word-break: break-all; }
+.auth-card .otpauth-url { color: var(--muted); font-size: .78rem; word-break: break-all; }
+.recovery-codes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 16px 0; padding: 0; list-style: none; }
+.recovery-codes li { padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--gray-soft); letter-spacing: .06em; }
+.auth-card .plain-list { text-align: left; }
 
 /* Knowledge map and shared student pages. */
 .toggle { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--card); }

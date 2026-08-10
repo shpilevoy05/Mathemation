@@ -12,6 +12,40 @@ class User(AbstractUser):
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.STUDENT)
 
 
+class TwoFactorDevice(models.Model):
+    """Второй фактор сотрудника: секрет TOTP и резервные коды.
+
+    Секрет лежит в базе в открытом виде — иначе его нечем проверять; защита
+    здесь не в хешировании, а в том, что доступ к базе уже означает компромисс.
+    Резервные коды, наоборот, хранятся хешами: они заменяют телефон целиком.
+    """
+
+    user = models.OneToOneField(
+        "accounts.User", on_delete=models.CASCADE, related_name="two_factor"
+    )
+    secret = models.CharField(max_length=64)
+    # Пока фактор не подтверждён кодом, он не считается настроенным: иначе
+    # человек запишет секрет с ошибкой и потеряет доступ к своему аккаунту.
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    # Последний принятый шаг времени: подсмотренный код нельзя ввести дважды.
+    last_step = models.BigIntegerField(default=0)
+    recovery_hashes = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        state = "подтверждён" if self.is_confirmed else "не подтверждён"
+        return f"2FA {self.user.username} ({state})"
+
+    @property
+    def is_confirmed(self) -> bool:
+        return self.confirmed_at is not None
+
+    @property
+    def recovery_left(self) -> int:
+        return len(self.recovery_hashes or [])
+
+
 class StudentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="student_profile")
     target_score = models.PositiveSmallIntegerField(default=80)

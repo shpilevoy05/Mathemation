@@ -134,6 +134,16 @@ urlpatterns = [
     # Свой вход стоит перед стандартными маршрутами: он тот же, но считает
     # неудачные попытки и блокирует перебор.
     path("accounts/login/", account_views.ThrottledLoginView.as_view(), name="login"),
+    path(
+        "accounts/two-factor/",
+        account_views.two_factor_verify,
+        name="two_factor_verify",
+    ),
+    path(
+        "accounts/two-factor/setup/",
+        account_views.two_factor_setup,
+        name="two_factor_setup",
+    ),
     path("accounts/", include("django.contrib.auth.urls")),
     path("pricing/", billing_pages.pricing, name="pricing"),
     path("invite/", account_views.register_by_invite, name="register"),

@@ -269,7 +269,7 @@ python manage.py shell -c "from apps.knowledge.tasks import apply_decay_all; app
 ## 8. Автотесты и проверки
 
 ```powershell
-python manage.py test apps config              # весь набор, сейчас 453 теста
+python manage.py test apps config              # весь набор, сейчас 476 тестов
 python manage.py test apps.progress            # прогноз, калибровка, интервал
 python manage.py test apps.economy apps.billing
 python manage.py test apps.adminpanel          # права панели и её действия
@@ -302,6 +302,21 @@ curl http://127.0.0.1:8000/readyz    # база и кеш отвечают
 `THROTTLE_ATTEMPT`, `THROTTLE_HINT`, `THROTTLE_PURCHASE`, `THROTTLE_UPLOAD`,
 `LOGIN_MAX_ATTEMPTS`; в проде нужен `REDIS_URL`, иначе счётчик у каждого
 воркера свой. С `DJANGO_DEBUG=0` процесс не поднимется на SQLite.
+
+Второй фактор сотрудников:
+
+```powershell
+$env:TWO_FACTOR_ENFORCED = "1"                 # с DJANGO_DEBUG=0 включён сам
+$env:TWO_FACTOR_REQUIRED_ROLES = "methodist,expert"
+.venv\Scripts\python.exe manage.py reset_two_factor <логин>   # потерян телефон
+```
+
+Методист, эксперт, `is_staff` и суперпользователь после пароля попадают на
+настройку фактора (TOTP: ключ, приложение-аутентификатор, код). Проверка стоит
+в middleware, поэтому `/admin/` закрыт так же, как панель. Код нельзя ввести
+дважды, после пяти неверных — блокировка на 15 минут. Резервные коды
+показываются один раз и хранятся отпечатками. Ученик и родитель фактор не
+проходят.
 
 Доступ к платной части:
 

@@ -7,6 +7,19 @@ from django.core.exceptions import ValidationError
 from .models import User
 
 
+class TwoFactorCodeForm(forms.Form):
+    """Код из приложения или резервный код.
+
+    Одно поле на оба случая: человек, потерявший телефон, не должен искать,
+    куда именно вводить запасной код.
+    """
+
+    code = forms.CharField(label="Код", max_length=32)
+
+    def clean_code(self):
+        return self.cleaned_data["code"].strip().replace(" ", "")
+
+
 class InviteRegistrationForm(forms.Form):
     """Регистрация ученика или родителя по одноразовому коду.
 

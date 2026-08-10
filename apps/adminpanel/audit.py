@@ -24,6 +24,8 @@ AUDITED_ACTIONS = {
     "payment.refund",
     "invite.create",
     "promotion.save", "payment_method.save", "addon.save",
+    # Снятие второго фактора возвращает сотрудника к одному паролю.
+    "two_factor.reset",
 }
 
 
