@@ -60,7 +60,12 @@ class FinishExpertReviewSerializer(serializers.Serializer):
         return tags
 
     def validate_related_node_ids(self, node_ids):
-        if KnowledgeNode.objects.filter(pk__in=node_ids).count() != len(set(node_ids)):
+        # Папку эксперт отметить не может: ошибка делается в конкретном навыке,
+        # а освоение папки считается по детям.
+        found = KnowledgeNode.objects.filter(pk__in=node_ids).exclude(
+            node_type=KnowledgeNode.NodeType.GROUP
+        )
+        if found.count() != len(set(node_ids)):
             raise serializers.ValidationError("Одна или несколько тем не найдены.")
         return list(dict.fromkeys(node_ids))
 

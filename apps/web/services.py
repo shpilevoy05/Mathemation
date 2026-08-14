@@ -117,8 +117,11 @@ def methodist_context():
         .filter(theory_count=0, video_url="")
         .order_by("title")
     )
+    # Папки в дыры контента не идут: задач у них не бывает по определению, и в
+    # списке «нечем закрыть» они были бы вечным шумом.
     nodes_without_assignments = list(
-        KnowledgeNode.objects.annotate(assignment_count=Count("assignments", distinct=True))
+        KnowledgeNode.objects.exclude(node_type=KnowledgeNode.NodeType.GROUP)
+        .annotate(assignment_count=Count("assignments", distinct=True))
         .filter(assignment_count=0)
         .order_by("cluster__order", "order")
     )
@@ -151,7 +154,9 @@ def methodist_context():
         with_video=Count("id", filter=~Q(video_url="")),
     )
     return {
-        "node_count": KnowledgeNode.objects.count(),
+        "node_count": KnowledgeNode.objects.exclude(
+            node_type=KnowledgeNode.NodeType.GROUP
+        ).count(),
         "lesson_count": lesson_totals["total"],
         "video_lesson_count": lesson_totals["with_video"],
         "assignment_count": Assignment.objects.count(),
@@ -380,31 +385,53 @@ def knowledge_map_context(student, overlay=False):
     clusters = []
     for cluster in TopicCluster.objects.prefetch_related("nodes"):
         nodes = []
+        loose_nodes = []
+        groups: dict[int, dict] = {}
         for node in cluster.nodes.all():
             state = states[node.id]
-            nodes.append(
-                {
+            if node.is_group:
+                groups.setdefault(node.id, {"nodes": []}).update({
                     "id": node.id,
                     "title": node.title,
-                    "ege_task_numbers": node.ege_task_numbers,
                     "mastery": state["mastery"],
                     "state": state["state"],
                     "state_label": NODE_STATE_LABELS[state["state"]],
-                    "decay_percent": state["decay_percent"],
-                    "last_practiced_at": state["last_practiced_at"],
-                    "reachable_by_exam": node.id not in unreachable,
-                    "unmet_conditions": [
-                        {
-                            **condition,
-                            "current_mastery_percent": max(
-                                0, min(100, round(float(condition["current_mastery"])))
-                            ),
-                        }
-                        for condition in state["unmet_conditions"]
-                    ],
-                }
-            )
-        clusters.append({"title": cluster.title, "color": cluster.color, "nodes": nodes})
+                })
+                continue
+            card = {
+                "id": node.id,
+                "title": node.title,
+                "ege_task_numbers": node.ege_task_numbers,
+                "mastery": state["mastery"],
+                "state": state["state"],
+                "state_label": NODE_STATE_LABELS[state["state"]],
+                "decay_percent": state["decay_percent"],
+                "last_practiced_at": state["last_practiced_at"],
+                "reachable_by_exam": node.id not in unreachable,
+                "unmet_conditions": [
+                    {
+                        **condition,
+                        "current_mastery_percent": max(
+                            0, min(100, round(float(condition["current_mastery"])))
+                        ),
+                    }
+                    for condition in state["unmet_conditions"]
+                ],
+            }
+            nodes.append(card)
+            if node.parent_id:
+                groups.setdefault(node.parent_id, {"nodes": []})["nodes"].append(card)
+            else:
+                loose_nodes.append(card)
+        clusters.append({
+            "title": cluster.title,
+            "color": cluster.color,
+            # Плоский список навыков остаётся: по нему рисуется граф и считаются
+            # координаты. Папки — тот же список, разложенный по родителям.
+            "nodes": nodes,
+            "groups": [group for group in groups.values() if group.get("id")],
+            "loose_nodes": loose_nodes,
+        })
     return {
         "clusters": clusters,
         "ceiling_overlay": overlay,
@@ -526,6 +553,9 @@ def track_context(student):
         points = []
         cluster_has_mistakes = False
         for node in cluster.nodes.all():
+            # Папка не превращается в точку дорожки: заниматься по ней нечем.
+            if node.is_group:
+                continue
             state_data = states[node.id]
             for lesson in node.lessons.all():
                 point = _track_point(

@@ -42,6 +42,36 @@ def _engine_params() -> EngineParams:
     )
 
 
+def _graph_edges(ids: set[int]) -> list[EdgeDTO]:
+    """Рёбра для движка — только обязательные.
+
+    Поддерживающая связь объясняет порядок, но не закрывает тему; если отдать
+    её движку как зависимость, план начнёт ждать освоения того, без чего тема
+    решается.
+    """
+    return [
+        EdgeDTO(
+            from_node_id=dependency.prerequisite_id,
+            to_node_id=dependency.node_id,
+            min_mastery=float(dependency.min_mastery),
+        )
+        for dependency in KnowledgeDependency.objects.filter(
+            node_id__in=ids,
+            prerequisite_id__in=ids,
+            kind=KnowledgeDependency.Kind.PREREQUISITE,
+        )
+    ]
+
+
+def _planned_nodes():
+    """Узлы, которые вообще могут попасть в план.
+
+    Папка складывается из детей и своей практики не имеет: занятия по ней не
+    существует, и в расписании она была бы пустым пунктом.
+    """
+    return KnowledgeNode.objects.exclude(node_type=KnowledgeNode.NodeType.GROUP)
+
+
 def _node_dto(node, mastery: float = 0.0) -> NodeState:
     return NodeState(
         node_id=node.id,
@@ -57,17 +87,7 @@ def _topological_order(nodes):
     """Order nodes so prerequisites come first; ties broken by exam weight desc."""
     by_id = {n.id: n for n in nodes}
     ids = set(by_id)
-    edges = [
-        EdgeDTO(
-            from_node_id=dependency.prerequisite_id,
-            to_node_id=dependency.node_id,
-            min_mastery=float(dependency.min_mastery),
-        )
-        for dependency in KnowledgeDependency.objects.filter(
-            node_id__in=ids, prerequisite_id__in=ids
-        )
-    ]
-    ordered = topological_order([_node_dto(node) for node in nodes], edges)
+    ordered = topological_order([_node_dto(node) for node in nodes], _graph_edges(ids))
     return [by_id[state.node_id] for state in ordered]
 
 
@@ -77,18 +97,9 @@ def order_pending_nodes(student) -> list[KnowledgeNode]:
     Используется и планировщиком, и симуляцией потолка прогноза.
     """
     masteries = mastery_map(student)
-    nodes = list(KnowledgeNode.objects.select_related("cluster").all())
+    nodes = list(_planned_nodes().select_related("cluster"))
     ids = {node.id for node in nodes}
-    edges = [
-        EdgeDTO(
-            from_node_id=dependency.prerequisite_id,
-            to_node_id=dependency.node_id,
-            min_mastery=float(dependency.min_mastery),
-        )
-        for dependency in KnowledgeDependency.objects.filter(
-            node_id__in=ids, prerequisite_id__in=ids
-        )
-    ]
+    edges = _graph_edges(ids)
     by_id = {node.id: node for node in nodes}
     states = [_node_dto(node, masteries.get(node.id, 0.0)) for node in nodes]
     assignments = list(

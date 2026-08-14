@@ -11,8 +11,8 @@ from apps.engine.forecast import expected_primary as engine_expected_primary
 from apps.engine.forecast import probability_correct, scaled_score
 from apps.content.models import Assignment
 from apps.exams.models import ExamProfile
-from apps.knowledge.models import KnowledgeNode, SkillMastery
-from apps.knowledge.models import KnowledgeDependency
+from apps.knowledge.models import SkillMastery
+from apps.knowledge.services import gates, learnable_nodes
 from apps.planning.models import StudyPlanItem
 from apps.planning.services import get_active_plan
 from apps.practice.models import Attempt, MistakeBacklogItem
@@ -86,7 +86,9 @@ def _profile_task_weights(profile: ExamProfile) -> list[TaskWeight]:
 def _forecast_dtos(
     student, mastery_override: dict[int, float] | None = None
 ) -> tuple[list[NodeState], list[TaskWeight]]:
-    nodes = list(KnowledgeNode.objects.select_related("cluster").all())
+    # Папки в прогноз не идут: своего освоения у них нет, а как узлы с нулём
+    # они занижали бы балл ровно на число папок.
+    nodes = list(learnable_nodes().select_related("cluster"))
     masteries = mastery_override if mastery_override is not None else dict(
         SkillMastery.objects.filter(student=student).values_list("node_id", "mastery")
     )
@@ -367,7 +369,9 @@ def ceiling_forecast(student, weekly_hours: int | None = None, exam_date=None) -
             to_node_id=dependency.node_id,
             min_mastery=float(dependency.min_mastery),
         )
-        for dependency in KnowledgeDependency.objects.all()
+        # Потолок — это «что успею освоить», а поддерживающие связи ничего не
+        # закрывают: считать их воротами значит занижать достижимое.
+        for dependency in gates()
     ]
     days_left = (
         None
@@ -391,7 +395,7 @@ def weak_topics(student, limit=WEAK_TOPIC_LIMIT) -> list[dict]:
     masteries = dict(
         SkillMastery.objects.filter(student=student).values_list("node_id", "mastery")
     )
-    nodes = KnowledgeNode.objects.select_related("cluster").all()
+    nodes = learnable_nodes().select_related("cluster")
     ranked = sorted(nodes, key=lambda n: masteries.get(n.id, 0))[:limit]
     return [
         {

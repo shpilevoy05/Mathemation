@@ -33,12 +33,24 @@ def would_create_cycle(
             return True
         visited.update(frontier)
         prerequisite_ids = set(
-            KnowledgeDependency.objects.filter(node_id__in=frontier)
+            KnowledgeDependency.objects.filter(
+                node_id__in=frontier, kind=KnowledgeDependency.Kind.PREREQUISITE
+            )
             .exclude(pk=exclude_dependency_id)
             .values_list("prerequisite_id", flat=True)
         )
         frontier = prerequisite_ids - visited
     return False
+
+
+def gates():
+    """Связи, которые действительно закрывают темы."""
+    return KnowledgeDependency.objects.filter(kind=KnowledgeDependency.Kind.PREREQUISITE)
+
+
+def learnable_nodes():
+    """Узлы, которые можно изучать: папки практикой не закрываются."""
+    return KnowledgeNode.objects.exclude(node_type=KnowledgeNode.NodeType.GROUP)
 
 
 def _engine_params() -> EngineParams:
@@ -140,11 +152,29 @@ def mastery_map(student) -> dict[int, float]:
     )
 
 
+def group_mastery(node: KnowledgeNode, child_masteries: list[float]) -> float:
+    """Освоение папки из освоения детей.
+
+    Способ выбирает методист: по минимуму папка закрывается по самому слабому
+    ребёнку, по среднему — раньше. Папка без детей — ноль, а не сто: пустая
+    папка ничего не доказывает.
+    """
+    if not child_masteries:
+        return 0.0
+    if node.group_aggregation == KnowledgeNode.GroupAggregation.MINIMUM:
+        return min(child_masteries)
+    return sum(child_masteries) / len(child_masteries)
+
+
 def node_states(student) -> dict[int, dict]:
     """Состояния узлов карты: закрыто / можно начинать / в процессе / освоено / подзабылось.
 
-    «Закрыто» и «можно начинать» выводятся из зависимостей: узел доступен,
-    когда каждый его пререквизит освоен до порога конкретного ребра.
+    «Закрыто» и «можно начинать» выводятся из обязательных связей: узел
+    доступен, когда каждый его предшественник освоен до порога конкретного
+    ребра. Поддерживающие связи в расчёт не идут — они объясняют порядок, но
+    ничего не закрывают, и попадают в ответ отдельным списком.
+
+    Папка своего освоения не имеет: её состояние собирается по детям.
     """
     masteries = {
         m.node_id: m for m in SkillMastery.objects.filter(student=student)
@@ -152,11 +182,22 @@ def node_states(student) -> dict[int, dict]:
     nodes = list(KnowledgeNode.objects.prefetch_related("dependencies__prerequisite"))
     states = {}
     for node in nodes:
+        if node.is_group:
+            continue
         m = masteries.get(node.id)
         dependencies = list(node.dependencies.all())
-        prereq_ids = [dependency.prerequisite_id for dependency in dependencies]
+        gate_dependencies = [dependency for dependency in dependencies if dependency.is_gate]
+        prereq_ids = [dependency.prerequisite_id for dependency in gate_dependencies]
+        supporting = [
+            {
+                "node_id": dependency.prerequisite_id,
+                "title": dependency.prerequisite.title,
+            }
+            for dependency in dependencies
+            if not dependency.is_gate
+        ]
         unmet_conditions = []
-        for dependency in dependencies:
+        for dependency in gate_dependencies:
             current = masteries.get(dependency.prerequisite_id)
             current_mastery = current.mastery if current else 0.0
             if current_mastery < dependency.min_mastery:
@@ -186,5 +227,40 @@ def node_states(student) -> dict[int, dict]:
             "last_practiced_at": m.last_practiced_at if m else None,
             "prerequisites": prereq_ids,
             "unmet_conditions": unmet_conditions,
+            "supporting": supporting,
+        }
+
+    # Папки считаем после навыков: их состояние — производное от детей.
+    for group in nodes:
+        if not group.is_group:
+            continue
+        children = [states[child.id] for child in nodes if child.parent_id == group.id and child.id in states]
+        values = [child["mastery"] for child in children]
+        value = group_mastery(group, values)
+        states[group.id] = {
+            "state": _group_state(children, value),
+            "mastery": value,
+            "decay_percent": 0.0,
+            "last_practiced_at": None,
+            "prerequisites": [],
+            "unmet_conditions": [],
+            "supporting": [],
+            "is_group": True,
+            "child_count": len(children),
         }
     return states
+
+
+def _group_state(children: list[dict], value: float) -> str:
+    """Состояние папки: по детям, а не по собственному освоению."""
+    if not children:
+        return "locked"
+    if value >= settings.MASTERY_THRESHOLD:
+        return "mastered"
+    if any(child["state"] == "decayed" for child in children):
+        return "decayed"
+    if value > 0:
+        return "in_progress"
+    if any(child["state"] == "available" for child in children):
+        return "available"
+    return "locked"

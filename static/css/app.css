@@ -376,6 +376,13 @@ input:focus { border-color: var(--primary); outline: 3px solid var(--primary-sof
 .cluster-heading { display: flex; align-items: center; gap: 10px; }
 .cluster-heading > span { width: 8px; height: 34px; border-radius: 8px; background: var(--cluster-color); }
 .cluster-heading h2 { padding: 4px 10px; border: 1px solid var(--cluster-color); border-radius: 999px; background: var(--card); }
+/* Папка навыков: подзаголовок внутри темы. Своей практики у неё нет, поэтому
+   она не карточка — иначе по ней кликали бы в пустоту. */
+.skill-group { margin-top: 18px; padding-left: 14px; border-left: 2px dashed var(--line); }
+.skill-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; margin-bottom: 10px; }
+.skill-group-head h3 { font-size: 1.02rem; }
+.skill-group-head strong { color: var(--ink); font-size: 1.02rem; }
+.skill-group-head small { color: var(--muted); }
 .node-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .node-card { position: relative; display: block; min-height: 190px; padding: 18px; overflow: hidden; border-left: 4px solid var(--cluster-color); border-radius: var(--radius); color: var(--ink); background: var(--card); box-shadow: var(--shadow); }
 .node-card p, .node-card small { color: var(--muted); }

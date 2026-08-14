@@ -8,7 +8,7 @@ from .models import KnowledgeDependency, KnowledgeNode, SkillMastery, TopicClust
 class DependencyInline(admin.TabularInline):
     model = KnowledgeDependency
     fk_name = "node"
-    fields = ["prerequisite", "min_mastery"]
+    fields = ["prerequisite", "kind", "min_mastery"]
     autocomplete_fields = ["prerequisite"]
     extra = 1
     verbose_name = "условие открытия (родительская тема)"
@@ -18,7 +18,7 @@ class DependencyInline(admin.TabularInline):
 class ReverseDependencyInline(admin.TabularInline):
     model = KnowledgeDependency
     fk_name = "prerequisite"
-    fields = ["node", "min_mastery"]
+    fields = ["node", "kind", "min_mastery"]
     autocomplete_fields = ["node"]
     extra = 1
     verbose_name = "открываемая тема (дочерняя)"
@@ -45,8 +45,10 @@ class AssignmentSkillTagInline(admin.TabularInline):
 
 @admin.register(KnowledgeNode)
 class KnowledgeNodeAdmin(admin.ModelAdmin):
-    list_display = ["code", "title", "cluster", "weight", "exam_part"]
+    list_display = ["code", "title", "cluster", "node_type", "parent", "weight", "exam_part"]
+    list_filter = ["node_type", "layer", "skill_class", "cluster"]
     search_fields = ["code", "title"]
+    autocomplete_fields = ["parent"]
     inlines = [
         DependencyInline,
         ReverseDependencyInline,
@@ -57,7 +59,8 @@ class KnowledgeNodeAdmin(admin.ModelAdmin):
 
 @admin.register(KnowledgeDependency)
 class KnowledgeDependencyAdmin(admin.ModelAdmin):
-    list_display = ["node", "prerequisite", "min_mastery"]
+    list_display = ["node", "prerequisite", "kind", "min_mastery"]
+    list_filter = ["kind"]
     autocomplete_fields = ["node", "prerequisite"]
 
 

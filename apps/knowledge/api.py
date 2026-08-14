@@ -39,6 +39,8 @@ class KnowledgeMapView(views.APIView):
                     "id": node.id,
                     "code": node.code,
                     "title": node.title,
+                    "node_type": node.node_type,
+                    "parent_id": node.parent_id,
                     "exam_part": node.exam_part,
                     "ege_task_numbers": node.ege_task_numbers,
                     "mastery": s.get("mastery", 0),
@@ -47,16 +49,21 @@ class KnowledgeMapView(views.APIView):
                     "last_practiced_at": s.get("last_practiced_at"),
                     "prerequisites": s.get("prerequisites", []),
                     "unmet_conditions": s.get("unmet_conditions", []),
+                    # Поддерживающие связи не закрывают тему, поэтому лежат
+                    # отдельно от условий открытия.
+                    "supporting": s.get("supporting", []),
                 }
                 if overlay:
                     payload["reachable_by_exam"] = node.id not in unreachable
                 nodes.append(payload)
-            mastered = sum(1 for n in nodes if n["state"] == "mastered")
+            # Счётчик темы — про навыки: папка не «освоена», она агрегат.
+            skills = [n for n in nodes if n["node_type"] != KnowledgeNode.NodeType.GROUP]
+            mastered = sum(1 for n in skills if n["state"] == "mastered")
             clusters.append({
                 "id": cluster.id,
                 "title": cluster.title,
                 "color": cluster.color,
-                "nodes_total": len(nodes),
+                "nodes_total": len(skills),
                 "nodes_mastered": mastered,
                 "nodes": nodes,
             })
