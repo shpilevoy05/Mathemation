@@ -150,6 +150,27 @@ docker compose -f infra/production/docker-compose.yml run --rm release \
 
 ---
 
+## 4a. Обновление предметной разметки
+
+Разметка навыков лежит в коде (`apps/knowledge/markup/`), поэтому приезжает
+вместе с образом. Применяется отдельным шагом в релизном контейнере — тем же,
+где идут миграции:
+
+```sh
+docker compose -f infra/production/docker-compose.yml run --rm release   python manage.py load_markup --dry-run
+docker compose -f infra/production/docker-compose.yml run --rm release   python manage.py load_markup
+```
+
+Сухой прогон обязателен: он показывает, что именно изменится в графе, по
+которому у учеников уже накоплено освоение. Команда идемпотентна — повторный
+запуск ничего не меняет и безопасен.
+
+Узлы, исчезнувшие из новой версии книги, не удаляются сами: они попадают в
+отчёт. Удалять их (`--prune`) стоит отдельным решением и только после того,
+как понятно, куда девать историю учеников по ним.
+
+---
+
 ## 5a. Второй фактор сотрудников
 
 С `DJANGO_DEBUG=0` он включён по умолчанию (`TWO_FACTOR_ENFORCED`). Методист,

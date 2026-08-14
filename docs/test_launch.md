@@ -278,7 +278,7 @@ python manage.py shell -c "from apps.knowledge.tasks import apply_decay_all; app
 ## 8. Автотесты и проверки
 
 ```powershell
-python manage.py test apps config              # весь набор, сейчас 494 теста
+python manage.py test apps config              # весь набор, сейчас 525 тестов
 python manage.py test apps.progress            # прогноз, калибровка, интервал
 python manage.py test apps.economy apps.billing
 python manage.py test apps.adminpanel          # права панели и её действия
@@ -311,6 +311,24 @@ curl http://127.0.0.1:8000/readyz    # база и кеш отвечают
 `THROTTLE_ATTEMPT`, `THROTTLE_HINT`, `THROTTLE_PURCHASE`, `THROTTLE_UPLOAD`,
 `LOGIN_MAX_ATTEMPTS`; в проде нужен `REDIS_URL`, иначе счётчик у каждого
 воркера свой. С `DJANGO_DEBUG=0` процесс не поднимется на SQLite.
+
+Предметная разметка (навыки и связи задания 13):
+
+```powershell
+python manage.py load_markup --dry-run   # показать разницу, ничего не менять
+python manage.py load_markup             # применить
+python manage.py load_markup --prune     # убрать узлы, которых нет в книге
+```
+
+Данные лежат в `apps/knowledge/markup/`, загрузка идемпотентна по коду навыка:
+повтор ничего не меняет. Приезжает 66 узлов (61 навык и 5 папок) и 60 связей,
+из них 33 — ворота. Часы и вес узлов команда не трогает: их правит методист в
+панели. Узел, исчезнувший из книги, показывается как лишний и удаляется только
+с `--prune`, да и то лишь если на него не ссылаются задачи и история учеников.
+
+Проверить: после загрузки в `/panel/` (раздел «Узлы графа») видно 66 записей, а
+на `/methodist/` те же навыки попадают в «нечем закрыть» — задач к ним пока нет,
+и это правильный сигнал, а не ошибка.
 
 Второй фактор сотрудников:
 
