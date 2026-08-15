@@ -47,7 +47,31 @@ class ForecastView(views.APIView):
         forecast["tasks"] = forecast_breakdown(student)
         # Недоразмеченный профиль занижает прогноз — это видно явно.
         forecast["exam_profile_coverage"] = profile_coverage()
+        # Шкала на странице должна двигаться вместе с ползунком: без этих
+        # процентов она оставалась в исходном положении и выглядела сломанной.
+        from apps.web.services import primary_gauge
+
+        gauge = primary_gauge(student)
+        forecast["gauge"] = {
+            "now_percent": gauge["now_percent"],
+            "target_percent": gauge["target_percent"],
+            "band_left_percent": gauge["band_left_percent"],
+            "band_width_percent": gauge["band_width_percent"],
+            "ceiling_percent": _ceiling_percent(gauge, forecast),
+            "primary": gauge["primary"],
+        }
         return Response(forecast)
+
+
+def _ceiling_percent(gauge: dict, forecast: dict) -> float | None:
+    """Где на шкале стоит потолок при выбранных условиях."""
+    from apps.progress.services import primary_for_scaled
+
+    maximum = gauge["max_primary"] or 1
+    ceiling = forecast.get("ceiling_score")
+    if ceiling is None:
+        return None
+    return round(min(max(primary_for_scaled(ceiling) / maximum, 0), 1) * 100, 2)
 
 
 class ProgressView(views.APIView):

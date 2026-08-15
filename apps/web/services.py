@@ -774,7 +774,9 @@ SHOP_ICONS = {
     "boost": ("i-bolt", "indigo"),
 }
 SHOP_EFFECT_ICONS = {
-    "streak_freeze": ("i-snow", "ice"),
+    # Заморозка серии — потушенное пламя из макета: снежинка сама по себе не
+    # говорит, что именно замораживают.
+    "streak_freeze": ("i-flame-ice", "ice"),
     "xp_boost": ("i-bolt", "indigo"),
 }
 
@@ -808,6 +810,10 @@ def _shop_card(row: dict, balance: int) -> dict:
         "description": item.description or row.get("effect_note") or "Оформление кабинета.",
         "available": row["owned"] or row["affordable"],
         "missing": max(item.price_coins - balance, 0),
+        # Косметику можно примерить до покупки: слот и код нужны интерфейсу,
+        # чтобы показать вещь на месте, ничего не сохраняя.
+        "previewable": not row["is_consumable"] and not row["equipped"],
+        "code": item.code,
     }
 
 

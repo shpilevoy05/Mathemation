@@ -1,19 +1,20 @@
+{% load l10n %}
 <div class="gauge-scale">
   <div class="gauge-axis" role="img"
        aria-label="Первичный балл {{ gauge.primary|floatformat:1 }} из {{ gauge.max_primary|floatformat:0 }}, цель {{ gauge.target_primary|floatformat:1 }} первичных">
     <div class="gauge-track"></div>
-    <div class="gauge-fill" style="width: {{ gauge.now_percent }}%"></div>
-    <div class="gauge-band" style="left: {{ gauge.band_left_percent }}%; width: {{ gauge.band_width_percent }}%"></div>
-    <div class="gauge-now" style="left: {{ gauge.now_percent }}%"></div>
-    <div class="gauge-flag" style="left: {{ gauge.target_percent }}%">
+    <div class="gauge-fill" style="width: {{ gauge.now_percent|unlocalize }}%"></div>
+    <div class="gauge-band" style="left: {{ gauge.band_left_percent|unlocalize }}%; width: {{ gauge.band_width_percent|unlocalize }}%"></div>
+    <div class="gauge-now" style="left: {{ gauge.now_percent|unlocalize }}%"></div>
+    <div class="gauge-flag" style="left: {{ gauge.target_percent|unlocalize }}%">
       <span>цель {{ gauge.target_scaled }} = {{ gauge.target_primary|floatformat:1 }} первичных</span>
     </div>
     {% if gauge.ceiling_percent %}
-      <div class="gauge-flag gauge-ceiling" style="left: {{ gauge.ceiling_percent }}%">
+      <div class="gauge-flag gauge-ceiling" style="left: {{ gauge.ceiling_percent|unlocalize }}%">
         <span>потолок {{ gauge.ceiling_primary|floatformat:1 }}</span>
       </div>
     {% endif %}
-    <div class="gauge-caption-now num" style="left: {{ gauge.now_percent }}%">сейчас {{ gauge.primary|floatformat:1 }}</div>
+    <div class="gauge-caption-now num" style="left: {{ gauge.now_percent|unlocalize }}%">сейчас {{ gauge.primary|floatformat:1 }}</div>
   </div>
   <div class="gauge-ticks">
     {% for tick in gauge.ticks %}<span>{{ tick|floatformat:0 }}</span>{% endfor %}

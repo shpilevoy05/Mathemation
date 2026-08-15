@@ -21,7 +21,7 @@
   <section class="card mock-history">
     <h2>Прошлые результаты</h2>
     {% if mock_history %}<ul class="plain-list">{% for item in mock_history %}
-      <li><a href="{% url 'mock_result' item.result.id %}"><strong>{{ item.result.exam.title }}</strong></a><span>{{ item.status_label }} · часть 1: {{ item.result.primary_score }}{% if item.result.scaled_score is not None %} · {{ item.result.scaled_score }} тестовых{% endif %}</span></li>
+      <li class="mock-history-row"><a href="{% url 'mock_result' item.result.id %}"><strong>{{ item.result.exam.title }}</strong></a><span class="muted">{{ item.status_label }} · часть 1: {{ item.result.primary_score }}{% if item.result.scaled_score is not None %} · {{ item.result.scaled_score }} тестовых{% endif %}</span></li>
     {% endfor %}</ul>{% else %}<p class="empty-copy">Здесь появятся результаты после первого пробника.</p>{% endif %}
   </section>
 {% endif %}

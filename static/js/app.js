@@ -238,6 +238,45 @@
     });
   }
 
+  // — Примерка косметики в магазине —
+  // Состояние живёт только в этой вкладке: сервер о примерке не знает. Уход со
+  // страницы возвращает то, что действительно надето, — отсюда и обещание
+  // «только пока ты в магазине».
+  const preview = { theme: null, badge: null };
+  const badgeNode = () => document.querySelector(".rail-foot .avatar-badge");
+
+  function applyPreview(slot, code, title) {
+    const badge = badgeNode();
+    if (preview.theme === null) preview.theme = document.documentElement.dataset.theme || "";
+    if (badge && preview.badge === null) preview.badge = badge.outerHTML;
+
+    if (slot === "theme") {
+      document.documentElement.dataset.theme = code;
+    } else if (badge && slot === "frame") {
+      badge.className = `${badge.className.replace(/frame-[\w-]+/g, "").trim()} frame-${code}`;
+    } else if (badge && slot === "avatar") {
+      badge.innerHTML = `<svg class="avatar-art" viewBox="0 0 60 60" aria-hidden="true"><use href="#avatar-${code}"></use></svg>`;
+    }
+    const bar = document.querySelector("[data-preview-bar]");
+    if (!bar) return;
+    bar.hidden = false;
+    bar.querySelector("[data-preview-note]").textContent =
+      `Примерка: ${title}. Вещь не куплена и не надета — так она выглядит в кабинете.`;
+  }
+
+  function resetPreview() {
+    if (preview.theme !== null) {
+      if (preview.theme) document.documentElement.dataset.theme = preview.theme;
+      else delete document.documentElement.dataset.theme;
+    }
+    const badge = badgeNode();
+    if (badge && preview.badge !== null) badge.outerHTML = preview.badge;
+    preview.theme = null;
+    preview.badge = null;
+    const bar = document.querySelector("[data-preview-bar]");
+    if (bar) bar.hidden = true;
+  }
+
   const viewSwitch = document.querySelector("[data-view-switch]");
   if (viewSwitch) {
     viewSwitch.addEventListener("click", event => {
@@ -357,6 +396,16 @@
       try { await apiFetch(submitHomework.dataset.submitHomework, { method: "POST", body: "{}" }); const chip = document.createElement("span"); chip.className = "item-type-chip"; chip.textContent = "Сдано"; submitHomework.replaceWith(chip); }
       catch (exception) { if (error) { error.hidden = false; error.textContent = exception.message; } submitHomework.disabled = false; }
     }
+
+    // Примерка: вещь показывается на месте, но нигде не сохраняется. Уход со
+    // страницы возвращает то, что действительно надето, — поэтому и «до
+    // выхода из магазина».
+    const previewButton = event.target.closest("[data-shop-preview]");
+    if (previewButton) {
+      applyPreview(previewButton.dataset.shopPreview, previewButton.dataset.previewCode,
+                   previewButton.closest("[data-shop-item]")?.querySelector("h2")?.textContent || "");
+    }
+    if (event.target.closest("[data-preview-reset]")) resetPreview();
 
     const shopButton = event.target.closest("[data-shop-action]");
     if (shopButton) {
@@ -624,12 +673,28 @@
 
   function updateTaskProgress() {
     const tasks = [...document.querySelectorAll("[data-task]")];
-    if (!tasks.length) return;
+    const counter = document.querySelector("[data-task-counter]");
+    const bar = document.querySelector("[data-task-progress]");
+    // Счётчик задач есть только на занятии. На «Задании дня» карточка задачи
+    // одна и счётчика нет: без этой проверки здесь падал весь скрипт страницы,
+    // а вместе с ним — отправка ответа и всё, что регистрируется ниже.
+    if (!tasks.length || !counter || !bar) return;
     const current = tasks.findIndex(task => !task.classList.contains("is-hidden"));
     const position = current < 0 ? tasks.length : current + 1;
-    document.querySelector("[data-task-counter]").textContent = `${position} / ${tasks.length}`;
-    document.querySelector("[data-task-progress]").style.width = `${(position / tasks.length) * 100}%`;
+    counter.textContent = `${position} / ${tasks.length}`;
+    bar.style.width = `${(position / tasks.length) * 100}%`;
   }
+  // «Задание дня»: полоса прогресса и заголовок обновляются на месте — уходить
+  // со страницы, чтобы увидеть засчитанный ответ, незачем.
+  function markDailySolved(data) {
+    if (!data.is_correct) return;
+    const bar = document.querySelector("[data-daily-progress]");
+    if (!bar) return;
+    bar.style.width = "100%";
+    const title = document.querySelector("[data-daily-title]");
+    if (title) title.textContent = "Задание решено — серия продлена";
+  }
+
   function showNextTask(current) {
     const tasks = [...document.querySelectorAll("[data-task]")], index = tasks.indexOf(current);
     current.classList.add("is-hidden");
@@ -708,7 +773,7 @@
     const attemptForm = event.target.closest("[data-attempt-form]");
     if (attemptForm) {
       event.preventDefault(); const task = attemptForm.closest("[data-task]"), button = attemptForm.querySelector("button"), verdict = task.querySelector("[data-verdict]"); button.disabled = true;
-      try { const data = await apiFetch(`/api/assignments/${task.dataset.assignmentId}/attempt/`, { method: "POST", body: JSON.stringify({ answer: new FormData(attemptForm).get("answer"), context: attemptForm.dataset.context }) }); verdict.hidden = false; verdict.className = `verdict ${data.is_correct ? "is-correct" : "is-wrong"}`; verdict.textContent = data.is_correct === null ? "Решение отправлено на экспертную проверку." : (data.is_correct ? "Верно! Можно двигаться дальше." : "Пока неверно. Ошибка сохранена для отработки."); task.querySelector("[data-next-task]").hidden = false; renderProgress(task, data.progress); window.lessonFlow?.applyRewards(data.rewards); }
+      try { const data = await apiFetch(`/api/assignments/${task.dataset.assignmentId}/attempt/`, { method: "POST", body: JSON.stringify({ answer: new FormData(attemptForm).get("answer"), context: attemptForm.dataset.context }) }); verdict.hidden = false; verdict.className = `verdict ${data.is_correct ? "is-correct" : "is-wrong"}`; verdict.textContent = data.is_correct === null ? "Решение отправлено на экспертную проверку." : (data.is_correct ? "Верно! Можно двигаться дальше." : "Пока неверно. Ошибка сохранена для отработки."); const next = task.querySelector("[data-next-task]"); if (next) next.hidden = false; renderProgress(task, data.progress); markDailySolved(data); window.lessonFlow?.applyRewards(data.rewards); }
       catch (error) { verdict.hidden = false; verdict.className = `verdict ${error.code === "answer_not_understood" ? "is-unclear" : "is-wrong"}`; verdict.textContent = error.message; button.disabled = false; }
     }
     const hintForm = event.target.closest("[data-hint-form]");
@@ -720,10 +785,63 @@
     }
   });
 
+  // Прогноз: числа доезжают до нового значения, а шкала едет вместе с ними.
+  // Мгновенная подстановка выглядела как перезагрузка страницы, а шкала и
+  // вовсе оставалась на месте — казалось, что рычаги ни на что не влияют.
+  function countTo(node, value) {
+    const from = Number(node.textContent) || 0;
+    const to = Number(value);
+    if (!Number.isFinite(to) || from === to) { node.textContent = value; return; }
+    const started = performance.now(), duration = 420;
+    const step = now => {
+      const progress = Math.min(1, (now - started) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      node.textContent = Math.round(from + (to - from) * eased);
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  function moveGauge(gauge) {
+    if (!gauge) return;
+    const axis = document.querySelector(".gauge-axis");
+    if (!axis) return;
+    const set = (selector, styles) => {
+      const node = axis.querySelector(selector);
+      if (node) Object.assign(node.style, styles);
+    };
+    set(".gauge-fill", { width: `${gauge.now_percent}%` });
+    set(".gauge-now", { left: `${gauge.now_percent}%` });
+    set(".gauge-band", { left: `${gauge.band_left_percent}%`, width: `${gauge.band_width_percent}%` });
+    set(".gauge-flag:not(.gauge-ceiling)", { left: `${gauge.target_percent}%` });
+    if (gauge.ceiling_percent !== null) set(".gauge-ceiling", { left: `${gauge.ceiling_percent}%` });
+    const caption = axis.querySelector(".gauge-caption-now");
+    if (caption) {
+      caption.style.left = `${gauge.now_percent}%`;
+      caption.textContent = `сейчас ${Number(gauge.primary).toFixed(1).replace(".", ",")}`;
+    }
+    layoutGaugeLabels();
+  }
+
   const hours = document.querySelector("[data-forecast-hours]"), date = document.querySelector("[data-forecast-date]");
   if (hours && date) {
     let timer;
-    const refresh = () => { clearTimeout(timer); document.querySelector("[data-hours-output]").textContent = hours.value; timer = setTimeout(async () => { const error = document.querySelector("[data-forecast-error]"); try { const params = new URLSearchParams({ weekly_hours: hours.value }); if (date.value) params.set("exam_date", date.value); const data = await apiFetch(`/api/forecast/?${params}`); document.querySelector("[data-current-score]").textContent = data.current_score; document.querySelector("[data-ceiling-score]").textContent = data.ceiling_score; error.hidden = true; } catch (exception) { error.hidden = false; error.textContent = exception.message; } }, 250); };
+    const refresh = () => {
+      clearTimeout(timer);
+      document.querySelector("[data-hours-output]").textContent = hours.value;
+      timer = setTimeout(async () => {
+        const error = document.querySelector("[data-forecast-error]");
+        try {
+          const params = new URLSearchParams({ weekly_hours: hours.value });
+          if (date.value) params.set("exam_date", date.value);
+          const data = await apiFetch(`/api/forecast/?${params}`);
+          countTo(document.querySelector("[data-current-score]"), data.current_score);
+          countTo(document.querySelector("[data-ceiling-score]"), data.ceiling_score);
+          moveGauge(data.gauge);
+          error.hidden = true;
+        } catch (exception) { error.hidden = false; error.textContent = exception.message; }
+      }, 250);
+    };
     hours.addEventListener("input", refresh); date.addEventListener("change", refresh);
   }
 

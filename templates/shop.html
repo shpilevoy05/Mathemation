@@ -37,6 +37,11 @@
     <button type="button" data-shop-filter="theme">Оформление</button>
   </div>
 
+  <div class="preview-bar" data-preview-bar hidden aria-live="polite">
+    <span data-preview-note>Примерка</span>
+    <button class="button button-small" type="button" data-preview-reset>Вернуть как было</button>
+  </div>
+
   <div class="shop-grid">
     {% for row in shop_cards %}
       <article class="shop-card {% if row.equipped %}is-equipped{% endif %} {% if not row.available %}is-locked{% endif %}"
@@ -55,6 +60,10 @@
         <div class="shop-card-foot">
           <b class="price num"><svg aria-hidden="true"><use href="#i-sigma"></use></svg>{{ row.item.price_coins }}</b>
           <div class="shop-actions">
+            {% if row.previewable %}
+              <button class="button button-small button-ghost" type="button"
+                      data-shop-preview="{{ row.item.slot }}" data-preview-code="{{ row.code }}">Примерить</button>
+            {% endif %}
             {% if row.equipped %}
               <button class="button button-small" type="button"
                       data-shop-action="unequip" data-shop-url="/api/shop/items/{{ row.item.id }}/unequip/">Снять</button>

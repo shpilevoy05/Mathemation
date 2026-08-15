@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load l10n %}
 {% block title %}Занятие: {{ node.title|default:"" }} — Матемация{% endblock %}
 {% block content %}
 {% if not student %}
@@ -172,7 +173,7 @@
       <div>
         <small>Освоение темы</small>
         <strong class="num"><span data-outro-mastery-from>{{ mastery_percent }}</span>% → <span data-outro-mastery>{{ mastery_percent }}</span>%</strong>
-        <div class="bar"><span data-outro-mastery-bar style="width: {{ mastery_percent }}%"></span></div>
+        <div class="bar"><span data-outro-mastery-bar style="width: {{ mastery_percent|unlocalize }}%"></span></div>
       </div>
       <div><small>Опыт за занятие</small><strong class="num" data-outro-xp>+0</strong></div>
       <div><small>Сигмы за занятие</small><strong class="num" data-outro-coins>+0</strong></div>

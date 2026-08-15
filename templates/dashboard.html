@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load l10n %}
 {% block title %}Кабинет — Матемация{% endblock %}
 {% block content %}
 {% if not student %}
@@ -33,9 +34,9 @@
         <div class="journey-goal"><small>Цель</small><b>{{ target_score }}</b></div>
       </div>
       <div class="journey-track">
-        <span style="width: calc({{ gauge.now_percent }}% - 4px)"></span>
-        <span class="journey-flame" style="left: {{ gauge.now_percent }}%"><svg aria-hidden="true"><use href="#i-flame"></use></svg></span>
-        <span class="journey-goal-mark" style="left: {{ gauge.target_percent }}%"></span>
+        <span style="width: calc({{ gauge.now_percent|unlocalize }}% - 4px)"></span>
+        <span class="journey-flame" style="left: {{ gauge.now_percent|unlocalize }}%"><svg aria-hidden="true"><use href="#i-flame"></use></svg></span>
+        <span class="journey-goal-mark" style="left: {{ gauge.target_percent|unlocalize }}%"></span>
       </div>
       <p class="hero-note">До цели <b class="num">{{ gauge.to_target_primary|floatformat:1 }}</b> первичных балла — это примерно {{ gauge.to_target_lessons }} занятий при текущем темпе.</p>
     </div>
