@@ -13,6 +13,8 @@ router.register("assignments", api.AssignmentViewSet, basename="panel-assignment
 router.register(
     "assignment-versions", api.AssignmentVersionViewSet, basename="panel-assignment-version"
 )
+router.register("solution-paths", api.SolutionPathViewSet, basename="panel-solution-path")
+router.register("solution-steps", api.SolutionStepViewSet, basename="panel-solution-step")
 router.register("homeworks", api.HomeworkViewSet, basename="panel-homework")
 router.register("homework-tasks", api.HomeworkTaskViewSet, basename="panel-homework-task")
 router.register("daily-challenges", api.DailyChallengeViewSet, basename="panel-daily")

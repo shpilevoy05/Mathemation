@@ -93,8 +93,15 @@ def expert_review_context(review_id):
         pk__in=primary_ids
     )
     suffix = Path(review.solution_file.name).suffix.lower()
+    from apps.expert_review.evidence import canonical_path
+
+    path = canonical_path(review.assignment)
     return {
         "review": review,
+        # Чек-лист шагов эталонного пути: балл говорит «сколько потеряно»,
+        # отметки — «где именно». Без пути форма остаётся прежней.
+        "solution_path": path,
+        "solution_steps": list(path.steps.all()) if path else [],
         "criteria": range(1, review.assignment.max_score + 1),
         "error_types": [
             {"value": value, "label": ERROR_TYPE_LABELS[value]}
@@ -1050,14 +1057,28 @@ def expert_verdicts(student, limit: int = 8) -> list[dict]:
     вернули на доработку, не видна ученику нигде — и он не знает, что от него
     ждут повторной загрузки.
     """
+    from apps.expert_review.evidence import missing_required_steps
+
     requests = (
         ExpertReviewRequest.objects.filter(student=student)
         .select_related("assignment")
+        .prefetch_related("step_marks__step__node")
         .order_by("-created_at")[:limit]
     )
     return [
         {
             "id": review.id,
+            # «Минус балл» ничему не учит. Шаги, которые не сошлись, — учат:
+            # ученик видит, что именно доделать.
+            "missing_steps": [
+                {
+                    "order": step.order,
+                    "description": step.description,
+                    "stage": step.get_stage_display(),
+                    "node": step.node.title,
+                }
+                for step in missing_required_steps(review)
+            ],
             "assignment": review.assignment,
             "assignment_id": review.assignment_id,
             "status": review.status,

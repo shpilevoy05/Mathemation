@@ -25,6 +25,26 @@
       </div>
       <p class="review-total">Итого: <strong data-review-total>0</strong> из {{ review.assignment.max_score }}</p>
 
+      {% if solution_steps %}
+        <fieldset class="step-checklist">
+          <legend>Шаги решения</legend>
+          <p class="muted">Отметьте, что видно в работе. «Не делал» — не ошибка: освоение по такому шагу не меняется.</p>
+          {% for step in solution_steps %}
+            <div class="step-row" data-step-id="{{ step.id }}">
+              <div class="step-copy">
+                <strong>{{ step.order }}. {{ step.description }}</strong>
+                <small>{{ step.get_stage_display }} · {{ step.node.title }}{% if not step.is_required %} · необязательный{% endif %}</small>
+              </div>
+              <div class="score-toggle step-toggle" role="group" aria-label="Шаг {{ step.order }}">
+                <button type="button" data-outcome="done" class="is-selected">Верно</button>
+                <button type="button" data-outcome="wrong">С ошибкой</button>
+                <button type="button" data-outcome="missing">Не делал</button>
+              </div>
+            </div>
+          {% endfor %}
+        </fieldset>
+      {% endif %}
+
       <fieldset><legend>Типы ошибок</legend><div class="choice-chips">
         {% for error_type in error_types %}<label class="chip-toggle"><input type="checkbox" name="error_tags" value="{{ error_type.value }}"><span>{{ error_type.label }}</span></label>{% endfor %}
       </div></fieldset>
@@ -44,7 +64,8 @@
   document.addEventListener("DOMContentLoaded", () => {
     const form = document.querySelector("[data-expert-review-form]");
     const refreshTotal = () => {
-      const total = [...form.querySelectorAll(".score-toggle .is-selected")].reduce((sum, button) => sum + Number(button.dataset.score), 0);
+      // Считаем только критерии: у шагов свой переключатель без баллов.
+      const total = [...form.querySelectorAll("[data-criterion] .is-selected")].reduce((sum, button) => sum + Number(button.dataset.score), 0);
       form.querySelector("[data-review-total]").textContent = total;
     };
     form.querySelectorAll(".score-toggle button").forEach(button => button.addEventListener("click", () => {
@@ -58,8 +79,12 @@
       const score_by_criteria = {};
       form.querySelectorAll("[data-criterion]").forEach(row => { score_by_criteria[row.dataset.criterion] = Number(row.querySelector(".is-selected").dataset.score); });
       const checked = name => [...form.querySelectorAll(`input[name=${name}]:checked`)].map(input => input.value);
+      const step_marks = [...form.querySelectorAll("[data-step-id]")].map(row => ({
+        step_id: Number(row.dataset.stepId),
+        outcome: row.querySelector(".step-toggle .is-selected").dataset.outcome,
+      }));
       try {
-        await window.apiFetch(form.dataset.finishUrl, {method: "POST", body: JSON.stringify({score_by_criteria, error_tags: checked("error_tags"), related_node_ids: checked("related_node_ids").map(Number), comment: form.elements.comment.value, needs_resubmission: form.elements.needs_resubmission.checked})});
+        await window.apiFetch(form.dataset.finishUrl, {method: "POST", body: JSON.stringify({score_by_criteria, step_marks, error_tags: checked("error_tags"), related_node_ids: checked("related_node_ids").map(Number), comment: form.elements.comment.value, needs_resubmission: form.elements.needs_resubmission.checked})});
         window.location.assign("/expert/");
       } catch (exception) { error.textContent = exception.message; error.hidden = false; submit.disabled = false; }
     });

@@ -15,12 +15,13 @@ from rest_framework.throttling import ScopedRateThrottle
 from apps.accounts.api import get_student
 from apps.billing.access import Feature
 from apps.billing.gate import HasFeature
-from apps.content.models import Assignment
+from apps.content.models import Assignment, SolutionStep
 from apps.knowledge.models import KnowledgeNode
 from apps.practice.models import MistakeBacklogItem
 from apps.web.permissions import is_expert
 
-from .models import ExpertReviewRequest
+from .evidence import canonical_path, missing_required_steps
+from .models import ExpertReviewRequest, SolutionStepMark
 from .permissions import can_view_solution
 from .services import finish_review, submit_solution
 from .validators import validate_solution_upload
@@ -31,8 +32,17 @@ class IsExpert(permissions.BasePermission):
         return is_expert(request.user)
 
 
+class StepMarkSerializer(serializers.Serializer):
+    """Отметка по одному шагу эталонного пути."""
+
+    step_id = serializers.IntegerField(min_value=1)
+    outcome = serializers.ChoiceField(choices=SolutionStepMark.Outcome.choices)
+    comment = serializers.CharField(required=False, allow_blank=True, default="")
+
+
 class FinishExpertReviewSerializer(serializers.Serializer):
     score_by_criteria = serializers.DictField()
+    step_marks = StepMarkSerializer(many=True, required=False, default=list)
     error_tags = serializers.ListField(
         child=serializers.CharField(), required=False, default=list
     )
@@ -41,6 +51,23 @@ class FinishExpertReviewSerializer(serializers.Serializer):
     )
     comment = serializers.CharField(required=False, allow_blank=True, default="")
     needs_resubmission = serializers.BooleanField(required=False, default=False)
+
+    def validate_step_marks(self, marks):
+        """Шаги должны быть из пути этой задачи и не повторяться."""
+        review = self.context["review"]
+        step_ids = [mark["step_id"] for mark in marks]
+        if len(step_ids) != len(set(step_ids)):
+            raise serializers.ValidationError("Один шаг отмечен дважды.")
+        known = set(
+            SolutionStep.objects.filter(
+                pk__in=step_ids, path__assignment=review.assignment, path__is_active=True
+            ).values_list("pk", flat=True)
+        )
+        if known != set(step_ids):
+            raise serializers.ValidationError(
+                "Отмечены шаги, которых нет в эталонном пути этой задачи."
+            )
+        return marks
 
     def validate_score_by_criteria(self, scores):
         max_score = self.context["review"].assignment.max_score
@@ -70,10 +97,32 @@ class FinishExpertReviewSerializer(serializers.Serializer):
         return list(dict.fromkeys(node_ids))
 
 
+def _step_payload(step) -> dict:
+    return {
+        "id": step.id,
+        "order": step.order,
+        "stage": step.stage,
+        "stage_label": step.get_stage_display(),
+        "description": step.description,
+        "role": step.role,
+        "signal": step.signal,
+        "is_required": step.is_required,
+        "node_id": step.node_id,
+        "node": step.node.title,
+    }
+
+
 def _payload(r: ExpertReviewRequest) -> dict:
+    marks = {mark.step_id: mark.outcome for mark in r.step_marks.all()}
     return {
         "id": r.id,
         "assignment_id": r.assignment_id,
+        # Ученику важнее балла то, что именно не сошлось: шаги, которые
+        # эксперт не отметил выполненными.
+        "missing_steps": [
+            {**_step_payload(step), "outcome": marks.get(step.id)}
+            for step in missing_required_steps(r)
+        ],
         "status": r.status,
         "sla_hours": r.sla_hours,
         "total_score": r.total_score,

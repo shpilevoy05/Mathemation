@@ -140,6 +140,106 @@ class Assignment(models.Model):
         return check(self.answer_type, self.answer_spec or {}, self.correct_answer, answer)
 
 
+
+class SolutionPath(models.Model):
+    """Эталонный путь решения задачи: упорядоченный список наблюдаемых шагов.
+
+    Задача второй части решается не одним действием, а десятком. Плоский набор
+    навыков у задачи отвечает на вопрос «что здесь может понадобиться», но не
+    на вопрос «что именно сделал ученик», — а слабое место находится только во
+    втором.
+
+    Путей у задачи может быть несколько: канонический — тот, которому учим, и
+    альтернативный — другой корректный маршрут. Решение, идущее альтернативным
+    путём, не ошибка, и платформа должна уметь его узнать.
+    """
+
+    class PathType(models.TextChoices):
+        CANONICAL = "canonical", "Канонический"
+        ALTERNATIVE = "alternative", "Альтернативный"
+
+    assignment = models.ForeignKey(
+        Assignment, on_delete=models.CASCADE, related_name="solution_paths"
+    )
+    code = models.SlugField(max_length=64, unique=True)
+    title = models.CharField(max_length=200)
+    path_type = models.CharField(
+        max_length=16, choices=PathType.choices, default=PathType.CANONICAL
+    )
+    # Как решается уравнение и как отбираются корни: две развилки, по которым
+    # пути и различаются между собой.
+    equation_stage = models.CharField(max_length=300, blank=True)
+    selection_method = models.CharField(max_length=200, blank=True)
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["assignment_id", "order", "id"]
+
+    def __str__(self):
+        return f"{self.code}: {self.title}"
+
+    @property
+    def is_canonical(self) -> bool:
+        return self.path_type == self.PathType.CANONICAL
+
+
+class SolutionStep(models.Model):
+    """Шаг эталонного пути: одно наблюдаемое действие и его вес как свидетельство.
+
+    Роль и сила сигнала независимы (RULE-03 разметки): вспомогательный шаг
+    может давать сильное свидетельство, если оно чистое и однозначное. Поэтому
+    это два поля, а не одно «сколько весит».
+    """
+
+    class Stage(models.TextChoices):
+        TRANSFORM = "transform", "Преобразование"
+        EQUATION = "equation", "Решение простого уравнения"
+        ALGEBRA = "algebra", "Алгебраическое решение"
+        CONSTRAINTS = "constraints", "Ограничения и допустимость"
+        SELECTION = "selection", "Отбор и проверка"
+        CHECK = "check", "Контроль ответа"
+        FORMAT = "format", "Оформление"
+
+    class Role(models.TextChoices):
+        PRIMARY = "primary", "Ключевой шаг"
+        SUPPORTING = "supporting", "Вспомогательный шаг"
+
+    class Signal(models.TextChoices):
+        STRONG = "strong", "Сильный сигнал"
+        WEAK = "weak", "Слабый сигнал"
+
+    path = models.ForeignKey(SolutionPath, on_delete=models.CASCADE, related_name="steps")
+    order = models.PositiveSmallIntegerField(default=1)
+    stage = models.CharField(max_length=16, choices=Stage.choices, default=Stage.EQUATION)
+    node = models.ForeignKey(
+        "knowledge.KnowledgeNode", on_delete=models.PROTECT, related_name="solution_steps"
+    )
+    role = models.CharField(max_length=16, choices=Role.choices, default=Role.PRIMARY)
+    signal = models.CharField(max_length=16, choices=Signal.choices, default=Signal.STRONG)
+    # Требуется ли шаг в корректном решении. Необязательный шаг может
+    # отсутствовать, и это не ошибка.
+    is_required = models.BooleanField(default=True)
+    description = models.CharField(max_length=300)
+
+    class Meta:
+        ordering = ["path_id", "order"]
+        constraints = [
+            models.UniqueConstraint(fields=["path", "order"], name="uniq_step_order"),
+        ]
+
+    def __str__(self):
+        return f"{self.path.code} #{self.order}: {self.description}"
+
+    def clean(self):
+        """Шаг указывает на навык, а не на папку: папка ничему не учит."""
+        super().clean()
+        if self.node_id and self.node.is_group:
+            raise ValidationError(
+                {"node": "Шаг должен указывать на навык, а не на папку навыков."}
+            )
+
+
 class Homework(models.Model):
     """Домашнее задание к уроку: набор задач и срок сдачи.
 

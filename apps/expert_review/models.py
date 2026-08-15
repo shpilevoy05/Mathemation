@@ -53,3 +53,40 @@ class ExpertReviewRequest(models.Model):
     related_nodes = models.ManyToManyField("knowledge.KnowledgeNode", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
+
+
+class SolutionStepMark(models.Model):
+    """Отметка эксперта по одному шагу эталонного пути.
+
+    Балл говорит, сколько ученик потерял; отметки говорят, где именно. Без них
+    разметка путей не даёт ничего сверх тегов задачи: и «не выписал ОДЗ», и
+    «ошибся в отборе корней» выглядели бы одинаково — «минус балл по задаче».
+
+    Три исхода, и третий важен не меньше первых двух. «Не делал» — это не
+    ошибка: RULE-06 разметки запрещает двигать освоение там, где действия не
+    наблюдалось, иначе пропущенный необязательный шаг понижал бы навык.
+    """
+
+    class Outcome(models.TextChoices):
+        DONE = "done", "Выполнен верно"
+        WRONG = "wrong", "Выполнен с ошибкой"
+        MISSING = "missing", "Не выполнен"
+
+    review = models.ForeignKey(
+        ExpertReviewRequest, on_delete=models.CASCADE, related_name="step_marks"
+    )
+    step = models.ForeignKey(
+        "content.SolutionStep", on_delete=models.PROTECT, related_name="marks"
+    )
+    outcome = models.CharField(max_length=16, choices=Outcome.choices)
+    comment = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["review_id", "step__order"]
+        constraints = [
+            models.UniqueConstraint(fields=["review", "step"], name="uniq_review_step"),
+        ]
+
+    def __str__(self):
+        return f"{self.step} — {self.get_outcome_display()}"

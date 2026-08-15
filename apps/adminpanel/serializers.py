@@ -25,6 +25,8 @@ from apps.content.models import (
     Homework,
     HomeworkTask,
     Lesson,
+    SolutionPath,
+    SolutionStep,
     TheoryBlock,
 )
 from apps.economy.models import InventoryItem, LedgerEntry, ShopCategory, ShopItem, Wallet
@@ -84,6 +86,26 @@ class AssignmentSerializer(serializers.ModelSerializer):
                 error.message_dict if hasattr(error, "message_dict") else error.messages
             )
         return attrs
+
+
+class SolutionPathSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SolutionPath
+        fields = "__all__"
+
+
+class SolutionStepSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SolutionStep
+        fields = "__all__"
+
+    def validate_node(self, node):
+        """Шаг указывает на навык: у папки нет ни практики, ни своего освоения."""
+        if node.is_group:
+            raise serializers.ValidationError(
+                "Шаг должен указывать на навык, а не на папку навыков."
+            )
+        return node
 
 
 class AssignmentVersionSerializer(serializers.ModelSerializer):

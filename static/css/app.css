@@ -428,6 +428,16 @@ input:focus { border-color: var(--primary); outline: 3px solid var(--primary-sof
 /* Подсказка о формате ответа: ученик впервые видит запись семейств корней и
    должен понять правила до первой ошибки, а не после. */
 .answer-hint { display: block; margin: -6px 0 10px; color: var(--muted); font-size: .8rem; }
+/* Что не сошлось в работе: шаги эталона, которые эксперт не отметил верными. */
+.missing-steps { margin-top: 10px; padding: 10px 12px; border-left: 3px solid var(--warning); border-radius: var(--radius-sm); background: var(--warning-soft); }
+.missing-steps ol { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; }
+.missing-steps li small { display: block; color: var(--muted); font-size: .76rem; }
+/* Чек-лист шагов в форме эксперта: строка на шаг, переключатель справа. */
+.step-checklist { display: grid; gap: 10px; }
+.step-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); }
+.step-row .step-copy { display: grid; min-width: 220px; }
+.step-row .step-copy small { color: var(--muted); font-size: .78rem; }
+.step-toggle button { font-size: .78rem; }
 .verdict { padding: 12px 14px; margin: 14px 0; border-radius: var(--radius-sm); }
 .verdict.is-correct { color: var(--success); background: var(--success-soft); }
 .verdict.is-wrong { color: var(--danger); background: var(--danger-soft); }

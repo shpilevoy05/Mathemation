@@ -18,6 +18,16 @@
             {% else %}
               <p class="num">Балл {{ review.score }} из {{ review.max_score }}</p>
               {% if review.comment %}<p>{{ review.comment }}</p>{% endif %}
+              {% if review.missing_steps %}
+                <div class="missing-steps">
+                  <b>Что не сошлось:</b>
+                  <ol>
+                    {% for step in review.missing_steps %}
+                      <li>{{ step.description }}<small>{{ step.stage }} · {{ step.node }}</small></li>
+                    {% endfor %}
+                  </ol>
+                </div>
+              {% endif %}
             {% endif %}
           </div>
           {% if review.needs_resubmission %}

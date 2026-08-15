@@ -33,6 +33,8 @@ from apps.content.models import (
     Homework,
     HomeworkTask,
     Lesson,
+    SolutionPath,
+    SolutionStep,
     TheoryBlock,
 )
 from apps.content.services import (
@@ -115,6 +117,16 @@ class AssignmentViewSet(PanelViewSet):
         return Response(
             panel.AssignmentVersionSerializer(version).data, status=status.HTTP_201_CREATED
         )
+
+
+class SolutionPathViewSet(PanelViewSet):
+    queryset = SolutionPath.objects.select_related("assignment")
+    serializer_class = panel.SolutionPathSerializer
+
+
+class SolutionStepViewSet(PanelViewSet):
+    queryset = SolutionStep.objects.select_related("path", "node")
+    serializer_class = panel.SolutionStepSerializer
 
 
 class AssignmentVersionViewSet(PanelViewSet):

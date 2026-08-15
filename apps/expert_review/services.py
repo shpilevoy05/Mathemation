@@ -4,7 +4,8 @@ from django.utils import timezone
 from apps.practice.models import Attempt, MistakeBacklogItem
 from apps.practice.services import process_attempt_result, register_mistake, submit_attempt
 
-from .models import ExpertReviewRequest
+from .evidence import apply_step_marks
+from .models import ExpertReviewRequest, SolutionStepMark
 
 
 def submit_solution(student, assignment, solution_file, attempt=None, mock_result=None):
@@ -16,9 +17,14 @@ def submit_solution(student, assignment, solution_file, attempt=None, mock_resul
 
 def finish_review(request: ExpertReviewRequest, reviewer, score_by_criteria: dict,
                   comment: str = "", related_node_ids=None,
-                  error_tags=None,
+                  error_tags=None, step_marks=None,
                   needs_resubmission: bool = False) -> ExpertReviewRequest:
-    """Expert verdict is the source of truth for part 2."""
+    """Expert verdict is the source of truth for part 2.
+
+    Если эксперт отметил шаги эталонного пути, освоение двигают именно они:
+    балл говорит, сколько потеряно, а отметки — где именно. Без отметок
+    остаётся прежнее поведение по тегам задачи.
+    """
     request.reviewer = reviewer
     request.score_by_criteria = score_by_criteria
     request.total_score = sum(score_by_criteria.values())
@@ -50,7 +56,14 @@ def finish_review(request: ExpertReviewRequest, reviewer, score_by_criteria: dic
         request.save(update_fields=["attempt"])
     attempt.is_correct = request.lost_points == 0
     attempt.save(update_fields=["is_correct"])
-    process_attempt_result(attempt)
+    marks = _save_step_marks(request, step_marks or [])
+    if marks:
+        # Пошаговое свидетельство точнее тегов задачи: тегами двигать освоение
+        # после него значило бы посчитать одно и то же действие дважды.
+        apply_step_marks(request)
+        _close_plan_for_done_steps(request)
+    else:
+        process_attempt_result(attempt)
     # Вердикт по пробнику: пересчитать итог и, если все работы проверены,
     # закрыть пробник (калибровка прогноза + адаптация плана).
     if request.mock_result:
@@ -104,3 +117,52 @@ def apply_error_tags(request: ExpertReviewRequest) -> None:
         if error_type:
             item.error_type = error_type
             item.save(update_fields=["error_type"])
+
+
+def _save_step_marks(request: ExpertReviewRequest, step_marks) -> list[SolutionStepMark]:
+    """Сохранить отметки эксперта по шагам эталонного пути.
+
+    Шаги обязаны принадлежать задаче этой работы: отметка по чужому пути
+    двигала бы освоение навыков, которых ученик здесь не касался.
+    """
+    from apps.content.models import SolutionStep
+
+    if not step_marks:
+        return []
+    allowed = {
+        step.pk: step
+        for step in SolutionStep.objects.filter(
+            path__assignment=request.assignment, path__is_active=True
+        )
+    }
+    saved = []
+    for mark in step_marks:
+        step = allowed.get(int(mark["step_id"]))
+        if step is None:
+            continue
+        saved.append(
+            SolutionStepMark.objects.update_or_create(
+                review=request, step=step,
+                defaults={
+                    "outcome": mark["outcome"],
+                    "comment": mark.get("comment", ""),
+                },
+            )[0]
+        )
+    return saved
+
+
+def _close_plan_for_done_steps(request: ExpertReviewRequest) -> None:
+    """Закрыть пункты плана по навыкам, выполненным в работе верно.
+
+    Ученик уже сделал работу; отмечать её руками в плане — лишний шаг.
+    """
+    from apps.planning.services import autocomplete_items_for_node
+
+    done_nodes = {
+        mark.step.node
+        for mark in request.step_marks.select_related("step__node")
+        if mark.outcome == SolutionStepMark.Outcome.DONE
+    }
+    for node in done_nodes:
+        autocomplete_items_for_node(request.student, node)
