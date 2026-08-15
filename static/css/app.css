@@ -425,9 +425,15 @@ input:focus { border-color: var(--primary); outline: 3px solid var(--primary-sof
 .phase-new { color: var(--primary); background: var(--primary-soft); }
 .statement { margin: 18px 0 24px; font-size: 1.08rem; }
 .answer-row input { flex: 1; min-width: 0; }
+/* Подсказка о формате ответа: ученик впервые видит запись семейств корней и
+   должен понять правила до первой ошибки, а не после. */
+.answer-hint { display: block; margin: -6px 0 10px; color: var(--muted); font-size: .8rem; }
 .verdict { padding: 12px 14px; margin: 14px 0; border-radius: var(--radius-sm); }
 .verdict.is-correct { color: var(--success); background: var(--success-soft); }
 .verdict.is-wrong { color: var(--danger); background: var(--danger-soft); }
+/* «Не разобрал запись» — не ошибка решения: цвет нейтральный, иначе ученик
+   читает описку как незнание темы. */
+.verdict.is-unclear { color: var(--warning); background: var(--warning-soft); }
 .answer-progress { margin: 0 0 14px; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--gray-soft); color: var(--muted); font-size: 0.92rem; }
 .answer-progress p { margin: 2px 0; }
 .homework-card + .homework-card { margin-top: 18px; }

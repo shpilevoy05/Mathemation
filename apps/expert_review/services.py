@@ -44,6 +44,7 @@ def finish_review(request: ExpertReviewRequest, reviewer, score_by_criteria: dic
             "",
             context=Attempt.Context.MOCK if request.mock_result else Attempt.Context.LESSON,
             mock_result=request.mock_result,
+            strict=False,
         )
         request.attempt = attempt
         request.save(update_fields=["attempt"])

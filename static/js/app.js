@@ -30,7 +30,12 @@
     try { data = await response.json(); } catch (_) { data = {}; }
     if (!response.ok) {
       const firstError = Object.values(data).flat().find(value => typeof value === "string");
-      throw new Error(data.detail || firstError || "Не удалось выполнить запрос. Попробуй ещё раз.");
+      const error = new Error(data.detail || firstError || "Не удалось выполнить запрос. Попробуй ещё раз.");
+      // Код нужен там, где ошибка не равна «неверно»: например, неразобранная
+      // запись ответа не должна выглядеть как ошибка решения.
+      error.code = data.code || "";
+      error.status = response.status;
+      throw error;
     }
     return data;
   }
@@ -704,7 +709,7 @@
     if (attemptForm) {
       event.preventDefault(); const task = attemptForm.closest("[data-task]"), button = attemptForm.querySelector("button"), verdict = task.querySelector("[data-verdict]"); button.disabled = true;
       try { const data = await apiFetch(`/api/assignments/${task.dataset.assignmentId}/attempt/`, { method: "POST", body: JSON.stringify({ answer: new FormData(attemptForm).get("answer"), context: attemptForm.dataset.context }) }); verdict.hidden = false; verdict.className = `verdict ${data.is_correct ? "is-correct" : "is-wrong"}`; verdict.textContent = data.is_correct === null ? "Решение отправлено на экспертную проверку." : (data.is_correct ? "Верно! Можно двигаться дальше." : "Пока неверно. Ошибка сохранена для отработки."); task.querySelector("[data-next-task]").hidden = false; renderProgress(task, data.progress); window.lessonFlow?.applyRewards(data.rewards); }
-      catch (error) { verdict.hidden = false; verdict.className = "verdict is-wrong"; verdict.textContent = error.message; button.disabled = false; }
+      catch (error) { verdict.hidden = false; verdict.className = `verdict ${error.code === "answer_not_understood" ? "is-unclear" : "is-wrong"}`; verdict.textContent = error.message; button.disabled = false; }
     }
     const hintForm = event.target.closest("[data-hint-form]");
     if (hintForm) {

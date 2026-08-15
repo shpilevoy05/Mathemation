@@ -36,9 +36,13 @@ def _engine_params() -> EngineParams:
     )
 
 
+class AnswerNotUnderstood(ValueError):
+    """Ответ не разобран: описку нельзя записывать ученику в незнание темы."""
+
+
 @transaction.atomic
 def submit_attempt(student, assignment: Assignment, answer: str, context: str,
-                   diagnostic_result=None, mock_result=None) -> Attempt:
+                   diagnostic_result=None, mock_result=None, *, strict: bool = True) -> Attempt:
     """Create an attempt; auto-check part 1, leave part 2 for expert review.
 
     Попытка привязывается к версии задания: после правки условия видно, что
@@ -49,6 +53,18 @@ def submit_attempt(student, assignment: Assignment, answer: str, context: str,
     is_correct = None
     if assignment.exam_part == Assignment.Part.PART1:
         is_correct = assignment.check_answer(answer)
+        if is_correct is None:
+            # Запись не разобрана: это не ошибка решения. В занятии просим
+            # переписать — иначе освоение темы падало бы за пропущенную скобку.
+            if strict:
+                raise AnswerNotUnderstood(
+                    "Не понял запись ответа. Проверьте скобки и обозначения — "
+                    "например: π/6 + 2πk; 5π/6 + 2πk"
+                )
+            # На диагностике и пробнике переспросить некого: работа сдаётся
+            # целиком, и нечитаемый ответ засчитывается как неверный — так же,
+            # как на экзамене. Сам текст остаётся в попытке для разбора.
+            is_correct = False
 
     attempt = Attempt.objects.create(
         student=student, assignment=assignment,

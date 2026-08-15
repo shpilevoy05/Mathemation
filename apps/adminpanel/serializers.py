@@ -63,6 +63,28 @@ class AssignmentSerializer(serializers.ModelSerializer):
         model = Assignment
         fields = "__all__"
 
+    def validate(self, attrs):
+        """Эталон ответа должен разбираться — иначе задача тихо ломается.
+
+        Проверяем здесь же, а не только в админке: панель — обычный путь
+        заполнения задачи.
+        """
+        merged = {**({} if self.instance is None else {
+            "answer_type": self.instance.answer_type,
+            "answer_spec": self.instance.answer_spec,
+        }), **attrs}
+        assignment = Assignment(
+            answer_type=merged.get("answer_type", Assignment.AnswerType.TEXT),
+            answer_spec=merged.get("answer_spec") or {},
+        )
+        try:
+            assignment.clean()
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(
+                error.message_dict if hasattr(error, "message_dict") else error.messages
+            )
+        return attrs
+
 
 class AssignmentVersionSerializer(serializers.ModelSerializer):
     class Meta:

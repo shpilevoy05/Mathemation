@@ -27,7 +27,8 @@ class LessonAdmin(admin.ModelAdmin):
 
 @admin.register(Assignment)
 class AssignmentAdmin(admin.ModelAdmin):
-    list_display = ["title", "exam_part", "difficulty", "max_score"]
+    list_display = ["title", "exam_part", "answer_type", "difficulty", "max_score"]
+    list_filter = ["exam_part", "answer_type"]
     search_fields = ["title", "statement"]
     inlines = [SkillTagInline]
 

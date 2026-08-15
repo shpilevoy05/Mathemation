@@ -98,9 +98,15 @@
             <form data-attempt-form data-context="{{ attempt_context }}">
               <label for="answer-{{ task.assignment.id }}">Твой ответ</label>
               <div class="answer-row">
-                <input id="answer-{{ task.assignment.id }}" name="answer" autocomplete="off" required>
+                <input id="answer-{{ task.assignment.id }}" name="answer" autocomplete="off" required
+                       {% if task.assignment.answer_type == 'root_families' %}placeholder="π/6 + 2πk; 5π/6 + 2πk"{% elif task.assignment.answer_type == 'root_set' %}placeholder="7π/6; 11π/6"{% endif %}>
                 <button class="button button-success" type="submit">Проверить</button>
               </div>
+              {% if task.assignment.answer_type == 'root_families' %}
+                <small class="answer-hint">Серии через «;», параметр любой буквой. Буква π или «pi», запись «±» тоже понимается.</small>
+              {% elif task.assignment.answer_type == 'root_set' %}
+                <small class="answer-hint">Корни через «;» в любом порядке.</small>
+              {% endif %}
             </form>
             <div class="verdict" data-verdict hidden aria-live="polite"></div>
             <div class="answer-progress" data-answer-progress hidden aria-live="polite"></div>

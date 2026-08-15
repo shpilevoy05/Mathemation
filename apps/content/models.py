@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -74,6 +75,13 @@ class Assignment(models.Model):
         PART1 = 1  # short answer, auto-checked
         PART2 = 2  # full solution, expert-checked
 
+    class AnswerType(models.TextChoices):
+        TEXT = "text", "Строка"
+        NUMBER = "number", "Число"
+        EXPRESSION = "expression", "Выражение"
+        ROOT_SET = "root_set", "Множество корней"
+        ROOT_FAMILIES = "root_families", "Семейства корней"
+
     lesson = models.ForeignKey(
         Lesson, on_delete=models.SET_NULL, null=True, blank=True, related_name="assignments"
     )
@@ -81,6 +89,15 @@ class Assignment(models.Model):
     statement = models.TextField()
     # Canonical short answer for part 1 auto-check; empty for part 2.
     correct_answer = models.CharField(max_length=200, blank=True)
+    # Чем является ответ. Для тригонометрии это множество или семейства корней,
+    # и сравнивать их как строки нельзя: «π/6+2πn» и «π/6+2πk» — один ответ.
+    answer_type = models.CharField(
+        max_length=16, choices=AnswerType.choices, default=AnswerType.TEXT
+    )
+    # Эталон в разобранном виде: {"families": [...]} или {"roots": [...]}.
+    # Отдельно от `correct_answer`, потому что тот показывается человеку, а
+    # это — данные для сравнения.
+    answer_spec = models.JSONField(default=dict, blank=True)
     # Эталонное пошаговое решение: питает наводящие подсказки ИИ-наставника
     # (он объясняет из проверенного разбора, а не сочиняет) и проверку экспертов.
     reference_solution = models.TextField(blank=True)
@@ -94,10 +111,33 @@ class Assignment(models.Model):
     def __str__(self):
         return self.title
 
-    def check_answer(self, answer: str) -> bool:
-        """Part 1 auto-check: normalized string/number comparison."""
-        norm = lambda s: s.strip().lower().replace(",", ".").replace(" ", "")
-        return norm(answer) == norm(self.correct_answer)
+    def clean(self):
+        """Эталон проверяем при сохранении, а не при ответе ученика.
+
+        Опечатка в эталоне тихо превращает верные ответы в неверные, а узнать
+        об этом можно было бы только по жалобе.
+        """
+        from .answers import AnswerParseError, canonical_answer
+
+        super().clean()
+        if self.answer_type not in (
+            self.AnswerType.ROOT_SET, self.AnswerType.ROOT_FAMILIES
+        ):
+            return
+        try:
+            canonical_answer(self.answer_spec or {})
+        except AnswerParseError as error:
+            raise ValidationError({"answer_spec": str(error)}) from error
+
+    def check_answer(self, answer: str) -> bool | None:
+        """Проверить ответ. `None` — «не разобрал», а не «неверно».
+
+        Разница принципиальная: описка в записи не должна списываться ученику
+        в незнание темы и заводить ошибку на полку.
+        """
+        from .answers import check
+
+        return check(self.answer_type, self.answer_spec or {}, self.correct_answer, answer)
 
 
 class Homework(models.Model):

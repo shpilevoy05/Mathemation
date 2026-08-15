@@ -85,6 +85,9 @@ def submit_mock(result: MockExamResult, answers: dict) -> MockExamResult:
             str(answers.get(str(assignment.id), "")),
             context=Attempt.Context.MOCK,
             mock_result=result,
+            # На пробнике условия экзаменационные: нечитаемый ответ не
+            # переспрашивают, он просто не приносит балла.
+            strict=False,
         )
     return complete_mock_part1(result)
 

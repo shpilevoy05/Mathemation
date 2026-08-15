@@ -41,9 +41,12 @@ class SubmitDiagnosticView(views.APIView):
         )
         answers = request.data.get("answers", {})
         for assignment in result.test.assignments.all():
+            # Работа сдаётся целиком: переспросить про нечитаемую запись
+            # некого, поэтому она засчитывается как неверный ответ.
             submit_attempt(
                 student, assignment, str(answers.get(str(assignment.id), "")),
                 context=Attempt.Context.DIAGNOSTIC, diagnostic_result=result,
+                strict=False,
             )
         complete_diagnostic(result)
         return Response({

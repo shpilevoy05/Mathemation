@@ -9,7 +9,13 @@ from apps.billing.gate import HasFeature
 from apps.content.models import Assignment
 
 from .models import Attempt, MistakeBacklogItem, ReviewSchedule
-from .services import complete_review, due_reviews, practice_queue, submit_attempt
+from .services import (
+    AnswerNotUnderstood,
+    complete_review,
+    due_reviews,
+    practice_queue,
+    submit_attempt,
+)
 
 
 class AttemptSerializer(serializers.ModelSerializer):
@@ -36,9 +42,14 @@ class SubmitAttemptView(views.APIView):
         # до и после попытки: XP и сигмы начисляются глубоко в домене, и
         # собирать их по кускам в интерфейсе было бы враньём.
         before = _reward_state(student)
-        attempt = submit_attempt(
-            student, assignment, request.data.get("answer", ""), context
-        )
+        try:
+            attempt = submit_attempt(
+                student, assignment, request.data.get("answer", ""), context
+            )
+        except AnswerNotUnderstood as error:
+            # 422: ответ дошёл, но прочитать его не удалось. Не 400 — с формой
+            # запроса всё в порядке, и не «неверно» — ученик не ошибся в теме.
+            return Response({"detail": str(error), "code": "answer_not_understood"}, status=422)
         payload = AttemptSerializer(attempt).data
         # Ученик должен видеть, что ответ что-то изменил: рост освоения темы,
         # закрытые пункты плана и прогресс по задачам узла.
