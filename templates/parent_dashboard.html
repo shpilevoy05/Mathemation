@@ -85,7 +85,13 @@
           остаются круглыми, а подписи не растягиваются вместе с картинкой.
           Геометрия приходит с сервера — она одинакова в браузере и в тестах.
           {% endcomment %}
-          <svg class="chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
+          {% comment %}
+          Все координаты печатаются через `unlocalize`: русская локаль пишет
+          дробное как «38,0», а для SVG это не число — атрибут отбрасывается,
+          и элемент уезжает в ноль. Арифметики здесь нет, вся геометрия
+          посчитана на сервере.
+          {% endcomment %}
+          <svg class="chart" viewBox="0 0 {{ chart.width|unlocalize }} {{ chart.height|unlocalize }}" role="img"
                aria-label="График прогноза по замерам">
             <defs>
               <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
@@ -94,25 +100,25 @@
               </linearGradient>
             </defs>
             {% for tick in chart.y_ticks %}
-              <line class="chart-grid" x1="{{ chart.plot_left }}" y1="{{ tick.y }}" x2="{{ chart.plot_right }}" y2="{{ tick.y }}"/>
-              <text class="chart-tick" x="{{ chart.plot_left|add:"-8" }}" y="{{ tick.y|add:"4" }}" text-anchor="end">{{ tick.label }}</text>
+              <line class="chart-grid" x1="{{ chart.plot_left|unlocalize }}" y1="{{ tick.y|unlocalize }}" x2="{{ chart.plot_right|unlocalize }}" y2="{{ tick.y|unlocalize }}"/>
+              <text class="chart-tick" x="{{ chart.tick_label_x|unlocalize }}" y="{{ tick.label_y|unlocalize }}" text-anchor="end">{{ tick.label }}</text>
             {% endfor %}
             {% if chart.target_line %}
-              <line class="chart-target" x1="{{ chart.plot_left }}" y1="{{ chart.target_line.y }}" x2="{{ chart.plot_right }}" y2="{{ chart.target_line.y }}"/>
-              <text class="chart-target-label" x="{{ chart.plot_right }}" y="{{ chart.target_line.y|add:"-6" }}" text-anchor="end">{{ chart.target_line.label }}</text>
+              <line class="chart-target" x1="{{ chart.plot_left|unlocalize }}" y1="{{ chart.target_line.y|unlocalize }}" x2="{{ chart.plot_right|unlocalize }}" y2="{{ chart.target_line.y|unlocalize }}"/>
+              <text class="chart-target-label" x="{{ chart.plot_right|unlocalize }}" y="{{ chart.target_line.label_y|unlocalize }}" text-anchor="end">{{ chart.target_line.label }}</text>
             {% endif %}
             {% if chart.area %}<path class="chart-area" d="{{ chart.area }}" fill="url(#chartFill)"/>{% endif %}
             {% if not chart.single_point %}<polyline class="chart-line" points="{{ chart.line }}"/>{% endif %}
             {% for point in chart.points %}
-              <circle class="chart-point {% if point.is_last %}is-last{% endif %}" cx="{{ point.x }}" cy="{{ point.y }}" r="{% if point.is_last %}5{% else %}3.5{% endif %}">
+              <circle class="chart-point {% if point.is_last %}is-last{% endif %}" cx="{{ point.x|unlocalize }}" cy="{{ point.y|unlocalize }}" r="{{ point.radius|unlocalize }}">
                 <title>{{ point.date }} — {{ point.score }} тестовых</title>
               </circle>
               {% if point.is_last %}
-                <text class="chart-value" x="{{ point.x }}" y="{{ point.y|add:"-14" }}" text-anchor="end">{{ point.score }}</text>
+                <text class="chart-value" x="{{ point.x|unlocalize }}" y="{{ point.label_y|unlocalize }}" text-anchor="end">{{ point.score }}</text>
               {% endif %}
             {% endfor %}
             {% for label in chart.x_labels %}
-              <text class="chart-tick" x="{{ label.x }}" y="{{ chart.plot_bottom|add:"20" }}" text-anchor="middle">{{ label.label }}</text>
+              <text class="chart-tick" x="{{ label.x|unlocalize }}" y="{{ label.y|unlocalize }}" text-anchor="middle">{{ label.label }}</text>
             {% endfor %}
           </svg>
           <p class="chart-note">

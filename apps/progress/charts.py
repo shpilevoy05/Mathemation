@@ -49,6 +49,8 @@ class ForecastChart:
     plot_right: float = WIDTH - PADDING_RIGHT
     plot_top: float = PADDING_TOP
     plot_bottom: float = HEIGHT - PADDING_BOTTOM
+    # Подписи оси значений стоят левее поля графика.
+    tick_label_x: float = PADDING_LEFT - 8
 
     def as_dict(self) -> dict:
         return {
@@ -67,6 +69,7 @@ class ForecastChart:
             "plot_right": self.plot_right,
             "plot_top": self.plot_top,
             "plot_bottom": self.plot_bottom,
+            "tick_label_x": self.tick_label_x,
         }
 
 
@@ -128,6 +131,10 @@ def forecast_chart(snapshots, *, target_score: int | None = None) -> dict:
         chart.points.append({
             "x": x,
             "y": y,
+            # Подпись значения считается здесь, а не в шаблоне: арифметика в
+            # шаблоне приводит число к целому и путает разряды.
+            "label_y": round(y - 14, 1),
+            "radius": 5 if index == len(series) - 1 else 3.5,
             "score": score,
             "date": moment.strftime("%d.%m"),
             "is_last": index == len(series) - 1,
@@ -143,7 +150,13 @@ def forecast_chart(snapshots, *, target_score: int | None = None) -> dict:
         )
 
     chart.y_ticks = [
-        {"y": y_for(value), "label": str(value)} for value in _ticks(low, high)
+        {
+            "y": y_for(value),
+            # Базовая линия текста ниже линии сетки: подпись стоит на делении.
+            "label_y": round(y_for(value) + 4, 1),
+            "label": str(value),
+        }
+        for value in _ticks(low, high)
     ]
     # Подписи дат: все точки при коротком ряде, иначе первая, середина и последняя.
     if len(chart.points) <= 5:
@@ -151,7 +164,11 @@ def forecast_chart(snapshots, *, target_score: int | None = None) -> dict:
     else:
         marks = [0, len(chart.points) // 2, len(chart.points) - 1]
     chart.x_labels = [
-        {"x": chart.points[index]["x"], "label": chart.points[index]["date"]}
+        {
+            "x": chart.points[index]["x"],
+            "y": round(chart.plot_bottom + 20, 1),
+            "label": chart.points[index]["date"],
+        }
         for index in marks
     ]
 
@@ -159,6 +176,7 @@ def forecast_chart(snapshots, *, target_score: int | None = None) -> dict:
         if low <= target_score <= high:
             chart.target_line = {
                 "y": y_for(target_score),
+                "label_y": round(y_for(target_score) - 6, 1),
                 "label": f"цель {target_score}",
             }
         else:

@@ -22,6 +22,14 @@ from apps.accounts.models import User
 # работе это удобно, в тесте — маскирует опечатку в имени.
 INVALID_MARKER = ""
 
+# Атрибуты, где значение обязано быть числом: стили, координаты SVG и данные
+# для скрипта. Шаблон намеренно широкий — он ловит и `data-mastery="0,0"`,
+# из-за которого `Number()` в браузере возвращает NaN.
+NUMERIC_WITH_COMMA = re.compile(
+    r'(?:style|x|y|x1|y1|x2|y2|cx|cy|r|rx|ry|width|height|points|d|offset|viewBox)'
+    r'="[^"]*\d,\d[^"]*"'
+)
+
 STRICT_TEMPLATES = override_settings(
     TEMPLATES=[
         {
@@ -61,13 +69,13 @@ class PageSmokeTests(TestCase):
         self.assertEqual(missing, [], "\n".join([f"{url}:"] + missing))
 
         # Русская локаль печатает дробное как «3,62». В тексте это верно, а в
-        # CSS — невалидное значение: браузер отбрасывает объявление целиком, и
-        # шкала схлопывается в ноль, ничего не написав в логи.
+        # CSS и в SVG — невалидное значение: браузер отбрасывает объявление или
+        # атрибут целиком, элемент уезжает в ноль, и ни одной записи в логах.
         commas = [
             " ".join(match.group(0).split())
-            for match in re.finditer(r'style="[^"]*\d+,\d+[^"]*"', body)
+            for match in re.finditer(NUMERIC_WITH_COMMA, body)
         ]
-        self.assertEqual(commas, [], f"{url}: дробное с запятой в CSS: {commas}")
+        self.assertEqual(commas, [], f"{url}: дробное с запятой в разметке: {commas}")
         return body
 
     def test_student_pages_open(self):

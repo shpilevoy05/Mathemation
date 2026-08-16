@@ -11,10 +11,11 @@
      data-lesson
      data-node-id="{{ node.id }}"
      data-stage="{{ current_stage }}"
-     data-mastery="{{ mastery_percent }}"
-     data-threshold="{{ mastery_threshold }}"
-     data-start-xp="{{ start_xp }}"
-     data-start-coins="{{ start_coins }}">
+     {# Числа для скрипта — только с точкой: Number("0,0") даёт NaN. #}
+     data-mastery="{{ mastery_percent|unlocalize }}"
+     data-threshold="{{ mastery_threshold|unlocalize }}"
+     data-start-xp="{{ start_xp|unlocalize }}"
+     data-start-coins="{{ start_coins|unlocalize }}">
 
   <header class="lesson-head">
     <div>
