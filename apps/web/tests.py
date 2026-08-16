@@ -303,20 +303,24 @@ class StudentCabinetTests(TestCase):
         self.assertContains(response, "Подсказок наставника")
         self.assertNotContains(response, "СЕКРЕТНЫЙ ТЕКСТ ЧАТА")
 
-    def test_parent_report_contains_gauge_sparkline_and_pace_caveat(self):
+    def test_parent_report_contains_gauge_chart_and_pace_caveat(self):
         student = self.user.student_profile
-        ProgressSnapshot.objects.create(
-            student=student,
-            start_score=40,
-            predicted_score=50,
-            target_score=student.target_score,
-        )
+        for score in (44, 50):
+            ProgressSnapshot.objects.create(
+                student=student,
+                start_score=40,
+                predicted_score=score,
+                target_score=student.target_score,
+            )
         self.client.force_login(User.objects.get(username="parent"))
 
         response = self.client.get(reverse("parent_dashboard"))
 
         self.assertContains(response, "stroke-dasharray")
-        self.assertContains(response, "<polyline", html=False)
+        # График динамики: линия, точки замеров и подписи оси.
+        self.assertContains(response, 'class="chart-line"', html=False)
+        self.assertContains(response, 'class="chart-point', html=False)
+        self.assertContains(response, 'class="chart-tick"', html=False)
         self.assertContains(response, "при текущем темпе")
 
     def test_login_contains_large_logo_and_tagline(self):

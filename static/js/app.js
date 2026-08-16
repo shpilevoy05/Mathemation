@@ -815,6 +815,14 @@
     set(".gauge-band", { left: `${gauge.band_left_percent}%`, width: `${gauge.band_width_percent}%` });
     set(".gauge-flag:not(.gauge-ceiling)", { left: `${gauge.target_percent}%` });
     if (gauge.ceiling_percent !== null) set(".gauge-ceiling", { left: `${gauge.ceiling_percent}%` });
+    // Метка потолка переезжала, а подпись оставалась прежней — и врала.
+    if (gauge.ceiling_primary !== null && gauge.ceiling_primary !== undefined) {
+      const primary = Number(gauge.ceiling_primary).toFixed(1).replace(".", ",");
+      const label = document.querySelector("[data-gauge-ceiling-label]");
+      if (label) label.textContent = `потолок ${primary}`;
+      const tile = document.querySelector("[data-ceiling-primary]");
+      if (tile) tile.textContent = primary;
+    }
     const caption = axis.querySelector(".gauge-caption-now");
     if (caption) {
       caption.style.left = `${gauge.now_percent}%`;

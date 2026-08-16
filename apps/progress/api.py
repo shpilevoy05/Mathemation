@@ -58,9 +58,18 @@ class ForecastView(views.APIView):
             "band_left_percent": gauge["band_left_percent"],
             "band_width_percent": gauge["band_width_percent"],
             "ceiling_percent": _ceiling_percent(gauge, forecast),
+            "ceiling_primary": _ceiling_primary(forecast),
             "primary": gauge["primary"],
         }
         return Response(forecast)
+
+
+def _ceiling_primary(forecast: dict) -> float | None:
+    """Потолок в первичных баллах при выбранных условиях."""
+    from apps.progress.services import primary_for_scaled
+
+    ceiling = forecast.get("ceiling_score")
+    return None if ceiling is None else primary_for_scaled(ceiling)
 
 
 def _ceiling_percent(gauge: dict, forecast: dict) -> float | None:

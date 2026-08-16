@@ -20,7 +20,7 @@
   <div class="convert">
     <div><span class="k">До цели</span><span class="v">{{ gauge.to_target_primary|floatformat:1 }} первичных</span></div>
     <div><span class="k">Цель</span><span class="v">{{ gauge.target_scaled }} тестовых</span></div>
-    {% if gauge.ceiling_primary %}<div><span class="k">Потолок</span><span class="v">{{ gauge.ceiling_primary|floatformat:1 }} первичных</span></div>{% endif %}
+    {% if gauge.ceiling_primary %}<div><span class="k">Потолок</span><span class="v"><b data-ceiling-primary>{{ gauge.ceiling_primary|floatformat:1 }}</b> первичных</span></div>{% endif %}
     <div><span class="k">Разброс оценки</span><span class="v">± {{ interval.sigma_primary|floatformat:1 }}</span></div>
   </div>
 </section>

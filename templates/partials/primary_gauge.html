@@ -11,7 +11,7 @@
     </div>
     {% if gauge.ceiling_percent %}
       <div class="gauge-flag gauge-ceiling" style="left: {{ gauge.ceiling_percent|unlocalize }}%">
-        <span>потолок {{ gauge.ceiling_primary|floatformat:1 }}</span>
+        <span data-gauge-ceiling-label>потолок {{ gauge.ceiling_primary|floatformat:1 }}</span>
       </div>
     {% endif %}
     <div class="gauge-caption-now num" style="left: {{ gauge.now_percent|unlocalize }}%">сейчас {{ gauge.primary|floatformat:1 }}</div>
