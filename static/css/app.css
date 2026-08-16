@@ -160,7 +160,9 @@ h3 { margin-bottom: 6px; font-size: 1rem; font-weight: 600; }
 /* Знак стоит на той же линии, что и написание: по центру он «висел» выше
    строки и разъезжался с ней на разных кеглях. */
 .logo { display: inline-flex; align-items: baseline; gap: 10px; color: #fff; }
-.logo-mark { flex: 0 0 auto; width: auto; height: 34px; object-fit: contain; object-position: bottom; }
+/* Высота — по самому знаку: в файле обрезаны прозрачные поля, поэтому
+   34px рамки превратились бы в 34px рисунка и знак вырос бы на треть. */
+.logo-mark { flex: 0 0 auto; width: auto; height: 26px; object-fit: contain; }
 .logo-word {
   font-family: var(--display); font-weight: 800; font-size: 15px;
   letter-spacing: .13em; line-height: 1; text-transform: uppercase; color: #fff;
@@ -168,7 +170,7 @@ h3 { margin-bottom: 6px; font-size: 1rem; font-weight: 600; }
 /* Коробка сигмы обрезана по самой букве, поэтому её высота — это высота
    прописной, а низ стоит на базовой линии, как у соседних букв. */
 .logo-e { display: inline-block; width: auto; height: .72em; margin: 0 .04em; color: var(--sigma); vertical-align: baseline; }
-.logo--lg .logo-mark { height: 54px; }
+.logo--lg .logo-mark { height: 41px; }
 .logo--lg .logo-word { font-size: 1.5rem; }
 .main-nav { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
 .main-nav a {
