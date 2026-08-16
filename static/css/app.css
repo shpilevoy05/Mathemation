@@ -500,11 +500,15 @@ input:focus { border-color: var(--primary); outline: 3px solid var(--primary-sof
 .track-unit-banner h2 { margin: 2px 0 0; font-size: 1.25rem; }
 .track-path { position: relative; padding: 24px 0 12px; }
 .track-path::before { position: absolute; top: 0; bottom: 0; left: 50%; width: 4px; border-radius: 4px; content: ""; transform: translateX(-50%); background: repeating-linear-gradient(to bottom, var(--primary-soft) 0 9px, transparent 9px 17px); }
-.track-node-row { position: relative; z-index: 1; display: flex; justify-content: center; min-height: 186px; text-align: center; }
-.track-node-link { position: relative; display: flex; align-items: center; flex-direction: column; width: 170px; color: var(--ink); transition: transform .18s ease; }
+.track-node-row { position: relative; z-index: 1; display: flex; justify-content: center; min-height: 134px; text-align: center; }
+/* `isolation` держит ореол текущей точки внутри ссылки: без своего слоя
+   он ушёл бы под фон карточки и стал невидим. */
+.track-node-link { position: relative; isolation: isolate; display: flex; align-items: center; gap: 16px; color: var(--ink); transition: transform .18s ease; }
 a.track-node-link:hover { transform: translateY(-3px); }
 .track-pos-0 .track-node-link { translate: -56px 0; }.track-pos-1 .track-node-link { translate: -28px 0; }.track-pos-2 .track-node-link { translate: 0 0; }.track-pos-3 .track-node-link { translate: 28px 0; }.track-pos-4 .track-node-link { translate: 56px 0; }
-.track-node-copy { display: grid; width: 170px; margin-top: 26px; line-height: 1.25; }.track-node-copy strong { font-size: .92rem; }.track-node-copy small { margin-top: 3px; color: var(--muted); font-size: .7rem; }
+.track-pos-3 .track-node-link, .track-pos-4 .track-node-link { flex-direction: row-reverse; }
+.track-pos-3 .track-node-copy, .track-pos-4 .track-node-copy { text-align: right; }
+.track-node-copy { display: grid; width: 190px; line-height: 1.3; text-align: left; }.track-node-copy strong { font-size: .92rem; }.track-node-copy small { margin-top: 3px; color: var(--muted); font-size: .7rem; }
 .track-state-mastered .track-node-button, .track-state-review .track-node-button, .track-state-mock .track-node-button { color: var(--on-accent); background: var(--cluster-color); }
 .track-state-current .track-progress-ring { animation: track-pulse 1.8s ease-out infinite; background: conic-gradient(var(--primary) var(--track-progress), var(--primary-soft) 0); }
 .track-state-current .track-node-button { color: var(--on-accent); border-color: var(--on-accent); background: var(--primary); transform: scale(1.08); }
@@ -674,11 +678,11 @@ a.track-node-link:hover { transform: translateY(-3px); }
   color: #fff; background: linear-gradient(125deg, var(--primary-deep) 0%, var(--primary) 52%, var(--primary-2) 100%);
   box-shadow: 0 24px 50px -26px rgba(46, 69, 184, .75); animation: riseIn .5s ease both;
 }
-.student-hero > * { position: relative; }
+.student-hero > *:not(.hero-decor) { position: relative; }
 .student-hero h1 { margin-bottom: 10px; font-size: clamp(1.6rem, 2.6vw, 2.1rem); }
 .student-hero p { margin-bottom: 0; color: #fff; font-size: 15px; opacity: .86; }
 .student-hero .eyebrow { color: #fff; opacity: .72; }
-.hero-decor { position: absolute; pointer-events: none; }
+.hero-decor, .hero-decor.hero-decor { position: absolute; pointer-events: none; }
 .hero-decor--glow { top: -120px; right: -90px; width: 360px; height: 360px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, .22), transparent 62%); }
 .hero-decor--ring { bottom: -140px; left: -60px; width: 280px; height: 280px; border: 1px dashed rgba(255, 255, 255, .25); border-radius: 50%; animation: spinSlow 44s linear infinite; }
 .hero-decor--ring-sm { bottom: -90px; left: -10px; width: 190px; height: 190px; border: 1px dashed rgba(255, 255, 255, .18); border-radius: 50%; animation: spinRev 34s linear infinite; }
@@ -778,7 +782,10 @@ a.track-node-link:hover { transform: translateY(-3px); }
 .track-state-locked .track-progress-ring { background: none; }
 .track-state-current .track-progress-ring { background: conic-gradient(var(--flame-1) var(--track-progress), rgba(255, 255, 255, .45) 0); animation: bob 2.6s ease-in-out infinite; }
 .track-state-current .track-node-button { width: 84px; height: 84px; background: linear-gradient(160deg, #6E85F5, #3B4FD8); box-shadow: 0 8px 0 var(--primary-dark), 0 22px 34px -16px rgba(46, 69, 184, .95); transform: none; }
-.track-state-current .track-node-link::after { position: absolute; top: 98px; left: 50%; padding: 5px 12px; border-radius: 999px; background: var(--night); color: #fff; font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; content: "Ты здесь"; transform: translateX(-50%); box-shadow: 0 6px 14px -8px rgba(0, 0, 0, .6); }
+.track-progress-ring { position: relative; }
+.track-state-current .track-progress-ring::after { position: absolute; bottom: calc(100% + 6px); left: 50%; padding: 5px 12px; border-radius: 999px; background: var(--night); color: #fff; font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; content: "Ты здесь"; transform: translateX(-50%); box-shadow: 0 6px 14px -8px rgba(0, 0, 0, .6); }
+/* Пульсирующий ореол текущей точки — из макета: он и указывает, где ты. */
+.track-state-current .track-progress-ring::before { position: absolute; z-index: -1; inset: -6px; border-radius: 50%; background: var(--primary); opacity: .45; content: ""; animation: haloPulse 2.1s ease-out infinite; }
 .track-node-copy strong { font-size: .92rem; }
 .track-unit-banner { display: flex; align-items: center; gap: 18px; padding: 20px 26px; border-radius: var(--radius-lg); background: linear-gradient(110deg, var(--primary-dark), #5B6FE8); box-shadow: 0 16px 34px -22px rgba(46, 69, 184, .9); }
 .track-unit-banner .unit-icon { display: grid; flex: 0 0 52px; place-items: center; height: 52px; border-radius: var(--radius); background: rgba(255, 255, 255, .16); }
@@ -874,7 +881,7 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
   background: linear-gradient(140deg, var(--primary-dark), var(--primary) 55%, var(--primary-2));
   box-shadow: 0 22px 46px -28px rgba(59, 79, 216, .95); animation: riseIn .45s ease both;
 }
-.daily-hero > * { position: relative; }
+.daily-hero > *:not(.hero-decor) { position: relative; }
 .daily-hero-row { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; }
 .daily-hero h2 { margin: 0 0 14px; font-size: clamp(1.3rem, 2.2vw, 1.65rem); color: #fff; }
 .daily-hero .eyebrow { color: #fff; opacity: .7; }

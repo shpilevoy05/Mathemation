@@ -692,7 +692,7 @@
     if (!bar) return;
     bar.style.width = "100%";
     const title = document.querySelector("[data-daily-title]");
-    if (title) title.textContent = "Задание решено — серия продлена";
+    if (title) title.textContent = "1 из 1 · задание дня закрыто";
   }
 
   function showNextTask(current) {

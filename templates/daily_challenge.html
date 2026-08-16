@@ -24,7 +24,8 @@
         <div class="daily-hero-row">
           <div style="flex: 1; min-width: 250px">
             <p class="eyebrow">Прогресс дня</p>
-            <h2 data-daily-title>{% if solved %}Задание решено · +{{ reward_xp }} XP{% else %}Одна задача · {{ reward_xp }} XP за решение{% endif %}</h2>
+            {# Форма заголовка — из макета: «сделано из всего», а не общий призыв. #}
+            <h2 data-daily-title>{% if solved %}1 из 1 · +{{ reward_xp }} XP{% else %}0 из 1 · {{ reward_xp }} XP за решение{% endif %}</h2>
             <div class="daily-progress"><span data-daily-progress style="width: {% if solved %}100{% else %}0{% endif %}%"></span></div>
             <p style="margin: 12px 0 0; font-size: 13px; opacity: .82">
               {% if solved %}Серия продлена — возвращайся завтра за новой задачей.{% else %}Реши задачу, и серия станет {{ next_streak }} дн. подряд.{% endif %}
