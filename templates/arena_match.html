@@ -53,7 +53,21 @@
           {% endfor %}
         </tbody>
       </table>
-      <p class="disclaimer">Результат бота разыгран при создании партии и не зависел от вашей игры.</p>
+      <h3 class="arena-subhead">Разбор</h3>
+      <ol class="review-answers" data-review>
+        {% for row in state.review %}
+          <li class="{% if row.is_correct %}is-correct{% else %}is-wrong{% endif %}">
+            <strong>{{ row.title }}</strong>
+            <span class="statement">{{ row.statement }}</span>
+            <span class="review-line">
+              <span>Ваш ответ: <b>{{ row.my_answer|default:"—" }}</b></span>
+              {% if not row.is_correct %}<span>Правильно: <b>{{ row.correct_answer }}</b></span>{% endif %}
+              {% if row.seconds %}<small class="muted">{{ row.seconds }} с</small>{% endif %}
+            </span>
+          </li>
+        {% endfor %}
+      </ol>
+      <p class="disclaimer">Ошибки партии не идут в отработку: под таймером промахиваются от спешки, а не от незнания. Если тема действительно проседает, её вернёт занятие.{% if match.against_bot %} Результат бота разыгран при создании партии и не зависел от вашей игры.{% endif %}</p>
       <a class="button button-primary" href="{% url 'arena' %}">В арену</a>
     </section>
 

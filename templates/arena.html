@@ -12,7 +12,7 @@
     </div>
     <div class="daily-clock">
       <svg aria-hidden="true"><use href="#i-cup"></use></svg>
-      <div><small>Награда сегодня</small><br><b class="num">{{ rewarded_today }} из {{ reward_limit }}</b></div>
+      <div><small>Рейтинг · награда сегодня</small><br><b class="num">{{ arena_rating }} · {{ rewarded_today }} из {{ reward_limit }}</b></div>
     </div>
   </div>
 
@@ -49,8 +49,20 @@
         </select>
 
         <p class="form-error" data-match-error hidden></p>
-        <button class="button button-primary" type="submit">Начать партию</button>
+        <div class="arena-actions">
+          <button class="button button-primary" type="submit">Начать партию</button>
+          <button class="button" type="button" data-queue-join>Случайный соперник</button>
+        </div>
       </form>
+
+      <div class="queue-box" data-queue hidden>
+        <p><b data-queue-status>Ищем соперника…</b></p>
+        <p class="muted">Ваш рейтинг <b class="num" data-queue-rating>{{ arena_rating }}</b>. Сначала ищем равного, затем — ближайшего по уровню.</p>
+        <div class="arena-actions">
+          <button class="button button-small" type="button" data-queue-cancel>Отменить поиск</button>
+          <button class="button button-small button-primary" type="button" data-queue-bot hidden>Сыграть с ботом своего уровня</button>
+        </div>
+      </div>
     </section>
 
     <aside class="card">

@@ -86,6 +86,9 @@ class Match(models.Model):
     # Уровень бота 1..5. У партии с человеком не заполняется.
     bot_level = models.PositiveSmallIntegerField(null=True, blank=True)
     seconds_per_question = models.PositiveSmallIntegerField(default=90)
+    # Рейтинговая партия — только подбор случайного соперника: вызов друга и
+    # игра с ботом на рейтинг не влияют.
+    is_ranked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
@@ -183,3 +186,67 @@ class MatchAnswer(models.Model):
 
     def __str__(self):
         return f"{self.participant_id}/{self.question_id}: {'верно' if self.is_correct else 'неверно'}"
+
+
+class ArenaProfile(models.Model):
+    """Рейтинг игрока для подбора соперника.
+
+    Рейтинг нужен не ради таблицы лидеров, а ради подбора: играть интересно с
+    тем, кто примерно равен. Стартовое значение берётся из прогноза балла —
+    так первая же случайная партия попадает в свой уровень, а не в лотерею.
+
+    Обновляется только в партиях с людьми: бот не рейтингованный соперник, и
+    фармить рейтинг о него нельзя.
+    """
+
+    BASE_RATING = 1000
+
+    student = models.OneToOneField(
+        "accounts.StudentProfile", on_delete=models.CASCADE, related_name="arena_profile"
+    )
+    rating = models.PositiveSmallIntegerField(default=BASE_RATING)
+    matches_played = models.PositiveIntegerField(default=0)
+    wins = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-rating"]
+
+    def __str__(self):
+        return f"{self.student}: {self.rating}"
+
+
+class MatchmakingTicket(models.Model):
+    """Заявка на случайного соперника.
+
+    Очередь, а не мгновенный подбор: партнёра может не быть прямо сейчас.
+    Окно поиска расширяется со временем ожидания — сначала ищем ровню, потом
+    ближайшего из доступных, как в шахматных клубах.
+    """
+
+    class Status(models.TextChoices):
+        WAITING = "waiting", "Ищет соперника"
+        MATCHED = "matched", "Соперник найден"
+        CANCELLED = "cancelled", "Отменена"
+
+    student = models.ForeignKey(
+        "accounts.StudentProfile", on_delete=models.CASCADE, related_name="arena_tickets"
+    )
+    mode = models.CharField(max_length=16, choices=Match.Mode.choices, default=Match.Mode.QUIZ)
+    ege_task_number = models.PositiveSmallIntegerField(null=True, blank=True)
+    rating = models.PositiveSmallIntegerField(default=ArenaProfile.BASE_RATING)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.WAITING)
+    match = models.ForeignKey(
+        Match, on_delete=models.SET_NULL, null=True, blank=True, related_name="tickets"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["status", "mode", "created_at"], name="ticket_queue"),
+        ]
+
+    def __str__(self):
+        return f"{self.student} ждёт соперника ({self.mode})"

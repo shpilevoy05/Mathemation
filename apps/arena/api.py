@@ -16,7 +16,15 @@ from rest_framework.throttling import ScopedRateThrottle
 from apps.accounts.api import get_student
 from apps.accounts.models import StudentProfile
 
-from .models import Friendship, Match, MatchQuestion
+from .matchmaking import (
+    bot_level_for,
+    expire_stale,
+    find_rival,
+    get_profile,
+    join_queue,
+    leave_queue,
+)
+from .models import Friendship, Match, MatchmakingTicket, MatchQuestion
 from .services import (
     accept_friend_request,
     accept_match,
@@ -62,6 +70,31 @@ def _participant_payload(participant, *, reveal: bool) -> dict:
     return payload
 
 
+def match_review(match: Match, participant) -> list[dict]:
+    """Разбор партии: что спрашивали, что ответил игрок и как правильно.
+
+    Ошибки арены не идут в отработку — под таймером человек промахивается от
+    спешки. Но не показать их вовсе значит превратить партию в бросок кубика:
+    разбор и есть то, ради чего в неё стоит играть.
+    """
+    answers = {answer.question_id: answer for answer in participant.answers.all()}
+    review = []
+    for question in match.questions.select_related("assignment"):
+        answer = answers.get(question.pk)
+        review.append({
+            "order": question.order,
+            "title": question.assignment.title,
+            "statement": question.assignment.statement,
+            "points": question.points,
+            "my_answer": answer.submitted_answer if answer else "",
+            "is_correct": bool(answer and answer.is_correct),
+            "answered": answer is not None,
+            "correct_answer": question.assignment.correct_answer,
+            "seconds": round(answer.time_ms / 1000, 1) if answer else None,
+        })
+    return review
+
+
 def match_payload(match: Match, student) -> dict:
     me = participant_for(match, student)
     other = opponent_of(match, student)
@@ -83,6 +116,10 @@ def match_payload(match: Match, student) -> dict:
         "me": _participant_payload(me, reveal=True) if me else None,
         "opponent": _participant_payload(other, reveal=reveal) if other else None,
         "results": table,
+        "is_ranked": match.is_ranked,
+        # Разбор появляется только после конца партии: до этого он был бы
+        # списыванием у самого себя.
+        "review": match_review(match, me) if (reveal and me) else [],
         "question": {
             "id": question.pk,
             "order": question.order,
@@ -239,6 +276,93 @@ class MatchAnswerView(views.APIView):
         payload = match_payload(match, student)
         payload["last_answer"] = {"is_correct": answer.is_correct}
         return Response(payload)
+
+
+class QueueSerializer(serializers.Serializer):
+    mode = serializers.ChoiceField(choices=Match.Mode.choices)
+    ege_task_number = serializers.IntegerField(
+        required=False, allow_null=True, min_value=1, max_value=19
+    )
+
+
+def _ticket_payload(ticket, student) -> dict:
+    from .matchmaking import get_profile, window_for
+
+    payload = {
+        "status": ticket.status,
+        "rating": get_profile(student).rating,
+        "search_window": window_for(ticket),
+        "match_id": ticket.match_id,
+    }
+    if ticket.match_id:
+        payload["match_url"] = f"/arena/match/{ticket.match_id}/"
+    return payload
+
+
+class QueueView(views.APIView):
+    """POST — встать в очередь на случайного соперника, GET — проверить статус."""
+
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "purchase"
+
+    def post(self, request):
+        student = get_student(request)
+        serializer = QueueSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            ticket = join_queue(
+                student,
+                mode=serializer.validated_data["mode"],
+                ege_task_number=serializer.validated_data.get("ege_task_number"),
+            )
+        except DjangoValidationError as error:
+            return Response({"detail": " ".join(error.messages)}, status=400)
+        return Response(_ticket_payload(ticket, student), status=201)
+
+    def get(self, request):
+        student = get_student(request)
+        expire_stale()
+        ticket = (
+            MatchmakingTicket.objects.filter(student=student)
+            .exclude(status=MatchmakingTicket.Status.CANCELLED)
+            .order_by("-created_at")
+            .first()
+        )
+        if ticket is None:
+            return Response({"status": "idle", "rating": get_profile(student).rating})
+        if ticket.status == MatchmakingTicket.Status.WAITING:
+            # Пока игрок ждёт, очередь могла пополниться: пробуем свести снова.
+            rival = find_rival(ticket)
+            if rival is not None:
+                ticket = join_queue(
+                    student, mode=ticket.mode, ege_task_number=ticket.ege_task_number
+                )
+        return Response(_ticket_payload(ticket, student))
+
+    def delete(self, request):
+        student = get_student(request)
+        leave_queue(student)
+        return Response({"status": "idle", "rating": get_profile(student).rating})
+
+
+class BotFallbackView(views.APIView):
+    """POST — сыграть с ботом своего уровня, если живого соперника нет."""
+
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "purchase"
+
+    def post(self, request):
+        student = get_student(request)
+        serializer = QueueSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        leave_queue(student)
+        match = create_match(
+            student,
+            mode=serializer.validated_data["mode"],
+            bot_level=bot_level_for(student),
+            ege_task_number=serializer.validated_data.get("ege_task_number"),
+        )
+        return Response(match_payload(match, student), status=201)
 
 
 class MatchInviteView(views.APIView):

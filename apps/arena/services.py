@@ -124,7 +124,7 @@ def _points_for(mode: str, assignment) -> int:
 @transaction.atomic
 def create_match(student, *, mode: str, opponent=None, bot_level: int | None = None,
                  ege_task_number: int | None = None,
-                 seconds_per_question: int = 90) -> Match:
+                 seconds_per_question: int = 90, ranked: bool = False) -> Match:
     """Создать партию против друга или бота.
 
     Набор задач общий для обеих сторон: сравнивать результаты, полученные на
@@ -135,7 +135,9 @@ def create_match(student, *, mode: str, opponent=None, bot_level: int | None = N
     if opponent is not None:
         if opponent.pk == student.pk:
             raise ValidationError("Нельзя играть против себя.")
-        if not are_friends(student, opponent):
+        # Вызвать напрямую можно только друга; случайного соперника выдаёт
+        # очередь подбора, и там знакомство не требуется.
+        if not ranked and not are_friends(student, opponent):
             raise ValidationError(
                 "Играть можно с друзьями — сначала добавьте друг друга."
             )
@@ -152,6 +154,7 @@ def create_match(student, *, mode: str, opponent=None, bot_level: int | None = N
         bot_level=clamp_level(bot_level) if bot_level is not None else None,
         ege_task_number=ege_task_number,
         seconds_per_question=seconds_per_question,
+        is_ranked=ranked,
         status=Match.Status.ACTIVE if bot_level is not None else Match.Status.INVITED,
         started_at=timezone.now(),
     )
@@ -316,6 +319,9 @@ def finish_match(match: Match) -> Match:
     match.status = Match.Status.FINISHED
     match.finished_at = timezone.now()
     match.save(update_fields=["status", "finished_at"])
+    from .matchmaking import apply_rating
+
+    apply_rating(match)
     champion = winner_of(match)
     for participant in match.participants.all():
         if participant.student_id is None:

@@ -355,6 +355,67 @@
     });
   }
 
+  // — Очередь на случайного соперника —
+  // Пары сводит сервер: клиент только встаёт в очередь и спрашивает статус.
+  // Через минуту ожидания предлагаем бота своего уровня — ждать вечно скучнее,
+  // чем сыграть.
+  const queueBox = document.querySelector("[data-queue]");
+  if (queueBox && matchForm) {
+    const status = queueBox.querySelector("[data-queue-status]");
+    const botButton = queueBox.querySelector("[data-queue-bot]");
+    let poll = null;
+    let waited = 0;
+
+    const payload = () => {
+      const task = matchForm.elements.ege_task_number.value;
+      const body = { mode: matchForm.elements.mode.value };
+      if (task) body.ege_task_number = Number(task);
+      return body;
+    };
+
+    const stop = () => { clearInterval(poll); poll = null; };
+
+    const handle = state => {
+      if (state.match_url) {
+        stop();
+        window.location.assign(state.match_url);
+        return;
+      }
+      queueBox.querySelector("[data-queue-rating]").textContent = state.rating;
+      status.textContent = `Ищем соперника… ${waited} с, окно поиска ±${state.search_window}`;
+      botButton.hidden = waited < 60;
+    };
+
+    document.querySelector("[data-queue-join]")?.addEventListener("click", async () => {
+      queueBox.hidden = false;
+      waited = 0;
+      try {
+        handle(await apiFetch("/api/arena/queue/", { method: "POST", body: JSON.stringify(payload()) }));
+      } catch (exception) { status.textContent = exception.message; return; }
+      stop();
+      poll = setInterval(async () => {
+        waited += 4;
+        try { handle(await apiFetch("/api/arena/queue/")); }
+        catch (_) { /* сеть подождёт до следующего тика */ }
+      }, 4000);
+    });
+
+    queueBox.querySelector("[data-queue-cancel]").addEventListener("click", async () => {
+      stop();
+      queueBox.hidden = true;
+      try { await apiFetch("/api/arena/queue/", { method: "DELETE" }); } catch (_) { /* уже ушли */ }
+    });
+
+    botButton.addEventListener("click", async () => {
+      stop();
+      botButton.disabled = true;
+      try {
+        const match = await apiFetch("/api/arena/queue/bot/", { method: "POST", body: JSON.stringify(payload()) });
+        window.location.assign(`/arena/match/${match.id}/`);
+      } catch (exception) { status.textContent = exception.message; botButton.disabled = false; }
+    });
+  }
+
   const friendForm = document.querySelector("[data-friend-form]");
   if (friendForm) {
     friendForm.addEventListener("submit", async event => {
@@ -418,6 +479,33 @@
       timer = setInterval(tick, 200);
     };
 
+    // Разбор: что спрашивали, что ответил игрок и как было правильно.
+    const renderReview = rows => {
+      const list = matchShell.querySelector("[data-review]");
+      if (!list || !rows.length) return;
+      list.replaceChildren(...rows.map(row => {
+        const item = document.createElement("li");
+        item.className = row.is_correct ? "is-correct" : "is-wrong";
+        const title = document.createElement("strong");
+        title.textContent = row.title;
+        const statement = document.createElement("span");
+        statement.className = "statement";
+        statement.textContent = row.statement;
+        const line = document.createElement("span");
+        line.className = "review-line";
+        const mine = document.createElement("span");
+        mine.textContent = `Ваш ответ: ${row.my_answer || "—"}`;
+        line.append(mine);
+        if (!row.is_correct) {
+          const right = document.createElement("span");
+          right.textContent = `Правильно: ${row.correct_answer}`;
+          line.append(right);
+        }
+        item.append(title, statement, line);
+        return item;
+      }));
+    };
+
     const render = state => {
       matchShell.querySelector("[data-my-score]").textContent = state.me ? state.me.score : 0;
       const rival = matchShell.querySelector("[data-rival-progress]");
@@ -442,6 +530,7 @@
       if (state.status === "finished") {
         resultBlock.hidden = false;
         waitingBlock.hidden = true;
+        renderReview(state.review || []);
         const rows = matchShell.querySelector("[data-result-rows]");
         rows.replaceChildren(...state.results.map(row => {
           const tr = document.createElement("tr");

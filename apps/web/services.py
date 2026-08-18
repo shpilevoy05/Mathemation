@@ -555,6 +555,7 @@ MATCH_MODE_HINTS = {
 def arena_context(student) -> dict:
     """Арена: друзья, вызовы, идущие и сыгранные партии."""
     from apps.arena.models import Friendship, Match
+    from apps.arena.matchmaking import get_profile
     from apps.arena.services import friends_of, rank, rewarded_today, DAILY_REWARDED_MATCHES
 
     matches = (
@@ -595,6 +596,7 @@ def arena_context(student) -> dict:
         "match_invites": invites,
         "match_history": history,
         "mode_hints": MATCH_MODE_HINTS,
+        "arena_rating": get_profile(student).rating,
         "rewarded_today": rewarded_today(student),
         "reward_limit": DAILY_REWARDED_MATCHES,
     }

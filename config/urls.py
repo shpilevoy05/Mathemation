@@ -10,6 +10,7 @@ from apps.accounts import views as account_views
 from apps.accounts.api import MeView, TargetScoreView
 from apps.ai_mentor.api import HintView, ParentAiLogView
 from apps.arena.api import (
+    BotFallbackView,
     CreateMatchView,
     FriendAnswerView,
     FriendListView,
@@ -17,6 +18,7 @@ from apps.arena.api import (
     MatchAnswerView,
     MatchInviteView,
     MatchView,
+    QueueView,
 )
 from apps.billing import pages as billing_pages
 from apps.billing.api import PaymentWebhookView, SubscriptionView
@@ -130,6 +132,8 @@ api_urls = [
     path("arena/friends/", FriendListView.as_view()),
     path("arena/friends/request/", FriendRequestView.as_view()),
     path("arena/friends/<int:link_id>/<str:action>/", FriendAnswerView.as_view()),
+    path("arena/queue/", QueueView.as_view()),
+    path("arena/queue/bot/", BotFallbackView.as_view()),
     path("arena/matches/", CreateMatchView.as_view()),
     path("arena/matches/<int:match_id>/", MatchView.as_view()),
     path("arena/matches/<int:match_id>/answer/", MatchAnswerView.as_view()),

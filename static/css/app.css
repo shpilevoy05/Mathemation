@@ -907,6 +907,16 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 .arena-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .arena-row-actions { display: flex; gap: 6px; }
 .arena-row small { display: block; color: var(--muted); font-size: .76rem; }
+.arena-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.queue-box { margin-top: 16px; padding: 14px 16px; border: 1px dashed var(--primary); border-radius: var(--radius); background: var(--primary-soft); }
+.queue-box p { margin: 0 0 6px; }
+/* Разбор партии: ошибка видна вместе с правильным ответом — ради этого в
+   партию и стоит играть, даже если она не двигает освоение. */
+.review-answers { display: grid; gap: 10px; margin: 8px 0 14px; padding-left: 20px; }
+.review-answers li { display: grid; gap: 3px; padding: 10px 12px; border-left: 3px solid var(--success); border-radius: var(--radius-sm); background: var(--success-soft); }
+.review-answers li.is-wrong { border-left-color: var(--danger); background: var(--danger-soft); }
+.review-answers .statement { color: var(--muted); font-size: .84rem; }
+.review-line { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .84rem; }
 .match-shell { display: grid; gap: 16px; }
 .match-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
 .match-score { display: flex; gap: 18px; }
