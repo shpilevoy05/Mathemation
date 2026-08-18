@@ -1,0 +1,39 @@
+suite: skill-golden-task-runner
+kind: positive
+version: 1.0.0
+cases:
+  - id: GR-P-001
+    kind: positive
+    prompt: "Прогони GT-001 на Claude Code и запиши результат"
+    expected:
+      - skill-golden-task-runner
+    expect: отчёт task_id/agent/selected_skills/result
+
+  - id: GR-P-002
+    kind: positive
+    prompt: "Сравни поведение агентов на задаче про сократического наставника"
+    expected:
+      - skill-golden-task-runner
+      - skill-cross-agent-consistency
+    expect: одинаковая формулировка, два отчёта
+
+  - id: GR-P-003
+    kind: positive
+    prompt: "После обновления vendor стало хуже, проверь на контрольных задачах"
+    expected:
+      - skill-golden-task-runner
+    expect: прогон с фиксацией skills_version до и после
+
+  - id: GR-P-004
+    kind: positive
+    prompt: "Нужны данные для подсчёта precision выбора скиллов"
+    expected:
+      - skill-golden-task-runner
+    expect: записанные прогоны в reports/acceptance для routing_eval.py
+
+  - id: GR-P-005
+    kind: positive
+    prompt: "Разработчик сообщил регрессию в планировщике, воспроизведи"
+    expected:
+      - skill-golden-task-runner
+    expect: прогон GT-008 с фиксацией инвариантов и вмешательств

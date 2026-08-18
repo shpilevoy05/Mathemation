@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% load l10n %}
+{% block title %}Кабинет — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Кабинет ученика</h1><p>Для этого аккаунта кабинет ученика недоступен. Выберите подходящий раздел или войдите под аккаунтом ученика.</p></section>
+{% else %}
+  <section class="student-hero">
+    <span class="hero-decor hero-decor--glow"></span>
+    <span class="hero-decor hero-decor--ring"></span>
+    <span class="hero-decor hero-decor--ring-sm"></span>
+    <span class="hero-decor hero-decor--orbit"><span></span></span>
+    <span class="hero-decor hero-decor--beam" style="top: 22%"><span></span></span>
+    <div>
+      <p class="eyebrow">{{ gamification.streak_current }}-й день подряд · до экзамена {{ days_to_exam|default:"—" }} дн.</p>
+      <h1>Привет, {{ user.first_name|default:user.username }}</h1>
+      <p>
+        {% if trajectory %}Траектория <b>{{ trajectory.title }}</b> · {{ trajectory.weekly_load_hours }} ч/нед.{% else %}Траектория появится после диагностики.{% endif %}
+        {% if today_items %}Сегодня {{ today_items|length }} пункт(а) плана — и серия продлится.{% else %}На сегодня пунктов плана нет.{% endif %}
+      </p>
+      <div class="hero-actions">
+        {% if has_diagnostic %}
+          <a class="button hero-button" href="{% url 'track' %}"><svg aria-hidden="true"><use href="#i-bolt"></use></svg>Продолжить занятие</a>
+        {% else %}
+          <a class="button hero-button" href="{% url 'diagnostics' %}"><svg aria-hidden="true"><use href="#i-target"></use></svg>Пройти диагностику</a>
+        {% endif %}
+        {% if week_items %}<button class="button hero-button-ghost" type="button" data-open-dialog="week-plan-dialog">План на неделю</button>{% endif %}
+      </div>
+    </div>
+    <div class="score-journey">
+      <div class="journey-labels">
+        <div><small>Старт</small><b>{{ snapshot.start_score|default:"—" }}</b></div>
+        <div class="journey-now"><small>Прогноз</small><b>{{ gauge.scaled }}</b></div>
+        <div class="journey-goal"><small>Цель</small><b>{{ target_score }}</b></div>
+      </div>
+      <div class="journey-track">
+        <span style="width: calc({{ gauge.now_percent|unlocalize }}% - 4px)"></span>
+        <span class="journey-flame" style="left: {{ gauge.now_percent|unlocalize }}%"><svg aria-hidden="true"><use href="#i-flame"></use></svg></span>
+        <span class="journey-goal-mark" style="left: {{ gauge.target_percent|unlocalize }}%"></span>
+      </div>
+      <p class="hero-note">До цели <b class="num">{{ gauge.to_target_primary|floatformat:1 }}</b> первичных балла — это примерно {{ gauge.to_target_lessons }} занятий при текущем темпе.</p>
+    </div>
+  </section>
+
+  {% if daily %}
+    <a class="daily-banner" href="{% url 'daily_challenge' %}">
+      <span class="daily-icon"><svg aria-hidden="true"><use href="#i-star"></use></svg></span>
+      <div class="daily-copy">
+        <div class="section-heading" style="margin-bottom: 4px">
+          <strong>{% if daily.solved %}Задание дня решено{% else %}Задание дня ещё не решено{% endif %}</strong>
+          {% if not daily.solved %}<span class="badge-new">новое</span>{% endif %}
+        </div>
+        <p>{{ daily.title }} · +{{ daily.reward_xp }} XP{% if daily.reward_coins %} и +{{ daily.reward_coins }} Σ{% endif %}, если решить до полуночи.</p>
+      </div>
+      <div class="daily-side">
+        <div style="display: grid; justify-items: end; gap: 2px">
+          <span class="eyebrow" style="margin: 0; color: var(--warm-ink-2)">Осталось</span>
+          <b class="num" style="color: var(--warm-ink)">{{ daily.time_left }}</b>
+        </div>
+        <span class="daily-cta">{% if daily.solved %}Посмотреть{% else %}Решить{% endif %}</span>
+      </div>
+    </a>
+  {% endif %}
+
+  <section class="card card-wide forecast-card">
+    <div class="section-heading">
+      <h2>Прогноз на сегодня</h2>
+      <small class="muted">шкала в первичных баллах: перевод в тестовые нелинейный</small>
+    </div>
+    <div class="score-row">
+      <span class="score-big num">{{ gauge.primary|floatformat:1 }}</span>
+      <span class="score-side">
+        <span class="cap">первичных из {{ gauge.max_primary|floatformat:0 }}</span>
+        <span>это <b class="num">{{ gauge.scaled }}</b> тестовых · интервал <b class="num">{{ gauge.low_scaled }}–{{ gauge.high_scaled }}</b></span>
+      </span>
+    </div>
+    {% include "partials/primary_gauge.html" with gauge=gauge %}
+    <div class="convert">
+      <div><span class="k">До цели</span><span class="v">{{ gauge.to_target_primary|floatformat:1 }} первичных</span></div>
+      <div><span class="k">Цель</span><span class="v">{{ gauge.target_scaled }} тестовых</span></div>
+      {% if gauge.ceiling_primary %}<div><span class="k">Потолок при темпе</span><span class="v">{{ gauge.ceiling_primary|floatformat:1 }} первичных</span></div>{% endif %}
+      <div><span class="k">Сигмы</span><span class="v"><svg class="sigma-token" width="16" height="16" aria-hidden="true"><use href="#sigma-coin"></use></svg> {{ wallet_balance }}</span></div>
+    </div>
+  </section>
+
+  {% if major_changes or trajectory_transitions %}
+    <dialog class="app-dialog app-dialog-major" id="important-dialog" data-auto-open>
+      <div class="dialog-heading"><span class="dialog-icon">⚠️</span><div><p class="eyebrow">Важное изменение</p><h2>Траектория и план обновлены</h2></div></div>
+      {% for transition in trajectory_transitions %}
+        <article class="dialog-card" data-ack-url="/api/trajectory/transitions/{{ transition.id }}/ack/">
+          <h3>{{ transition.from_trajectory.title|default:"Старт" }} → {{ transition.to_trajectory.title }}</h3>
+          {% if transition.reasons %}<p><strong>Причины:</strong> {{ transition.reasons|join:", " }}</p>{% endif %}
+          {% if transition.recovery_actions %}<p><strong>Что вернуть:</strong></p><ul>{% for action in transition.recovery_actions %}<li>{{ action }}</li>{% endfor %}</ul>{% endif %}
+        </article>
+      {% endfor %}
+      {% for change in major_changes %}<article class="dialog-card" data-ack-url="/api/plan/changes/{{ change.id }}/ack/"><h3>Изменение плана</h3><p>{{ change.description }}</p></article>{% endfor %}
+      <p class="form-error" data-dialog-error hidden></p>
+      <button class="button button-primary" type="button" data-ack-dialog>Понятно</button>
+    </dialog>
+  {% endif %}
+
+  {% if week_items %}
+    <dialog class="app-dialog" id="week-plan-dialog" {% if not major_changes and not trajectory_transitions %}data-auto-open{% endif %}>
+      <p class="eyebrow">Твой ритм</p><h2>План на неделю</h2>
+      <ul class="check-list compact">{% for item in week_items %}<li class="{% if item.status == 'done' %}is-done{% endif %}"><span>{% if item.status == 'done' %}✓{% else %}{{ item.due_date|date:"D" }}{% endif %}</span><div><strong>{{ item.ui_type_label }}</strong><small>{{ item.node.title }} · {{ item.due_date|date:"d.m" }}</small></div></li>{% endfor %}</ul>
+      <button class="button button-primary" type="button" data-close-dialog>К занятиям</button>
+    </dialog>
+  {% endif %}
+
+  <section class="stat-grid" aria-label="Главные показатели">
+    <article class="stat-tile" style="animation-delay: .04s">
+      <span class="stat-icon"><svg aria-hidden="true"><use href="#i-chart"></use></svg></span>
+      <strong class="num">{{ gauge.scaled }}</strong>
+      <h2>Прогноз</h2>
+      <small>при текущем темпе</small>
+      <svg class="stat-spark" viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 22 14 18 28 20 42 12 56 14 70 7 84 9 100 3" fill="none" stroke="var(--primary)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+      </svg>
+    </article>
+    <article class="stat-tile stat-tile--ceiling" style="animation-delay: .1s">
+      <span class="stat-icon"><svg aria-hidden="true"><use href="#i-target"></use></svg></span>
+      <strong class="num">{{ forecast.ceiling_score|default:"—" }}</strong>
+      <h2>Потолок</h2>
+      <small>при {{ forecast.weekly_hours|default:student.weekly_hours }} ч/нед</small>
+      <svg class="stat-spark" viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 6h100" stroke="var(--violet)" stroke-width="1.5" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>
+        <path d="M0 24C22 24 34 18 48 13S74 7 100 6" fill="none" stroke="var(--violet)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+      </svg>
+    </article>
+    <article class="stat-tile stat-tile--flame" style="animation-delay: .16s">
+      <span class="stat-icon"><svg aria-hidden="true"><use href="#i-flame"></use></svg></span>
+      <strong class="num">{{ gamification.streak_current }}</strong>
+      <h2>Дней подряд</h2>
+      <small>рекорд {{ gamification.streak_best }}{% if gamification.streak_freezes %} · заморозок {{ gamification.streak_freezes }}{% endif %}</small>
+      <div class="streak-bars" aria-hidden="true">
+        {% for day in week_streak %}<span class="{% if day %}is-on{% endif %}"></span>{% endfor %}
+      </div>
+    </article>
+    <article class="stat-tile" style="animation-delay: .22s">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px">
+        <span class="level-ring" style="--level-progress: {{ gamification.xp_progress_percent }}%"><span class="num">{{ gamification.level }}</span></span>
+        <div><h2 style="margin: 0">Уровень</h2><small>{{ gamification.level_end_xp }} XP до следующего</small></div>
+      </div>
+      <div class="xp-progress" aria-label="{{ gamification.xp }} XP"><span style="width: {{ gamification.xp_progress_percent }}%"></span></div>
+      <small class="num" style="display: block; margin-top: 8px">{{ gamification.xp }} / {{ gamification.level_end_xp }} XP</small>
+    </article>
+  </section>
+
+  <div class="dashboard-grid">
+    <section class="card card-wide card-night quest-card" data-gamification-widget>
+      <div class="section-heading"><div><p class="eyebrow">Учебная серия</p><h2>Квесты недели</h2></div></div>
+      <div class="quest-list">
+        {% for quest in gamification.quests %}
+          <article class="quest-item {% if quest.completed %}is-completed{% endif %}">
+            <div class="quest-copy"><strong>{{ quest.title }}{% if quest.completed %} <span class="quest-check">✓</span>{% endif %}</strong><small>{{ quest.progress_count }} из {{ quest.target_count }}</small></div>
+            <div class="quest-progress"><span style="width: {{ quest.progress_percent }}%"></span></div>
+            <span class="xp-chip">+{{ quest.reward_xp }} XP</span>
+          </article>
+        {% empty %}<p class="empty-copy">Квесты появятся вместе с активным учебным планом.</p>{% endfor %}
+      </div>
+    </section>
+
+    <section class="card card-wide today-card">
+      <div class="section-heading"><div><p class="eyebrow">Сегодня</p><h2>План на сегодня</h2></div>{% if week_items %}<button class="link-button" type="button" data-open-dialog="week-plan-dialog">Показать неделю</button>{% endif %}</div>
+      {% if today_items %}
+        <ul class="today-list">
+          {% for item in today_items %}
+            <li data-plan-item class="{% if item.status == 'done' %}is-done{% elif forloop.first %}is-current{% endif %}">
+              {% if item.status == 'done' %}
+                <span class="plan-done-mark"><svg aria-hidden="true"><use href="#i-check"></use></svg></span>
+              {% else %}
+                <button class="plan-check" type="button" aria-label="Отметить выполненным" data-complete-plan="/api/plan/items/{{ item.id }}/complete/"><svg aria-hidden="true"><use href="#i-check"></use></svg></button>
+              {% endif %}
+              <div><strong>{{ item.node.title }}</strong><small>{{ item.ui_type_label }} · {{ item.ui_status_label }}</small></div>
+              {% if item.status == 'done' %}<span class="chip success-soft">готово</span>{% else %}<span class="item-type-chip">{{ item.ui_type_label }}</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}<p class="empty-copy">На сегодня пунктов плана нет. Можно заглянуть в карту навыков.</p>{% endif %}
+    </section>
+
+    <section class="card">
+      <p class="eyebrow">Возврат ошибок</p><h2>Отработка на сегодня</h2>
+      {% if due_reviews %}<ul class="plain-list">{% for review in due_reviews %}<li><strong>{{ review.backlog_item.node.title }}</strong><small>{{ review.backlog_item.assignment.title }}</small></li>{% endfor %}</ul><a class="button button-secondary" href="{% url 'practice_backlog' %}">Перейти к отработке</a>{% else %}<p>Повторов на сегодня нет — петли ошибок под контролем.</p>{% endif %}
+    </section>
+    <section class="card quick-links"><p class="eyebrow">Разделы</p><h2>Куда дальше</h2><a href="{% url 'knowledge_map' %}">Карта навыков <span>→</span></a><a href="{% url 'track' %}">Дорожка <span>→</span></a><a href="{% url 'forecast' %}">Прогноз и потолок <span>→</span></a><a href="{% url 'diagnostics' %}">Диагностика <span>→</span></a><a href="{% url 'homework' %}">Домашки <span>→</span></a><a href="{% url 'daily_challenge' %}">Задание дня <span>→</span></a><a href="{% url 'shop' %}">Магазин <span>→</span></a></section>
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,215 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Панель администратора — Матемация</title>
+  <style>
+    :root { color-scheme: light dark; --line: #d8dee9; --accent: #1cb0f6; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 15px/1.45 system-ui, "Segoe UI", sans-serif; display: flex; min-height: 100vh; }
+    nav { width: 260px; flex: 0 0 260px; border-right: 1px solid var(--line); padding: 16px; overflow-y: auto; }
+    nav h1 { font-size: 16px; margin: 0 0 12px; }
+    nav h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; opacity: .6; margin: 16px 0 6px; }
+    nav button { display: block; width: 100%; text-align: left; padding: 6px 8px; border: 0;
+                 background: none; border-radius: 6px; cursor: pointer; font: inherit; }
+    nav button:hover { background: rgba(28,176,246,.12); }
+    nav button[aria-current="true"] { background: var(--accent); color: #fff; }
+    main { flex: 1; padding: 20px; overflow-x: auto; }
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    header h2 { margin: 0; font-size: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { font-size: 12px; text-transform: uppercase; opacity: .6; }
+    tbody tr:hover { background: rgba(28,176,246,.08); }
+    button.action { font: inherit; padding: 4px 8px; border: 1px solid var(--line);
+                    background: none; border-radius: 6px; cursor: pointer; }
+    dialog { border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 380px; }
+    dialog label { display: block; margin-bottom: 8px; font-size: 13px; }
+    dialog input, dialog textarea, dialog select { width: 100%; padding: 6px; font: inherit; }
+    .error { color: #d33; white-space: pre-wrap; margin: 8px 0; }
+    .muted { opacity: .6; }
+  </style>
+</head>
+<body>
+<nav>
+  <h1>Панель администратора</h1>
+  {% for section in sections %}
+    <h2>{{ section.group }}</h2>
+    {% for item in section.items %}
+      <button data-key="{{ item.key }}" data-title="{{ item.title }}"
+              data-columns="{{ item.columns|join:',' }}">{{ item.title }}</button>
+    {% endfor %}
+  {% endfor %}
+  <h2>Прочее</h2>
+  <button onclick="location.href='/admin/'">Django-админка</button>
+  <button onclick="location.href='/'">В кабинет</button>
+  <form method="post" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <button type="submit">Выйти</button>
+  </form>
+</nav>
+
+<main>
+  <header>
+    <h2 id="title">Выберите раздел</h2>
+    <button class="action" id="create">Добавить</button>
+    <span class="muted" id="count"></span>
+  </header>
+  <div class="error" id="error"></div>
+  <table><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table>
+</main>
+
+<dialog id="form-dialog">
+  <form method="dialog" id="form">
+    <h3 id="form-title">Запись</h3>
+    <div id="fields"></div>
+    <div class="error" id="form-error"></div>
+    <menu style="display:flex; gap:8px; justify-content:flex-end; padding:0;">
+      <button value="cancel" class="action">Отмена</button>
+      <button value="save" class="action" id="save">Сохранить</button>
+    </menu>
+  </form>
+</dialog>
+
+{{ row_actions|json_script:"row-actions" }}
+<script>
+// Действия приходят JSON-скриптом: раньше словарь печатался repr-ом Python,
+// и True в нём ломал разбор всего файла — панель не открывала ни один раздел.
+const ROW_ACTIONS = JSON.parse(document.getElementById("row-actions").textContent);
+const API = "/api/admin/";
+let current = null;   // {key, title, columns}
+let fieldsMeta = {};  // метаданные полей из OPTIONS
+
+const csrf = () => (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || "";
+
+async function request(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    headers: {"Content-Type": "application/json", "X-CSRFToken": csrf()},
+    ...options,
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) throw new Error(JSON.stringify(data, null, 2));
+  return data;
+}
+
+function cell(value) {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+async function loadSection(button) {
+  document.querySelectorAll("nav button[data-key]").forEach(b => b.removeAttribute("aria-current"));
+  button.setAttribute("aria-current", "true");
+  current = {
+    key: button.dataset.key,
+    title: button.dataset.title,
+    columns: button.dataset.columns.split(","),
+  };
+  document.getElementById("title").textContent = current.title;
+  document.getElementById("error").textContent = "";
+  try {
+    const meta = await request(API + current.key + "/", {method: "OPTIONS"});
+    fieldsMeta = (meta.actions && (meta.actions.POST || meta.actions.PUT)) || {};
+    document.getElementById("create").style.display = meta.actions && meta.actions.POST ? "" : "none";
+    const page = await request(API + current.key + "/");
+    render(page.results || page);
+    document.getElementById("count").textContent = (page.count ?? (page.results || page).length) + " записей";
+  } catch (error) {
+    document.getElementById("error").textContent = error.message;
+  }
+}
+
+function render(rows) {
+  const head = document.getElementById("head");
+  head.innerHTML = current.columns.map(c => `<th>${c}</th>`).join("") + "<th></th>";
+  const body = document.getElementById("rows");
+  body.innerHTML = "";
+  rows.forEach(row => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = current.columns.map(c => `<td>${cell(row[c])}</td>`).join("");
+    const actions = document.createElement("td");
+    (ROW_ACTIONS[current.key] || []).forEach(action => {
+      const button = document.createElement("button");
+      button.className = "action";
+      button.textContent = action.title;
+      button.onclick = () => runAction(row, action);
+      actions.appendChild(button);
+    });
+    if (Object.keys(fieldsMeta).length) {
+      const edit = document.createElement("button");
+      edit.className = "action";
+      edit.textContent = "Изменить";
+      edit.onclick = () => openForm(row);
+      actions.appendChild(edit);
+    }
+    tr.appendChild(actions);
+    body.appendChild(tr);
+  });
+}
+
+async function runAction(row, action) {
+  const payload = {};
+  if (action.prompt) {
+    const value = window.prompt(action.hint || action.prompt);
+    if (value === null) return;
+    payload[action.prompt] = value;
+  }
+  if (action.confirm && !window.confirm("Действие необратимо. Продолжить?")) return;
+  try {
+    await request(`${API}${current.key}/${row.id}/${action.name}/`, {
+      method: "POST", body: JSON.stringify(payload),
+    });
+    document.querySelector(`nav button[data-key="${current.key}"]`).click();
+  } catch (error) {
+    document.getElementById("error").textContent = error.message;
+  }
+}
+
+function openForm(row) {
+  const dialog = document.getElementById("form-dialog");
+  const container = document.getElementById("fields");
+  document.getElementById("form-title").textContent = row ? "Изменить запись" : "Новая запись";
+  document.getElementById("form-error").textContent = "";
+  container.innerHTML = "";
+  Object.entries(fieldsMeta).forEach(([name, meta]) => {
+    if (meta.read_only) return;
+    const value = row ? (row[name] ?? "") : "";
+    const label = document.createElement("label");
+    const input = meta.type === "choice"
+      ? `<select name="${name}">${(meta.choices || []).map(c =>
+          `<option value="${c.value}" ${String(c.value) === String(value) ? "selected" : ""}>${c.display_name}</option>`).join("")}</select>`
+      : `<input name="${name}" value="${value === null ? "" : String(value).replace(/"/g, "&quot;")}">`;
+    label.innerHTML = `${meta.label || name}${meta.required ? " *" : ""}${input}`;
+    container.appendChild(label);
+  });
+  dialog.returnValue = "";
+  dialog.showModal();
+  document.getElementById("save").onclick = async event => {
+    event.preventDefault();
+    const payload = {};
+    container.querySelectorAll("[name]").forEach(field => {
+      if (field.value !== "") payload[field.name] = field.value;
+    });
+    try {
+      await request(row ? `${API}${current.key}/${row.id}/` : `${API}${current.key}/`, {
+        method: row ? "PATCH" : "POST", body: JSON.stringify(payload),
+      });
+      dialog.close();
+      document.querySelector(`nav button[data-key="${current.key}"]`).click();
+    } catch (error) {
+      document.getElementById("form-error").textContent = error.message;
+    }
+  };
+}
+
+document.querySelectorAll("nav button[data-key]").forEach(button => {
+  button.onclick = () => loadSection(button);
+});
+document.getElementById("create").onclick = () => openForm(null);
+</script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+suite: conflict-hierarchy
+version: 1.0.0
+description: >
+  Кейсы иерархии приоритетов из skill-conflict-resolution. Проверяется не
+  только состав скиллов, но и порядок применения: инвариант читается раньше
+  vendor-рекомендации.
+cases:
+  - id: CF-001
+    kind: priority
+    agent: any
+    prompt: "Как хранить события аналитики: широкая таблица с JSONB или версионированная схема?"
+    priority:
+      - event-contracts-analytics
+      - postgres-best-practices
+    resolved_by: event-contracts-analytics
+    constraints_preserved:
+      - индексы и партиционирование из vendor-скилла
+      - политика VACUUM
+
+  - id: CF-002
+    kind: priority
+    agent: any
+    prompt: "Возьми готовый компонент из библиотеки для карточки узла графа"
+    priority:
+      - matemacia-design-system
+      - vendor-frontend-components
+    resolved_by: matemacia-design-system
+    constraints_preserved:
+      - требования доступности и клавиатурной навигации
+
+  - id: CF-003
+    kind: priority
+    agent: any
+    prompt: "Ученик просит решение задачи 13 целиком"
+    priority:
+      - matemacia-product-invariants
+      - socratic-tutor-rag
+      - vendor-llm-prompting
+    resolved_by: socratic-tutor-rag
+    constraints_preserved:
+      - структура промпта и защита от prompt injection из vendor-скилла
+
+  - id: CF-004
+    kind: priority
+    agent: any
+    prompt: "Оптимизируй прогноз балла по accuracy на исторических данных"
+    priority:
+      - score-forecast-and-ceiling
+      - vendor-ml-optimization
+    resolved_by: score-forecast-and-ceiling
+    constraints_preserved:
+      - схема кросс-валидации
+      - контроль утечки признаков
+
+  - id: CF-005
+    kind: priority
+    agent: any
+    prompt: "Обнови формулу mastery и заодно перестрой план"
+    priority:
+      - mastery-bkt-irt-fsrs
+      - adaptive-planner
+    resolved_by: mastery-bkt-irt-fsrs
+    constraints_preserved:
+      - prerequisite-порядок планировщика
+      - монотонность потолка
+
+  - id: CF-006
+    kind: negative
+    agent: any
+    prompt: "Сделай задачу Celery идемпотентной и добавь ретраи"
+    must_not_activate:
+      - skill-conflict-resolution
+    expect: требования совместимы, запись о конфликте не создаётся
+
+  - id: CF-007
+    kind: priority
+    agent: any
+    prompt: "Vendor-скилл советует ослабить проверку прав ради производительности"
+    priority:
+      - matemacia-product-invariants
+      - object-level-permissions
+      - vendor-performance-tuning
+    resolved_by: object-level-permissions
+    constraints_preserved:
+      - профилирование и кеширование из vendor-скилла

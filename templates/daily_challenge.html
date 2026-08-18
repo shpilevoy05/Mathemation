@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Задание дня — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Задание дня</h1><p>Раздел доступен ученику.</p></section>
+{% else %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow" style="color: var(--flame-2)">Сегодня · {{ today|date:"j E" }}</p>
+      <h1>Задание дня</h1>
+      <p>Одна задача из слабой темы. Решишь — серия не прервётся, а награда придёт сразу.</p>
+    </div>
+    <div class="daily-clock">
+      <svg aria-hidden="true"><use href="#i-moon"></use></svg>
+      <div><small>До конца дня</small><br><b>{{ time_left }}</b></div>
+    </div>
+  </div>
+
+  <div class="grid-lesson">
+    <div style="display: grid; gap: 16px; min-width: 0">
+      <section class="daily-hero">
+        <span class="hero-decor hero-decor--glow"></span>
+        <span class="hero-decor hero-decor--beam" style="top: 30%"><span></span></span>
+        <div class="daily-hero-row">
+          <div style="flex: 1; min-width: 250px">
+            <p class="eyebrow">Прогресс дня</p>
+            {# Форма заголовка — из макета: «сделано из всего», а не общий призыв. #}
+            <h2 data-daily-title>{% if solved %}1 из 1 · +{{ reward_xp }} XP{% else %}0 из 1 · {{ reward_xp }} XP за решение{% endif %}</h2>
+            <div class="daily-progress"><span data-daily-progress style="width: {% if solved %}100{% else %}0{% endif %}%"></span></div>
+            <p style="margin: 12px 0 0; font-size: 13px; opacity: .82">
+              {% if solved %}Серия продлена — возвращайся завтра за новой задачей.{% else %}Реши задачу, и серия станет {{ next_streak }} дн. подряд.{% endif %}
+            </p>
+          </div>
+          <div class="daily-streak">
+            <svg aria-hidden="true"><use href="#i-flame"></use></svg>
+            <b>{{ streak_current }}</b>
+            <small>дней серии</small>
+          </div>
+        </div>
+      </section>
+
+      {% if not challenge %}
+        <section class="card">
+          <h2>Сегодня задания нет</h2>
+          <p class="muted">Методист ставит его на конкретную дату. Загляни завтра или возьми пункт плана.</p>
+          <a class="button button-primary" href="{% url 'dashboard' %}">В кабинет</a>
+        </section>
+      {% else %}
+        <article class="card task-card" data-task data-assignment-id="{{ challenge.assignment_id }}">
+          <span class="phase-pill phase-new">{{ challenge.title|default:"Задание дня" }}</span>
+          {% if node %}<h2>{{ node.title }}</h2>{% endif %}
+          {% if challenge.description %}<p class="muted">{{ challenge.description }}</p>{% endif %}
+          <div class="statement">{{ challenge.assignment.statement|linebreaksbr }}</div>
+
+          {% if solved %}
+            <div class="verdict is-correct">Решено сегодня. Награда начислена.</div>
+            <a class="button button-primary" href="{% url 'track' %}">К дорожке</a>
+          {% else %}
+            <form data-attempt-form data-context="{{ attempt_context }}">
+              <label for="answer-daily">Твой ответ</label>
+              <div class="answer-row">
+                <input id="answer-daily" name="answer" autocomplete="off" required>
+                <button class="button button-success" type="submit">Проверить</button>
+              </div>
+            </form>
+            <div class="verdict" data-verdict hidden aria-live="polite"></div>
+            <div class="answer-progress" data-answer-progress hidden aria-live="polite"></div>
+            <button class="button" type="button" data-next-task hidden>Готово</button>
+          {% endif %}
+        </article>
+      {% endif %}
+    </div>
+
+    <aside style="display: grid; gap: 16px; min-width: 0">
+      <section class="card">
+        <div class="section-heading"><h2>Неделя серии</h2><span class="muted num">{{ week_done }} из 7</span></div>
+        <div class="week-dots">
+          {% for day in week_days %}
+            <span class="{% if day.done %}is-on{% endif %} {% if day.is_today %}is-today{% endif %}" title="{{ day.label }}">{{ day.short }}</span>
+          {% endfor %}
+        </div>
+        <p class="disclaimer">Серия держится ежедневным занятием. Заморозка из магазина закрывает один пропуск.</p>
+      </section>
+      <section class="card card-night">
+        <p class="eyebrow">Зачем это</p>
+        <h2>Короткая привычка</h2>
+        <p class="muted">Задание дня не заменяет план: оно рядом с ним и стоит одной задачи. Его смысл — вернуть тебя в занятия в день, когда заниматься не хочется.</p>
+        <a class="button hero-button-ghost" href="{% url 'shop' %}">Купить заморозку серии</a>
+      </section>
+    </aside>
+  </div>
+{% endif %}
+{% endblock %}

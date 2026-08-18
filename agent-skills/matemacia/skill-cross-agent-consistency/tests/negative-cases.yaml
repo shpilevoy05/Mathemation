@@ -1,0 +1,38 @@
+suite: skill-cross-agent-consistency
+kind: negative
+version: 1.0.0
+cases:
+  - id: CA-N-001
+    kind: negative
+    prompt: "Claude Code написал план из 5 шагов, а Codex из 3 — это проблема?"
+    must_not_activate:
+      - skill-conflict-resolution
+    expect: допустимое расхождение стиля, разбор конфликта не нужен
+
+  - id: CA-N-002
+    kind: negative
+    prompt: "Проверь новый скилл на структуру и метаданные"
+    must_not_activate:
+      - skill-cross-agent-consistency
+    expect: работают skill-structure-validator и skill-metadata-governance
+
+  - id: CA-N-003
+    kind: negative
+    prompt: "Работаю только в Claude Code, посчитай precision выбора скиллов"
+    must_not_activate:
+      - skill-cross-agent-consistency
+    expect: работает skill-routing-evaluation по одному агенту
+
+  - id: CA-N-004
+    kind: negative
+    prompt: "Подключи внешний репозиторий скиллов"
+    must_not_activate:
+      - skill-cross-agent-consistency
+    expect: работает skill-supply-chain-audit
+
+  - id: CA-N-005
+    kind: negative
+    prompt: "Перепиши текст письма родителю в weekly-отчёте"
+    must_not_activate:
+      - skill-cross-agent-consistency
+    expect: прикладная правка контента

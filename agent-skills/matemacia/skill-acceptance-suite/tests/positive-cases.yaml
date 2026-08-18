@@ -1,0 +1,40 @@
+suite: skill-acceptance-suite
+kind: positive
+version: 1.0.0
+cases:
+  - id: AS-P-001
+    kind: positive
+    prompt: "Проведи приёмку системы навыков перед релизом"
+    expected:
+      - skill-acceptance-suite
+    expect: полный набор в правильном порядке, одна рекомендация
+
+  - id: AS-P-002
+    kind: positive
+    prompt: "Мы обновили два vendor-репозитория, можно ли пользоваться системой?"
+    expected:
+      - skill-acceptance-suite
+    expect: security + routing + golden tasks, рекомендация с обоснованием
+
+  - id: AS-P-003
+    kind: positive
+    prompt: "Перенёс навыки на новую машину, проверь всё целиком"
+    expected:
+      - skill-acceptance-suite
+      - skills-ci-integrity
+    expect: инсталляция и lock проверены до прогонов агентов
+
+  - id: AS-P-004
+    kind: positive
+    prompt: "Добавили новый доменный скилл, нужна приёмка"
+    expected:
+      - skill-acceptance-suite
+    expect: routing-покрытие нового скилла проверено, golden tasks прогнаны
+
+  - id: AS-P-005
+    kind: positive
+    prompt: "Дай сводный отчёт приёмки по Claude Code и Codex"
+    expected:
+      - skill-acceptance-suite
+      - skill-cross-agent-consistency
+    expect: отчёт в обязательном формате с полями по обоим агентам

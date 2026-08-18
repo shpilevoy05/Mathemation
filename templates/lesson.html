@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% load l10n %}
+{% block title %}Занятие: {{ node.title|default:"" }} — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Занятие</h1><p>Этот раздел доступен ученикам.</p></section>
+{% else %}
+<a class="back-link" href="{% url 'track' %}">← К дорожке</a>
+
+<div class="lesson-shell"
+     data-lesson
+     data-node-id="{{ node.id }}"
+     data-stage="{{ current_stage }}"
+     {# Числа для скрипта — только с точкой: Number("0,0") даёт NaN. #}
+     data-mastery="{{ mastery_percent|unlocalize }}"
+     data-threshold="{{ mastery_threshold|unlocalize }}"
+     data-start-xp="{{ start_xp|unlocalize }}"
+     data-start-coins="{{ start_coins|unlocalize }}">
+
+  <header class="lesson-head">
+    <div>
+      <p class="eyebrow">Занятие</p>
+      <h1>{{ node.title }}</h1>
+      <p>Три этапа: разобраться, решить, вернуть ошибки. Прогресс сверху показывает, где ты сейчас.</p>
+    </div>
+    <div class="lesson-meters">
+      <span class="meter"><small>Освоение темы</small><strong class="num" data-meter-mastery>{{ mastery_percent }}%</strong></span>
+      <span class="meter"><small>Опыт</small><strong class="num" data-meter-xp>{{ start_xp }}</strong></span>
+      <span class="meter"><small>Сигмы</small><strong class="num sigma-amount"><svg class="sigma-token" width="15" height="15" aria-hidden="true"><use href="#sigma-coin"></use></svg><span data-meter-coins>{{ start_coins }}</span></strong></span>
+    </div>
+  </header>
+
+  <ol class="stepper" data-stepper aria-label="Этапы занятия">
+    {% for stage in stages %}
+      <li class="step {% if stage.is_done %}is-done{% endif %} {% if stage.is_current %}is-current{% endif %}"
+          data-step="{{ stage.key }}" aria-current="{% if stage.is_current %}step{% else %}false{% endif %}">
+        <button type="button" data-step-jump="{{ stage.key }}">
+          <span class="step-dot" aria-hidden="true">{% if stage.is_done %}<svg><use href="#i-check"></use></svg>{% else %}{{ forloop.counter }}{% endif %}</span>
+          <span class="step-copy">
+            <strong>{{ stage.title }}</strong>
+            <small data-step-caption>{{ stage.caption }}</small>
+          </span>
+        </button>
+      </li>
+    {% endfor %}
+    <span class="stepper-line" aria-hidden="true"><i data-stepper-fill></i></span>
+  </ol>
+
+  <!-- Этап 1: материал -->
+  <section class="lesson-stage" data-stage-panel="material" {% if current_stage != 'material' %}hidden{% endif %}>
+    <div class="stage-head"><h2>Материал занятия</h2><span class="item-type-chip">этап 1 из 3</span></div>
+    {% for lesson in video_lessons %}
+      <article class="card video-lesson">
+        <h3>{{ lesson.title }}</h3>
+        {% if lesson.video_duration_minutes %}<p class="muted">Длительность: {{ lesson.video_duration_minutes }} мин.</p>{% endif %}
+        <div class="video-frame" data-video="{% url 'lesson-playback' lesson.id %}" data-title="{{ lesson.title }}">
+          <button class="button button-primary" type="button" data-video-play>Смотреть занятие</button>
+          <p class="muted" data-video-note>Ссылка на плеер выдаётся на время просмотра.</p>
+        </div>
+      </article>
+    {% empty %}
+      <article class="card"><h3>Видео к этой теме пока нет</h3><p class="muted">Разбор ведётся конспектом и задачами ниже.</p></article>
+    {% endfor %}
+
+    <article class="card summary-card">
+      <div class="section-heading">
+        <div><h3>Конспект</h3><p class="muted">Ключевые факты, приёмы и условия задач занятия — одним файлом.</p></div>
+        <a class="button button-primary" href="{% url 'lesson-summary' node.id %}" download>Скачать конспект</a>
+      </div>
+      <details class="theory-summary">
+        <summary><strong>Прочитать здесь</strong><span>Открыть</span></summary>
+        {% for block in theory_blocks %}
+          <article class="theory-block"><h4>{{ block.title }}</h4><div>{{ block.body|linebreaksbr }}</div></article>
+        {% empty %}
+          <p class="muted">Конспект для темы готовится.</p>
+        {% endfor %}
+      </details>
+    </article>
+
+    <div class="stage-actions">
+      <button class="button button-primary" type="button" data-finish-material>Разобрался, к задачам →</button>
+      <p class="muted">Этап закрывается вручную: только ты знаешь, что материал понятен.</p>
+    </div>
+  </section>
+
+  <!-- Этап 2: задачи -->
+  <section class="lesson-stage" data-stage-panel="tasks" {% if current_stage != 'tasks' %}hidden{% endif %}>
+    <div class="stage-head"><h2>Задачи по теме</h2><span class="item-type-chip">этап 2 из 3</span></div>
+    <div class="lesson-layout" id="tasks">
+      <section class="task-stage">
+        <div class="task-progress">
+          <span data-task-counter>{{ task_stats.solved }} / {{ tasks|length }}</span>
+          <div><i data-task-progress></i></div>
+        </div>
+        {% for task in tasks %}
+          <article class="card task-card {% if not forloop.first %}is-hidden{% endif %}" data-task data-assignment-id="{{ task.assignment.id }}">
+            <span class="phase-pill phase-{{ task.phase }}">{{ task.phase_label }}</span>
+            <h3>{{ task.assignment.title }}</h3>
+            <div class="statement">{{ task.assignment.statement|linebreaksbr }}</div>
+            <form data-attempt-form data-context="{{ attempt_context }}">
+              <label for="answer-{{ task.assignment.id }}">Твой ответ</label>
+              <div class="answer-row">
+                <input id="answer-{{ task.assignment.id }}" name="answer" autocomplete="off" required
+                       {% if task.assignment.answer_type == 'root_families' %}placeholder="π/6 + 2πk; 5π/6 + 2πk"{% elif task.assignment.answer_type == 'root_set' %}placeholder="7π/6; 11π/6"{% endif %}>
+                <button class="button button-success" type="submit">Проверить</button>
+              </div>
+              {% if task.assignment.answer_type == 'root_families' %}
+                <small class="answer-hint">Серии через «;», параметр любой буквой. Буква π или «pi», запись «±» тоже понимается.</small>
+              {% elif task.assignment.answer_type == 'root_set' %}
+                <small class="answer-hint">Корни через «;» в любом порядке.</small>
+              {% endif %}
+            </form>
+            <div class="verdict" data-verdict hidden aria-live="polite"></div>
+            <div class="answer-progress" data-answer-progress hidden aria-live="polite"></div>
+            <button class="button" type="button" data-next-task hidden>Следующая задача →</button>
+            {% if mentor_enabled %}
+              <section class="mentor-panel card-night" data-mentor-panel>
+                <div class="mentor-heading"><span><svg aria-hidden="true"><use href="#i-chat"></use></svg></span><div><h3>Наставник</h3><small>Наводит вопросами, но не выдаёт ответ</small></div></div>
+                <div class="mentor-history" data-mentor-history>{% if task.hint_session %}{% for message in task.hint_session.messages.all %}<p class="message message-{{ message.role }}">{{ message.text }}</p>{% endfor %}{% endif %}</div>
+                <form data-hint-form>
+                  <label for="hint-{{ task.assignment.id }}">Где именно не складывается?</label>
+                  <div class="answer-row"><input id="hint-{{ task.assignment.id }}" name="question" required><button class="button" type="submit">Подсказка</button></div>
+                </form>
+                <p class="mentor-note">Если наставник не уверен в шаге, он пометит это и предложит живого преподавателя.</p>
+              </section>
+            {% endif %}
+          </article>
+        {% empty %}
+          <section class="empty-state"><h3>Очередь пока пуста</h3><p>Для этой темы ещё не добавлены задачи.</p></section>
+        {% endfor %}
+      </section>
+    </div>
+    <div class="stage-actions">
+      <button class="button" type="button" data-goto-stage="review">К отработке →</button>
+    </div>
+  </section>
+
+  <!-- Этап 3: отработка -->
+  <section class="lesson-stage" data-stage-panel="review" {% if current_stage != 'review' %}hidden{% endif %}>
+    <div class="stage-head"><h2>Отработка ошибок темы</h2><span class="item-type-chip">этап 3 из 3</span></div>
+    {% if due_node_reviews %}
+      <div class="review-list">
+        {% for review in due_node_reviews %}
+          <article class="card" data-review-item>
+            <div><small>Повтор через {{ review.interval_days }} дн.</small><h3>{{ review.backlog_item.assignment.title }}</h3><p class="muted">{{ review.backlog_item.node.title }}</p></div>
+            <div class="review-actions">
+              <button class="button button-primary" data-review-complete="/api/reviews/{{ review.id }}/complete/" data-success="true">Получилось</button>
+              <button class="button" data-review-complete="/api/reviews/{{ review.id }}/complete/" data-success="false">Пока нет</button>
+            </div>
+            <p class="verdict" data-review-result hidden></p>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <article class="card">
+        <h3>На сегодня повторов по теме нет</h3>
+        <p class="muted">
+          {% if open_mistakes %}Открытых ошибок темы: {{ open_mistakes }}. Они вернутся по расписанию 1/3/7/30 дней.
+          {% else %}Ошибок по теме нет — этап закрыт.{% endif %}
+        </p>
+      </article>
+    {% endif %}
+    <div class="stage-actions">
+      <button class="button button-primary" type="button" data-finish-lesson>Завершить занятие</button>
+    </div>
+  </section>
+
+  <!-- Итог занятия -->
+  <section class="card lesson-outro" data-lesson-outro hidden>
+    <span class="success-icon"><svg aria-hidden="true"><use href="#i-check"></use></svg></span>
+    <h2 data-outro-title>Занятие пройдено</h2>
+    <p data-outro-praise>Тема разобрана, задачи решены, ошибки вернулись в работу.</p>
+    <div class="outro-stats">
+      <div>
+        <small>Освоение темы</small>
+        <strong class="num"><span data-outro-mastery-from>{{ mastery_percent }}</span>% → <span data-outro-mastery>{{ mastery_percent }}</span>%</strong>
+        <div class="bar"><span data-outro-mastery-bar style="width: {{ mastery_percent|unlocalize }}%"></span></div>
+      </div>
+      <div><small>Опыт за занятие</small><strong class="num" data-outro-xp>+0</strong></div>
+      <div><small>Сигмы за занятие</small><strong class="num" data-outro-coins>+0</strong></div>
+    </div>
+    <div class="stage-actions">
+      <a class="button button-primary" href="{% url 'track' %}">Вернуться на дорожку</a>
+      <a class="button" href="{% url 'lesson-summary' node.id %}" download>Скачать конспект</a>
+    </div>
+  </section>
+
+  <!-- Слой перехода между этапами -->
+  <div class="reward-layer" data-reward-layer hidden aria-live="polite">
+    <div class="reward-card">
+      <p class="reward-kicker" data-reward-kicker>Этап пройден</p>
+      <h3 data-reward-title>Дальше — задачи</h3>
+      <div class="reward-rows">
+        <div class="reward-row" data-reward-mastery hidden>
+          <span>Освоение темы</span>
+          <b class="num"><span data-reward-mastery-from>0</span>% → <span data-reward-mastery-to>0</span>%</b>
+          <div class="bar"><span data-reward-mastery-bar style="width: 0%"></span></div>
+        </div>
+        <div class="reward-row" data-reward-xp-row hidden><span>Опыт</span><b class="num" data-reward-xp>+0</b></div>
+        <div class="reward-row" data-reward-coins-row hidden><span>Сигмы</span><b class="num" data-reward-coins>+0</b></div>
+      </div>
+      <button class="button button-primary" type="button" data-reward-continue>Продолжить</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

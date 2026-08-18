@@ -1,0 +1,38 @@
+suite: skill-routing-evaluation
+kind: negative
+version: 1.0.0
+cases:
+  - id: RE-N-001
+    kind: negative
+    prompt: "В SKILL.md нет раздела «Запрещено», добавь"
+    must_not_activate:
+      - skill-routing-evaluation
+    expect: работает skill-structure-validator
+
+  - id: RE-N-002
+    kind: negative
+    prompt: "Vendor-скилл требует одно, наш доменный — другое, что главнее?"
+    must_not_activate:
+      - skill-routing-evaluation
+    expect: работает skill-conflict-resolution
+
+  - id: RE-N-003
+    kind: negative
+    prompt: "Подключи новый внешний репозиторий скиллов"
+    must_not_activate:
+      - skill-routing-evaluation
+    expect: работает skill-supply-chain-audit
+
+  - id: RE-N-004
+    kind: negative
+    prompt: "Сколько токенов мы потратили на скиллы за месяц?"
+    must_not_activate:
+      - skill-routing-evaluation
+    expect: работает skill-observability-and-usage-analytics
+
+  - id: RE-N-005
+    kind: negative
+    prompt: "Настрой Celery beat для ночного пересчёта забывания"
+    must_not_activate:
+      - skill-routing-evaluation
+    expect: прикладная задача, governance-скиллы не нужны

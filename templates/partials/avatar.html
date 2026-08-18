@@ -1,0 +1,13 @@
+{% comment %}
+Аватар ученика с надетой рамкой. Пока аватар не куплен, показывается буква
+имени — интерфейс не должен выглядеть сломанным до первой покупки.
+{% endcomment %}
+<span class="avatar-badge avatar-badge--{{ size|default:'sm' }}{% if ui_frame %} frame-{{ ui_frame }}{% endif %}"
+      title="{{ user.get_full_name|default:user.username }}">
+  {% if ui_avatar %}
+    <svg class="avatar-art" viewBox="0 0 60 60" aria-hidden="true"><use href="#avatar-{{ ui_avatar }}"></use></svg>
+  {% else %}
+    <span class="avatar-letter" aria-hidden="true">{{ user.get_full_name|default:user.username|first|upper }}</span>
+  {% endif %}
+  <span class="visually-hidden">{{ user.get_full_name|default:user.username }}</span>
+</span>

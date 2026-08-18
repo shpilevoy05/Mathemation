@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Отработка — Матемация{% endblock %}
+{% block content %}
+{% if not student %}<section class="empty-state"><h1>Отработка</h1><p>Этот раздел доступен ученикам.</p></section>{% else %}
+<div class="page-heading"><div><p class="eyebrow">Ошибка не теряется</p><h1>Отработка</h1><p>Полка ошибок и интервальные повторы возвращают слабые места в работу.</p></div></div>
+<section class="card review-today"><div class="section-heading"><div><p class="eyebrow">На сегодня</p><h2>Повторы</h2></div><span class="count-badge">{{ due_reviews|length }}</span></div>{% if due_reviews %}<div class="review-list">{% for review in due_reviews %}<article data-review-item><div><small>Повтор через {{ review.interval_days }} дн.</small><h3>{{ review.backlog_item.assignment.title }}</h3><p>{{ review.backlog_item.node.title }}</p></div><div class="review-actions"><button class="button button-success" data-review-complete="/api/reviews/{{ review.id }}/complete/" data-success="true">Получилось</button><button class="button" data-review-complete="/api/reviews/{{ review.id }}/complete/" data-success="false">Пока нет</button></div><p class="verdict" data-review-result hidden></p></article>{% endfor %}</div>{% else %}<p class="empty-copy">На сегодня повторов нет. Следующий появится по интервальному расписанию.</p>{% endif %}</section>
+<section class="card review-today">
+  <div class="section-heading"><div><p class="eyebrow">Вторая часть</p><h2>Проверка эксперта</h2></div><span class="count-badge">{{ expert_reviews|length }}</span></div>
+  {% if expert_reviews %}
+    <div class="review-list">
+      {% for review in expert_reviews %}
+        <article class="expert-verdict {% if review.needs_resubmission %}needs-work{% endif %}" data-expert-review="{{ review.id }}">
+          <div>
+            <span class="status-pill {% if review.needs_resubmission %}danger-soft{% elif review.is_pending %}{% else %}success-soft{% endif %}">{{ review.status_label }}</span>
+            <h3>{{ review.assignment.title }}</h3>
+            {% if review.is_pending %}
+              <p>Работа у эксперта с {{ review.created_at|date:"d.m H:i" }} — вердикт придёт сюда.</p>
+            {% else %}
+              <p class="num">Балл {{ review.score }} из {{ review.max_score }}</p>
+              {% if review.comment %}<p>{{ review.comment }}</p>{% endif %}
+              {% if review.missing_steps %}
+                <div class="missing-steps">
+                  <b>Что не сошлось:</b>
+                  <ol>
+                    {% for step in review.missing_steps %}
+                      <li>{{ step.description }}<small>{{ step.stage }} · {{ step.node }}</small></li>
+                    {% endfor %}
+                  </ol>
+                </div>
+              {% endif %}
+            {% endif %}
+          </div>
+          {% if review.needs_resubmission %}
+            <form class="review-actions" data-resubmit-form data-assignment="{{ review.assignment_id }}">
+              <input type="file" name="file" accept="image/jpeg,image/png,image/webp" required>
+              <button class="button button-primary" type="submit">Отправить исправленное</button>
+              <p class="form-error" data-resubmit-error hidden></p>
+            </form>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="empty-copy">Работ на проверке нет. Решения второй части уходят сюда из занятия и из пробника.</p>
+  {% endif %}
+</section>
+<div class="content-grid"><section class="card card-wide"><p class="eyebrow">В работе</p><h2>Полка ошибок</h2>{% if backlog_items %}<div class="mistake-list">{% for item in backlog_items %}<article><div><span class="status-pill">{{ item.status }}</span><h3>{{ item.node }}</h3><p>{{ item.assignment }}</p></div><div class="mistake-meta"><strong>×{{ item.error_count }}</strong><small>{{ item.error_type }}</small></div></article>{% endfor %}</div>{% else %}<p>Открытых ошибок нет.</p>{% endif %}</section><aside class="card resolved-card"><p class="eyebrow">Закрытые петли</p><h2>Эту ошибку ты уже не делаешь</h2>{% if resolved_items %}<ul class="plain-list">{% for item in resolved_items %}<li><strong>✓ {{ item.node }}</strong><small>{{ item.error_type }}</small></li>{% endfor %}</ul>{% else %}<p>Здесь появятся ошибки после всех успешных повторов.</p>{% endif %}</aside></div>
+{% endif %}{% endblock %}

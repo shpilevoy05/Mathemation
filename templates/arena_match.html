@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load l10n %}
+{% block title %}Партия — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Партия</h1><p>Раздел доступен ученику.</p></section>
+{% else %}
+  <a class="back-link" href="{% url 'arena' %}">← В арену</a>
+
+  <div class="match-shell" data-match="{{ match.id|unlocalize }}"
+       data-seconds="{{ match.seconds_per_question|unlocalize }}">
+    <header class="match-head">
+      <div>
+        <p class="eyebrow">{{ state.mode_label }}</p>
+        <h1>Партия против {{ state.opponent.title|default:"соперника" }}</h1>
+        <p class="muted">
+          {% if match.ege_task_number %}Задание {{ match.ege_task_number }}{% else %}Случайный набор{% endif %} ·
+          {{ state.questions_total }} вопрос{{ state.questions_total|pluralize:"а,ов" }} ·
+          {{ match.seconds_per_question }} с на вопрос
+        </p>
+      </div>
+      <div class="match-score">
+        <span><small>Вы</small><strong class="num" data-my-score>{{ state.me.score }}</strong></span>
+        <span><small>{{ state.opponent.title|default:"Соперник" }}</small><strong class="num" data-rival-progress>{{ state.opponent.answered|default:0 }}/{{ state.questions_total }}</strong></span>
+      </div>
+    </header>
+
+    <section class="card match-board" data-match-question data-question-id="{{ state.question.id|default:0|unlocalize }}" {% if not state.question %}hidden{% endif %}>
+      <div class="section-heading">
+        <h2 data-question-title>{{ state.question.title|default:"" }}</h2>
+        <span class="chip" data-question-points>{{ state.question.points|default:0 }} очков</span>
+      </div>
+      <div class="match-timer"><i data-match-timer-bar></i></div>
+      <div class="statement" data-question-statement>{{ state.question.statement|default:""|linebreaksbr }}</div>
+      <form class="answer-row" data-match-answer-form>
+        <input name="answer" autocomplete="off" required placeholder="Ответ">
+        <button class="button button-success" type="submit">Ответить</button>
+      </form>
+      <p class="verdict" data-match-verdict hidden></p>
+      <p class="form-error" data-match-error hidden></p>
+    </section>
+
+    <section class="card match-result" data-match-result {% if not match.is_finished %}hidden{% endif %}>
+      <div class="section-heading"><h2>Итог</h2></div>
+      <table class="match-table">
+        <thead><tr><th>Игрок</th><th>Очки</th><th>Верно</th><th>Время</th></tr></thead>
+        <tbody data-result-rows>
+          {% for row in state.results %}
+            <tr class="{% if row.is_me %}is-me{% endif %}">
+              <td>{{ row.title }}</td><td class="num">{{ row.score }}</td>
+              <td class="num">{{ row.correct }}</td><td class="num">{{ row.seconds }} с</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <h3 class="arena-subhead">Разбор</h3>
+      <ol class="review-answers" data-review>
+        {% for row in state.review %}
+          <li class="{% if row.is_correct %}is-correct{% else %}is-wrong{% endif %}">
+            <strong>{{ row.title }}</strong>
+            <span class="statement">{{ row.statement }}</span>
+            <span class="review-line">
+              <span>Ваш ответ: <b>{{ row.my_answer|default:"—" }}</b></span>
+              {% if not row.is_correct %}<span>Правильно: <b>{{ row.correct_answer }}</b></span>{% endif %}
+              {% if row.seconds %}<small class="muted">{{ row.seconds }} с</small>{% endif %}
+            </span>
+          </li>
+        {% endfor %}
+      </ol>
+      <p class="disclaimer">Ошибки партии не идут в отработку: под таймером промахиваются от спешки, а не от незнания. Если тема действительно проседает, её вернёт занятие.{% if match.against_bot %} Результат бота разыгран при создании партии и не зависел от вашей игры.{% endif %}</p>
+      <a class="button button-primary" href="{% url 'arena' %}">В арену</a>
+    </section>
+
+    <section class="card" data-match-waiting {% if state.question or match.is_finished %}hidden{% endif %}>
+      <h2>Вы закончили</h2>
+      <p class="muted">Соперник ещё отвечает. Итог появится здесь, как только он закончит.</p>
+    </section>
+  </div>
+{% endif %}
+{% endblock %}

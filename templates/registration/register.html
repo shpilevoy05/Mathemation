@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Регистрация — Матемация{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <section class="auth-card">
+    <div class="auth-brand">{% include "partials/logo.html" with size="lg" %}</div>
+    <p class="auth-tagline">Для тех, кто ценит время и деньги</p>
+    <h1>Регистрация по коду</h1>
+    <p>Код выдаёт куратор. Он одноразовый и со сроком — по нему сразу заводится профиль и группа.</p>
+    {% if form.non_field_errors %}<p class="form-error">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+    <form method="post" class="stack-form" novalidate>
+      {% csrf_token %}
+      {% for field in form %}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<p class="form-error">{{ field.errors|join:" " }}</p>{% endif %}
+      {% endfor %}
+      <button class="button button-primary" type="submit">Создать аккаунт</button>
+    </form>
+    <p><a href="{{ login_url }}">Уже есть аккаунт — войти</a></p>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% load l10n %}
+{% block title %}Родительский кабинет — Матемация{% endblock %}
+{% block content %}
+{% if not parent %}<section class="empty-state"><h1>Родительский кабинет</h1><p>Для этого аккаунта родительский кабинет недоступен.</p></section>
+{% elif not child %}<section class="empty-state"><h1>Родительский кабинет</h1><p>К профилю пока не привязан ученик.</p></section>
+{% else %}
+  <section class="parent-hero card">
+    <div><p class="eyebrow">Родительский отчёт</p><h1>Как дела у {{ child.user.get_full_name|default:child.user.username }}</h1><p>Неделя {{ report.week_start|date:"d.m" }}–{{ week_end|date:"d.m.Y" }}</p></div>
+    <div class="gauge-wrap">
+      <svg class="gauge gauge-svg" viewBox="0 0 200 110" width="200" height="110" role="img" aria-label="Прогноз {{ report_data.dynamics.current_predicted_score|default:0 }} из 100">
+        <defs><linearGradient id="gaugeGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3D6BE5"/><stop offset="1" stop-color="#7C9BF5"/></linearGradient></defs>
+        <path class="gauge-base" d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="#E8EEFC" stroke-width="14" stroke-linecap="round" pathLength="{{ gauge_dash }}"/>
+        <path class="gauge-value" d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round" pathLength="{{ gauge_dash }}" stroke-dasharray="{{ gauge_dash }}" stroke-dashoffset="{{ gauge_offset }}"/>
+        <text class="gauge-score" x="100" y="72" text-anchor="middle">{{ report_data.dynamics.current_predicted_score|default:"—" }}</text>
+        <text class="gauge-caption" x="100" y="92" text-anchor="middle">из 100 · при текущем темпе</text>
+      </svg>
+      <p>Старт {{ report_data.dynamics.start_score|default:"—" }} → Цель {{ report_data.dynamics.target_score }}</p>
+    </div>
+  </section>
+
+  <section class="parent-section">
+    <h2>Факт недели</h2>
+    <div class="parent-fact-grid">
+      <article class="fact-tile"><span>📚</span><strong>{{ report_data.week_fact.plan_items_done }}</strong><small>занятий</small></article>
+      <article class="fact-tile"><span>✏️</span><strong>{{ report_data.week_fact.attempts }}</strong><small>задач решено</small></article>
+      <article class="fact-tile"><span>🏆</span><strong>{{ report_data.week_fact.mocks_completed }}</strong><small>пробников</small></article>
+    </div>
+  </section>
+
+  <div class="parent-grid">
+    <section class="card">
+      <div class="section-heading"><h2>Прогресс по программе</h2><strong class="num">{{ report_data.progress.program_percent }}%</strong></div>
+      <div class="progress-bar"><span style="width: {{ report_data.progress.program_percent }}%"></span></div>
+      <ul class="plain-list">
+        <li><strong class="num">{{ report_data.progress.nodes_mastered }} из {{ report_data.progress.nodes_total }}</strong><small>тем освоено на пороге и выше</small></li>
+        <li><strong class="num">{{ report_data.progress.nodes_in_progress }}</strong><small>тем в работе{% if report_data.progress.nodes_decayed %}, {{ report_data.progress.nodes_decayed }} подзабылось{% endif %}</small></li>
+        <li><strong class="num">{{ report_data.progress.average_mastery }}%</strong><small>среднее освоение по всем темам</small></li>
+        <li><strong class="num">{{ report_data.progress.plan_items_done }} из {{ report_data.progress.plan_items_total }}</strong><small>пунктов плана закрыто за всё время</small></li>
+        <li><strong class="num">{{ report_data.progress.solved_this_week }}</strong><small>задач решено верно на этой неделе</small></li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <div class="section-heading">
+        <h2>Текущая траектория</h2>
+        {% if report_data.trajectory.title %}
+          <span class="chip {% if report_data.trajectory.keeps_pace %}success-soft{% else %}warning-soft{% endif %}">
+            {% if report_data.trajectory.keeps_pace %}темп держится{% else %}темп ниже плана{% endif %}
+          </span>
+        {% endif %}
+      </div>
+      {% if report_data.trajectory.title %}
+        <p><strong>{{ report_data.trajectory.title }}</strong> — сценарий на {{ report_data.trajectory.target_min }}–{{ report_data.trajectory.target_max }} баллов.</p>
+        <ul class="plain-list">
+          <li><strong class="num">{{ report_data.trajectory.weekly_load_hours }} ч/нед</strong><small>требует сценарий · ученик заявил {{ report_data.trajectory.student_weekly_hours }} ч</small></li>
+          {% if report_data.trajectory.exam_date %}<li><strong>{{ report_data.trajectory.exam_date }}</strong><small>дата экзамена в профиле</small></li>{% endif %}
+          {% if report_data.trajectory.changed_to %}
+            <li>
+              <strong>{% if report_data.trajectory.changed_from %}{{ report_data.trajectory.changed_from }} → {% endif %}{{ report_data.trajectory.changed_to }}</strong>
+              <small>последний переход{% if report_data.trajectory.change_reasons %}: {{ report_data.trajectory.change_reasons|join:", " }}{% endif %}</small>
+            </li>
+          {% endif %}
+        </ul>
+        {% if report_data.trajectory.recovery_actions %}
+          <p class="muted">Что вернуть: {{ report_data.trajectory.recovery_actions|join:"; " }}</p>
+        {% endif %}
+      {% else %}
+        <p class="empty-copy">Траектория назначается после входной диагностики или выбора цели. Пока её нет, план строится по общей программе.</p>
+      {% endif %}
+    </section>
+
+    <section class="card dynamics-card">
+      <div class="section-heading">
+        <div>
+          <h2>Динамика прогноза</h2>
+          <p class="muted">Замеры прогноза в тестовых баллах · всего {{ report_data.dynamics.measurements }}</p>
+        </div>
+        <strong class="delta delta-{{ delta_class }}">{{ delta_label }}</strong>
+      </div>
+      {% with chart=report_data.dynamics.chart %}
+        {% if chart.has_data %}
+          {% comment %}
+          Пропорции сохраняются (никакого preserveAspectRatio="none"): точки
+          остаются круглыми, а подписи не растягиваются вместе с картинкой.
+          Геометрия приходит с сервера — она одинакова в браузере и в тестах.
+          {% endcomment %}
+          {% comment %}
+          Все координаты печатаются через `unlocalize`: русская локаль пишет
+          дробное как «38,0», а для SVG это не число — атрибут отбрасывается,
+          и элемент уезжает в ноль. Арифметики здесь нет, вся геометрия
+          посчитана на сервере.
+          {% endcomment %}
+          <svg class="chart" viewBox="0 0 {{ chart.width|unlocalize }} {{ chart.height|unlocalize }}" role="img"
+               aria-label="График прогноза по замерам">
+            <defs>
+              <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="var(--primary)" stop-opacity=".28"/>
+                <stop offset="1" stop-color="var(--primary)" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            {% for tick in chart.y_ticks %}
+              <line class="chart-grid" x1="{{ chart.plot_left|unlocalize }}" y1="{{ tick.y|unlocalize }}" x2="{{ chart.plot_right|unlocalize }}" y2="{{ tick.y|unlocalize }}"/>
+              <text class="chart-tick" x="{{ chart.tick_label_x|unlocalize }}" y="{{ tick.label_y|unlocalize }}" text-anchor="end">{{ tick.label }}</text>
+            {% endfor %}
+            {% if chart.target_line %}
+              <line class="chart-target" x1="{{ chart.plot_left|unlocalize }}" y1="{{ chart.target_line.y|unlocalize }}" x2="{{ chart.plot_right|unlocalize }}" y2="{{ chart.target_line.y|unlocalize }}"/>
+              <text class="chart-target-label" x="{{ chart.plot_right|unlocalize }}" y="{{ chart.target_line.label_y|unlocalize }}" text-anchor="end">{{ chart.target_line.label }}</text>
+            {% endif %}
+            {% if chart.area %}<path class="chart-area" d="{{ chart.area }}" fill="url(#chartFill)"/>{% endif %}
+            {% if not chart.single_point %}<polyline class="chart-line" points="{{ chart.line }}"/>{% endif %}
+            {% for point in chart.points %}
+              <circle class="chart-point {% if point.is_last %}is-last{% endif %}" cx="{{ point.x|unlocalize }}" cy="{{ point.y|unlocalize }}" r="{{ point.radius|unlocalize }}">
+                <title>{{ point.date }} — {{ point.score }} тестовых</title>
+              </circle>
+              {% if point.is_last %}
+                <text class="chart-value" x="{{ point.x|unlocalize }}" y="{{ point.label_y|unlocalize }}" text-anchor="end">{{ point.score }}</text>
+              {% endif %}
+            {% endfor %}
+            {% for label in chart.x_labels %}
+              <text class="chart-tick" x="{{ label.x|unlocalize }}" y="{{ label.y|unlocalize }}" text-anchor="middle">{{ label.label }}</text>
+            {% endfor %}
+          </svg>
+          <p class="chart-note">
+            {% if chart.single_point %}Пока один замер — линия появится со следующим.{% endif %}
+            {% if chart.target_note %}{{ chart.target_note }}.{% endif %}
+            Замер снимается раз в день; шкала подстроена под диапазон результатов, чтобы был виден и небольшой рост.
+          </p>
+        {% else %}
+          <p class="empty-copy">Динамика появится после первых замеров.</p>
+        {% endif %}
+      {% endwith %}
+    </section>
+
+    <section class="card risks-card"><h2>Риски</h2>{% if risk_cards %}<div class="risk-list">{% for risk in risk_cards %}<article class="risk-item risk-{{ risk.severity }}"><span>⚠️</span><p>{{ risk.text }}</p></article>{% endfor %}</div>{% else %}<p>Критичных рисков сейчас нет.</p>{% endif %}</section>
+
+    <section class="card"><h2>Слабые темы</h2><div class="topic-chips">{% for topic in report_data.weak_topics %}<span>{{ topic.title }} · {{ topic.mastery|floatformat:0 }}%</span>{% empty %}<span>Нет данных</span>{% endfor %}</div></section>
+
+    <section class="card error-card"><h2>Ошибки по типам <span class="visually-hidden">Распределение ошибок</span></h2>{% for item in error_distribution %}<div class="error-row"><span>{{ item.label }}</span><div class="error-track"><i style="width: {{ item.percent }}%"></i></div><strong>{{ item.count }}</strong></div>{% empty %}<p>Открытых ошибок нет.</p>{% endfor %}</section>
+
+    <section class="card mentor-card"><p class="eyebrow">Наставник</p><h2>Подсказок за неделю: <strong>{{ report_data.week_fact.hints_used }}</strong><span class="visually-hidden"> Подсказок наставника</span></h2><button class="button button-secondary" type="button" data-parent-ai-log="/api/parent/ai-log/">Показать переписку</button></section>
+
+    <section class="card next-step-card"><h2>Что дальше</h2><p>{{ report_data.next_step }}</p></section>
+  </div>
+  <p class="disclaimer parent-disclaimer">Прогноз рассчитан при текущем темпе и не является гарантией результата.</p>
+  <dialog class="app-dialog" id="parent-ai-log"><div class="section-heading"><h2>Переписка с наставником</h2><button class="link-button" type="button" data-close-dialog>Закрыть</button></div><div data-parent-ai-content><p>Загрузка…</p></div></dialog>
+{% endif %}
+{% endblock %}

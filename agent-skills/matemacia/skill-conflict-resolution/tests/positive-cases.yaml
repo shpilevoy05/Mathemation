@@ -1,0 +1,39 @@
+suite: skill-conflict-resolution
+kind: positive
+version: 1.0.0
+cases:
+  - id: CR-P-001
+    kind: positive
+    prompt: "Vendor-скилл советует широкую таблицу с JSONB, а наш скилл требует версионированных событий"
+    expected:
+      - skill-conflict-resolution
+    expect: победил доменный скилл, ограничения vendor сохранены
+
+  - id: CR-P-002
+    kind: positive
+    prompt: "Общий LLM-скилл разрешает выдать решение, наставник запрещает"
+    expected:
+      - skill-conflict-resolution
+    expect: запрет выдачи ответа сохранён, компромисс отклонён
+
+  - id: CR-P-003
+    kind: positive
+    prompt: "Два скилла требуют разного формата хранения mastery, чей приоритет?"
+    expected:
+      - skill-conflict-resolution
+    expect: узкий доменный скилл побеждает при равном уровне
+
+  - id: CR-P-004
+    kind: positive
+    prompt: "ML-скилл хочет максимум accuracy, продуктовый требует калибровки"
+    expected:
+      - skill-conflict-resolution
+    expect: калибровка и объяснимость сохранены как инвариант
+
+  - id: CR-P-005
+    kind: positive
+    prompt: "Priority-кейс RT-013 не сошёлся: порядок применения другой"
+    expected:
+      - skill-conflict-resolution
+      - skill-routing-evaluation
+    expect: иерархия перечитана, причина расхождения названа
