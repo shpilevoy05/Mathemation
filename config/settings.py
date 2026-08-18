@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     "apps.economy",
     "apps.billing",
     "apps.events",
+    "apps.arena",
     "apps.web",
 ]
 

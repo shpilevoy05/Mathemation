@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Арена — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Арена</h1><p>Раздел доступен ученику.</p></section>
+{% else %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Соревнование</p>
+      <h1>Арена</h1>
+      <p>Короткие партии против друга или бота. Задачи те же, что в тренировке, — меняется только азарт.</p>
+    </div>
+    <div class="daily-clock">
+      <svg aria-hidden="true"><use href="#i-cup"></use></svg>
+      <div><small>Награда сегодня</small><br><b class="num">{{ rewarded_today }} из {{ reward_limit }}</b></div>
+    </div>
+  </div>
+
+  <div class="content-grid">
+    <section class="card card-wide">
+      <div class="section-heading"><h2>Новая партия</h2></div>
+      <form class="arena-form" data-match-form>
+        <label for="match-mode">Режим</label>
+        <select id="match-mode" name="mode">
+          <option value="speed">Нарешивание на скорость · 8 задач</option>
+          <option value="quiz">Квиз · 5 задач</option>
+          <option value="board">Своя игра · 6 клеток разной цены</option>
+        </select>
+        <p class="muted" data-mode-hint>{{ mode_hints.speed }}</p>
+
+        <label for="match-opponent">Соперник</label>
+        <select id="match-opponent" name="opponent">
+          <option value="bot">Бот</option>
+          {% for friend in friends %}
+            <option value="{{ friend.id }}">{{ friend.user.get_full_name|default:friend.user.username }}</option>
+          {% endfor %}
+        </select>
+
+        <div data-bot-level>
+          <label for="match-level">Уровень бота</label>
+          <input id="match-level" name="bot_level" type="range" min="1" max="5" value="3">
+          <p class="muted">Уровень <b class="num" data-level-output>3</b> из 5 — как соперник, который решает уверенно, но ошибается.</p>
+        </div>
+
+        <label for="match-task">Прототип</label>
+        <select id="match-task" name="ege_task_number">
+          <option value="">Случайный набор</option>
+          {% for number in "123456789"|make_list %}<option value="{{ number }}">Задание {{ number }}</option>{% endfor %}
+        </select>
+
+        <p class="form-error" data-match-error hidden></p>
+        <button class="button button-primary" type="submit">Начать партию</button>
+      </form>
+    </section>
+
+    <aside class="card">
+      <div class="section-heading"><h2>Друзья</h2><span class="count-badge">{{ friends|length }}</span></div>
+      <form class="answer-row" data-friend-form>
+        <input name="username" placeholder="Логин друга" autocomplete="off" required>
+        <button class="button" type="submit">Позвать</button>
+      </form>
+      <p class="form-error" data-friend-error hidden></p>
+
+      {% if incoming %}
+        <h3 class="arena-subhead">Зовут в друзья</h3>
+        <ul class="plain-list">
+          {% for link in incoming %}
+            <li class="arena-row">
+              <strong>{{ link.from_student.user.get_full_name|default:link.from_student.user.username }}</strong>
+              <span class="arena-row-actions">
+                <button class="button button-small button-primary" type="button" data-friend-answer="{{ link.id }}" data-action="accept">Принять</button>
+                <button class="button button-small" type="button" data-friend-answer="{{ link.id }}" data-action="decline">Нет</button>
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      <ul class="plain-list">
+        {% for friend in friends %}
+          <li><strong>{{ friend.user.get_full_name|default:friend.user.username }}</strong><small>@{{ friend.user.username }}</small></li>
+        {% empty %}
+          <li><small class="muted">Друзей пока нет — позовите по логину, и появится соперник.</small></li>
+        {% endfor %}
+      </ul>
+      {% if outgoing %}
+        <p class="muted">Ждут ответа: {% for link in outgoing %}{{ link.to_student.user.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+      {% endif %}
+    </aside>
+  </div>
+
+  {% if match_invites %}
+    <section class="card">
+      <div class="section-heading"><h2>Вызовы</h2><span class="count-badge">{{ match_invites|length }}</span></div>
+      <ul class="plain-list">
+        {% for row in match_invites %}
+          <li class="arena-row">
+            <strong>{{ row.opponent }} · {{ row.match.get_mode_display }}</strong>
+            <span class="arena-row-actions">
+              <button class="button button-small button-primary" type="button" data-match-answer="{{ row.match.id }}" data-action="accept">Принять</button>
+              <button class="button button-small" type="button" data-match-answer="{{ row.match.id }}" data-action="decline">Отказаться</button>
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <section class="card">
+    <div class="section-heading"><h2>Идут сейчас</h2><span class="count-badge">{{ active_matches|length }}</span></div>
+    {% if active_matches %}
+      <ul class="plain-list">
+        {% for row in active_matches %}
+          <li class="arena-row">
+            <span>
+              <strong>{{ row.match.get_mode_display }} · против {{ row.opponent }}</strong>
+              <small>{% if row.mine_done %}вы закончили, ждём соперника{% else %}ваш ход{% endif %}</small>
+            </span>
+            <a class="button button-small button-primary" href="{% url 'arena_match' row.match.id %}">{% if row.mine_done %}Посмотреть{% else %}Играть{% endif %}</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-copy">Активных партий нет. Начните новую — это пять минут.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <div class="section-heading"><h2>Сыгранные</h2></div>
+    {% if match_history %}
+      <ul class="plain-list">
+        {% for row in match_history %}
+          <li class="arena-row">
+            <span>
+              <strong>{{ row.match.get_mode_display }} · против {{ row.opponent }}</strong>
+              <small>{% for participant in row.results %}{{ participant.title }} — {{ participant.score }}{% if not forloop.last %} · {% endif %}{% endfor %}</small>
+            </span>
+            <a class="button button-small" href="{% url 'arena_match' row.match.id %}">Разбор</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-copy">Здесь появится история партий.</p>
+    {% endif %}
+    <p class="disclaimer">Партии не двигают освоение тем: скорость под таймером — не то же самое, что понимание. Награда даётся за первые {{ reward_limit }} партий в день, чтобы арена не заменяла занятия.</p>
+  </section>
+{% endif %}
+{% endblock %}

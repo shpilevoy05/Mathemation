@@ -29,6 +29,7 @@ from apps.content.models import (
     SolutionStep,
     TheoryBlock,
 )
+from apps.arena.models import Friendship, Match
 from apps.economy.models import InventoryItem, LedgerEntry, ShopCategory, ShopItem, Wallet
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.exams.models import ExamProfile, ExamTask
@@ -344,3 +345,27 @@ class ForecastObservationSerializer(serializers.ModelSerializer):
             "id", "student", "mock_result", "predicted_primary", "actual_primary",
             "error", "calibration_after", "created_at",
         ]
+
+
+class MatchSerializer(serializers.ModelSerializer):
+    """Партии только читаются: результат — история, а не настройка."""
+
+    created_by = serializers.CharField(source="created_by.user.username", read_only=True)
+
+    class Meta:
+        model = Match
+        fields = [
+            "id", "mode", "status", "created_by", "bot_level",
+            "ege_task_number", "created_at", "finished_at",
+        ]
+        read_only_fields = fields
+
+
+class FriendshipSerializer(serializers.ModelSerializer):
+    from_student = serializers.CharField(source="from_student.user.username", read_only=True)
+    to_student = serializers.CharField(source="to_student.user.username", read_only=True)
+
+    class Meta:
+        model = Friendship
+        fields = ["id", "from_student", "to_student", "status", "created_at"]
+        read_only_fields = fields

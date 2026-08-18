@@ -545,6 +545,70 @@ def knowledge_node_context(student, node_id):
     }
 
 
+MATCH_MODE_HINTS = {
+    "speed": "Восемь задач подряд. Побеждает тот, кто решил больше; при равенстве — кто быстрее.",
+    "quiz": "Пять задач с ценой в 100 очков. Короткая партия на перемене.",
+    "board": "Шесть клеток разной цены: чем сложнее задача, тем дороже.",
+}
+
+
+def arena_context(student) -> dict:
+    """Арена: друзья, вызовы, идущие и сыгранные партии."""
+    from apps.arena.models import Friendship, Match
+    from apps.arena.services import friends_of, rank, rewarded_today, DAILY_REWARDED_MATCHES
+
+    matches = (
+        Match.objects.filter(participants__student=student)
+        .prefetch_related("participants__student__user")
+        .distinct()
+        .order_by("-created_at")[:12]
+    )
+    active, invites, history = [], [], []
+    for match in matches:
+        me = match.participants.filter(student=student).first()
+        other = match.participants.exclude(student=student).first()
+        row = {
+            "match": match,
+            "opponent": other.title if other else "—",
+            "mine_done": me.finished_at is not None if me else False,
+            "results": rank(match) if match.is_finished else [],
+        }
+        if match.status == Match.Status.FINISHED:
+            history.append(row)
+        elif match.status == Match.Status.INVITED and match.created_by_id != student.pk:
+            invites.append(row)
+        elif match.status in (Match.Status.ACTIVE, Match.Status.INVITED):
+            active.append(row)
+    return {
+        "friends": list(friends_of(student)),
+        "incoming": list(
+            Friendship.objects.filter(
+                to_student=student, status=Friendship.Status.PENDING
+            ).select_related("from_student__user")
+        ),
+        "outgoing": list(
+            Friendship.objects.filter(
+                from_student=student, status=Friendship.Status.PENDING
+            ).select_related("to_student__user")
+        ),
+        "active_matches": active,
+        "match_invites": invites,
+        "match_history": history,
+        "mode_hints": MATCH_MODE_HINTS,
+        "rewarded_today": rewarded_today(student),
+        "reward_limit": DAILY_REWARDED_MATCHES,
+    }
+
+
+def arena_match_context(student, match_id) -> dict:
+    """Экран партии. Состояние приходит из того же API, что и ходы."""
+    from apps.arena.api import match_payload
+    from apps.arena.models import Match
+
+    match = get_object_or_404(Match, pk=match_id, participants__student=student)
+    return {"match": match, "state": match_payload(match, student)}
+
+
 def schedule_context(student, year=None, month=None):
     """Календарь: план, повторы и дедлайны на сетке месяца."""
     from apps.planning.schedule import month_schedule

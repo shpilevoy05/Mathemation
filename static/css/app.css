@@ -898,6 +898,28 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 .button-ghost { border-color: var(--line-strong); color: var(--muted-2); background: transparent; box-shadow: none; }
 .button-ghost:hover { border-color: var(--primary); color: var(--primary-dark); }
 
+/* — Арена — */
+.arena-form { display: grid; gap: 8px; }
+.arena-form label { color: var(--muted); font-size: .82rem; font-weight: 700; }
+.arena-form select, .arena-form input[type=range] { width: 100%; }
+.arena-form .button { justify-self: start; margin-top: 6px; }
+.arena-subhead { margin: 16px 0 6px; font-size: .95rem; }
+.arena-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.arena-row-actions { display: flex; gap: 6px; }
+.arena-row small { display: block; color: var(--muted); font-size: .76rem; }
+.match-shell { display: grid; gap: 16px; }
+.match-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.match-score { display: flex; gap: 18px; }
+.match-score span { display: grid; text-align: right; }
+.match-score small { color: var(--muted); font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; }
+.match-score strong { font-size: 1.8rem; line-height: 1; }
+.match-timer { height: 6px; margin: 12px 0 16px; border-radius: 999px; background: var(--gray-soft); overflow: hidden; }
+.match-timer i { display: block; width: 100%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--primary), var(--flame-1)); transition: width .2s linear; }
+.match-table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; }
+.match-table th { padding: 8px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: .74rem; letter-spacing: .06em; text-align: left; text-transform: uppercase; }
+.match-table td { padding: 10px 8px; border-bottom: 1px solid var(--line-soft); }
+.match-table tr.is-me { color: var(--primary-dark); font-weight: 700; }
+
 /* — Календарь расписания — */
 .month-nav { display: flex; flex-wrap: wrap; gap: 8px; }
 .calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 16px; }

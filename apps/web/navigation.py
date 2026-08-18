@@ -77,6 +77,9 @@ def _student_groups() -> list[NavGroup]:
         NavGroup("Результат", "i-chart", [
             NavItem("Прогноз", reverse("forecast"), "i-chart", ("forecast",)),
         ]),
+        NavGroup("Игры", "i-cup", [
+            NavItem("Арена", reverse("arena"), "i-cup", ("arena", "arena_match")),
+        ]),
         NavGroup("Награды", "i-sigma", [
             NavItem("Магазин", reverse("shop"), "i-sigma", ("shop",)),
             NavItem("Тарифы", reverse("pricing"), "i-ruble", ("pricing",)),

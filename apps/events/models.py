@@ -24,6 +24,8 @@ class Event(models.Model):
         # Действия бэкофиса: кто опубликовал урок, поменял цену,
         # начислил сигмы или вернул деньги.
         ADMIN_ACTION = "admin_action"
+        # Партия арены: по этим записям считается дневной потолок наград.
+        ARENA_MATCH_FINISHED = "arena_match_finished"
 
     student = models.ForeignKey(
         "accounts.StudentProfile",

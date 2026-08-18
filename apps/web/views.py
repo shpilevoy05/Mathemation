@@ -75,6 +75,19 @@ def schedule(request):
 
 
 @login_required
+def arena(request):
+    """Арена: друзья, вызовы и партии."""
+    return _render_student_page(request, "arena.html", services.arena_context)
+
+
+@login_required
+def arena_match(request, match_id):
+    return _render_student_page(
+        request, "arena_match.html", services.arena_match_context, match_id=match_id
+    )
+
+
+@login_required
 @require_feature(Feature.LESSONS)
 def homework(request):
     return _render_student_page(request, "homework.html", services.homework_context)

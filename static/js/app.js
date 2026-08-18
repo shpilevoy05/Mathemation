@@ -310,6 +310,190 @@
     });
   }
 
+  // — Арена: друзья и партии —
+  // Ответ, время и очки считает сервер; здесь только показ состояния и таймер,
+  // который подсказывает, сколько осталось на вопрос.
+  const matchForm = document.querySelector("[data-match-form]");
+  if (matchForm) {
+    const hints = {
+      speed: "Восемь задач подряд. Побеждает тот, кто решил больше; при равенстве — кто быстрее.",
+      quiz: "Пять задач с ценой в 100 очков. Короткая партия на перемене.",
+      board: "Шесть клеток разной цены: чем сложнее задача, тем дороже.",
+    };
+    const opponent = matchForm.elements.opponent;
+    const level = matchForm.elements.bot_level;
+    const botBlock = matchForm.querySelector("[data-bot-level]");
+    const syncOpponent = () => { botBlock.hidden = opponent.value !== "bot"; };
+    matchForm.elements.mode.addEventListener("change", event => {
+      matchForm.querySelector("[data-mode-hint]").textContent = hints[event.target.value] || "";
+    });
+    opponent.addEventListener("change", syncOpponent);
+    level.addEventListener("input", () => {
+      matchForm.querySelector("[data-level-output]").textContent = level.value;
+    });
+    syncOpponent();
+
+    matchForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const error = matchForm.querySelector("[data-match-error]");
+      const button = matchForm.querySelector("[type=submit]");
+      button.disabled = true; error.hidden = true;
+      const payload = {
+        mode: matchForm.elements.mode.value,
+        seconds_per_question: 90,
+      };
+      if (opponent.value === "bot") payload.bot_level = Number(level.value);
+      else payload.opponent_id = Number(opponent.value);
+      const task = matchForm.elements.ege_task_number.value;
+      if (task) payload.ege_task_number = Number(task);
+      try {
+        const data = await apiFetch("/api/arena/matches/", { method: "POST", body: JSON.stringify(payload) });
+        window.location.assign(`/arena/match/${data.id}/`);
+      } catch (exception) {
+        error.hidden = false; error.textContent = exception.message; button.disabled = false;
+      }
+    });
+  }
+
+  const friendForm = document.querySelector("[data-friend-form]");
+  if (friendForm) {
+    friendForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const error = document.querySelector("[data-friend-error]");
+      error.hidden = true;
+      try {
+        await apiFetch("/api/arena/friends/request/", {
+          method: "POST",
+          body: JSON.stringify({ username: friendForm.elements.username.value }),
+        });
+        window.location.reload();
+      } catch (exception) { error.hidden = false; error.textContent = exception.message; }
+    });
+  }
+
+  document.addEventListener("click", async event => {
+    const friendAnswer = event.target.closest("[data-friend-answer]");
+    if (friendAnswer) {
+      friendAnswer.disabled = true;
+      try {
+        await apiFetch(`/api/arena/friends/${friendAnswer.dataset.friendAnswer}/${friendAnswer.dataset.action}/`, { method: "POST", body: "{}" });
+        window.location.reload();
+      } catch (exception) { friendAnswer.disabled = false; alert(exception.message); }
+    }
+    const matchAnswer = event.target.closest("[data-match-answer]");
+    if (matchAnswer) {
+      matchAnswer.disabled = true;
+      try {
+        await apiFetch(`/api/arena/matches/${matchAnswer.dataset.matchAnswer}/${matchAnswer.dataset.action}/`, { method: "POST", body: "{}" });
+        window.location.reload();
+      } catch (exception) { matchAnswer.disabled = false; alert(exception.message); }
+    }
+  });
+
+  const matchShell = document.querySelector("[data-match]");
+  if (matchShell) {
+    const questionBlock = matchShell.querySelector("[data-match-question]");
+    const resultBlock = matchShell.querySelector("[data-match-result]");
+    const waitingBlock = matchShell.querySelector("[data-match-waiting]");
+    const form = matchShell.querySelector("[data-match-answer-form]");
+    const verdict = matchShell.querySelector("[data-match-verdict]");
+    const error = matchShell.querySelector("[data-match-error]");
+    const timerBar = matchShell.querySelector("[data-match-timer-bar]");
+    const limit = Number(matchShell.dataset.seconds) * 1000;
+    let questionId = null;
+    let startedAt = 0;
+    let timer = null;
+
+    // Время считается от момента показа вопроса и всё равно проверяется на
+    // сервере: здесь оно нужно только чтобы человек видел, сколько осталось.
+    const runTimer = () => {
+      clearInterval(timer);
+      startedAt = performance.now();
+      const tick = () => {
+        const left = Math.max(0, 1 - (performance.now() - startedAt) / limit);
+        timerBar.style.width = `${(left * 100).toFixed(1)}%`;
+        if (left <= 0) clearInterval(timer);
+      };
+      tick();
+      timer = setInterval(tick, 200);
+    };
+
+    const render = state => {
+      matchShell.querySelector("[data-my-score]").textContent = state.me ? state.me.score : 0;
+      const rival = matchShell.querySelector("[data-rival-progress]");
+      if (state.opponent) rival.textContent = `${state.opponent.answered}/${state.questions_total}`;
+
+      if (state.question) {
+        questionId = state.question.id;
+        questionBlock.hidden = false;
+        waitingBlock.hidden = true;
+        matchShell.querySelector("[data-question-title]").textContent = state.question.title;
+        matchShell.querySelector("[data-question-statement]").textContent = state.question.statement;
+        matchShell.querySelector("[data-question-points]").textContent = `${state.question.points} очков`;
+        form.elements.answer.value = "";
+        form.elements.answer.focus();
+        runTimer();
+      } else {
+        clearInterval(timer);
+        questionBlock.hidden = true;
+        waitingBlock.hidden = state.status === "finished";
+      }
+
+      if (state.status === "finished") {
+        resultBlock.hidden = false;
+        waitingBlock.hidden = true;
+        const rows = matchShell.querySelector("[data-result-rows]");
+        rows.replaceChildren(...state.results.map(row => {
+          const tr = document.createElement("tr");
+          if (row.is_me) tr.className = "is-me";
+          [row.title, row.score, row.correct, `${row.seconds} с`].forEach((value, index) => {
+            const cell = document.createElement("td");
+            if (index) cell.className = "num";
+            cell.textContent = value;
+            tr.append(cell);
+          });
+          return tr;
+        }));
+      }
+    };
+
+    if (questionBlock && !questionBlock.hidden) runTimer();
+    questionId = Number(questionBlock?.dataset.questionId) || null;
+
+    form?.addEventListener("submit", async event => {
+      event.preventDefault();
+      const button = form.querySelector("[type=submit]");
+      button.disabled = true; error.hidden = true;
+      try {
+        const state = await apiFetch(`/api/arena/matches/${matchShell.dataset.match}/answer/`, {
+          method: "POST",
+          body: JSON.stringify({
+            question_id: questionId,
+            answer: form.elements.answer.value,
+            elapsed_ms: Math.round(performance.now() - startedAt),
+          }),
+        });
+        verdict.hidden = false;
+        verdict.className = `verdict ${state.last_answer.is_correct ? "is-correct" : "is-wrong"}`;
+        verdict.textContent = state.last_answer.is_correct ? "Верно!" : "Мимо.";
+        render(state);
+      } catch (exception) {
+        error.hidden = false; error.textContent = exception.message;
+      } finally { button.disabled = false; }
+    });
+
+    // Соперник-человек отвечает в своём темпе: подтягиваем состояние,
+    // чтобы итог появился без перезагрузки страницы.
+    if (matchShell.dataset.match) {
+      setInterval(async () => {
+        try {
+          const state = await apiFetch(`/api/arena/matches/${matchShell.dataset.match}/`);
+          if (state.status === "finished" || !state.question) render(state);
+        } catch (_) { /* сеть подождёт до следующего тика */ }
+      }, 15000);
+    }
+  }
+
   const viewSwitch = document.querySelector("[data-view-switch]");
   if (viewSwitch) {
     viewSwitch.addEventListener("click", event => {

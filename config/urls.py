@@ -9,6 +9,15 @@ from config.health import healthz, readyz
 from apps.accounts import views as account_views
 from apps.accounts.api import MeView, TargetScoreView
 from apps.ai_mentor.api import HintView, ParentAiLogView
+from apps.arena.api import (
+    CreateMatchView,
+    FriendAnswerView,
+    FriendListView,
+    FriendRequestView,
+    MatchAnswerView,
+    MatchInviteView,
+    MatchView,
+)
 from apps.billing import pages as billing_pages
 from apps.billing.api import PaymentWebhookView, SubscriptionView
 from apps.content.api import AssignmentViewSet, LessonViewSet, TrackView
@@ -118,6 +127,13 @@ api_urls = [
     path("parent/report/", ParentReportView.as_view()),
     path("parent/ai-log/", ParentAiLogView.as_view()),
     path("gamification/", GamificationView.as_view()),
+    path("arena/friends/", FriendListView.as_view()),
+    path("arena/friends/request/", FriendRequestView.as_view()),
+    path("arena/friends/<int:link_id>/<str:action>/", FriendAnswerView.as_view()),
+    path("arena/matches/", CreateMatchView.as_view()),
+    path("arena/matches/<int:match_id>/", MatchView.as_view()),
+    path("arena/matches/<int:match_id>/answer/", MatchAnswerView.as_view()),
+    path("arena/matches/<int:match_id>/<str:action>/", MatchInviteView.as_view()),
     path("billing/subscription/", SubscriptionView.as_view()),
     # Колбэк эквайринга: без сессии, проверяется подписью тела.
     path("billing/webhook/", PaymentWebhookView.as_view(), name="billing-webhook"),
@@ -155,6 +171,8 @@ urlpatterns = [
     path("map/node/<int:node_id>/", web_views.knowledge_node, name="knowledge_node"),
     path("track/", web_views.track, name="track"),
     path("schedule/", web_views.schedule, name="schedule"),
+    path("arena/", web_views.arena, name="arena"),
+    path("arena/match/<int:match_id>/", web_views.arena_match, name="arena_match"),
     path("lesson/<int:node_id>/", web_views.lesson, name="lesson"),
     path(
         "lesson/<int:node_id>/summary.md",

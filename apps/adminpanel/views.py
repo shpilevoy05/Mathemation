@@ -28,6 +28,12 @@ SECTIONS = [
         {"key": "daily-challenges", "title": "Задания дня",
          "columns": ["id", "date", "assignment", "reward_xp", "is_active"]},
     ]},
+    {"group": "Арена", "items": [
+        {"key": "matches", "title": "Партии",
+         "columns": ["id", "mode", "status", "created_by", "bot_level", "created_at"]},
+        {"key": "friendships", "title": "Дружбы",
+         "columns": ["id", "from_student", "to_student", "status", "created_at"]},
+    ]},
     {"group": "Ученики", "items": [
         {"key": "students", "title": "Ученики",
          "columns": ["id", "username", "is_active", "target_score", "weekly_hours",

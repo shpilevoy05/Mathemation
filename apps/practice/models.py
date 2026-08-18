@@ -7,6 +7,9 @@ class Attempt(models.Model):
         DIAGNOSTIC = "diagnostic"
         MOCK = "mock"
         REVIEW = "review"  # интервальная отработка ошибок
+        # Партия в арене. Ответы пишутся в журнал, но освоение не двигают:
+        # скорость под таймером — не то же самое, что понимание темы.
+        ARENA = "arena"
 
     student = models.ForeignKey(
         "accounts.StudentProfile", on_delete=models.CASCADE, related_name="attempts"

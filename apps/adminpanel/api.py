@@ -119,6 +119,22 @@ class AssignmentViewSet(PanelViewSet):
         )
 
 
+class MatchViewSet(PanelViewSet):
+    from apps.arena.models import Match as _Match
+
+    queryset = _Match.objects.select_related("created_by__user")
+    serializer_class = panel.MatchSerializer
+    http_method_names = ["get", "head", "options"]
+
+
+class FriendshipViewSet(PanelViewSet):
+    from apps.arena.models import Friendship as _Friendship
+
+    queryset = _Friendship.objects.select_related("from_student__user", "to_student__user")
+    serializer_class = panel.FriendshipSerializer
+    http_method_names = ["get", "head", "options"]
+
+
 class SolutionPathViewSet(PanelViewSet):
     queryset = SolutionPath.objects.select_related("assignment")
     serializer_class = panel.SolutionPathSerializer
