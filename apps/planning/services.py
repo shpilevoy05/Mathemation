@@ -687,6 +687,38 @@ def complete_item(item: StudyPlanItem) -> StudyPlanItem:
     return item
 
 
+class PlanItemMoveRefused(ValueError):
+    """Перенос невозможен: дата в прошлом или за датой экзамена."""
+
+
+@transaction.atomic
+def move_item(item, new_date) -> StudyPlanItem:
+    """Перенести пункт плана на другой день.
+
+    Правила простые и объяснимые: назад в прошлое не переносим — это не
+    планирование, а подделка истории; за дату экзамена тоже, иначе план
+    обещает время, которого нет. Готовый пункт не двигаем: он уже сделан.
+    """
+    today = timezone.localdate()
+    if item.status == StudyPlanItem.Status.DONE:
+        raise PlanItemMoveRefused("Выполненный пункт не переносится.")
+    if new_date < today:
+        raise PlanItemMoveRefused("Нельзя перенести на прошедший день.")
+    exam_date = item.plan.student.exam_date
+    if exam_date and new_date > exam_date:
+        raise PlanItemMoveRefused("Дата позже экзамена — план так не строят.")
+    item.due_date = new_date
+    item.week_index = max(0, (new_date - today).days // 7)
+    item.save(update_fields=["due_date", "week_index"])
+    log_plan_change(
+        item.plan.student,
+        PlanChangeLog.Reason.MANUAL,
+        f"«{item.node.title}» перенесено на {new_date.strftime('%d.%m')}.",
+        node=item.node,
+    )
+    return item
+
+
 @transaction.atomic
 def carry_over_overdue(student, on_date=None) -> int:
     """Перенести просроченные пункты на сегодня.

@@ -28,7 +28,7 @@
             {% else %}<div class="track-node-link is-locked" tabindex="0" title="{{ point.unlock_tooltip }}" aria-label="{{ point.title }}. {{ point.unlock_tooltip }}">
             {% endif %}
               <span class="track-progress-ring" style="{{ point.progress_style }}"><span class="track-node-button" aria-hidden="true">{% if point.icon %}<svg><use href="#{{ point.icon }}"></use></svg>{% else %}{{ point.marker }}{% endif %}</span></span>
-              <span class="track-node-copy"><strong>{{ point.title }}</strong><small>{{ point.type_label }} · {{ point.state_label }} · {{ point.mastery_percent }}%{% if point.tasks_total %} · задачи {{ point.tasks_solved }}/{{ point.tasks_total }}{% endif %}</small></span>
+              <span class="track-node-copy"><strong>{{ point.title }}</strong><small>{{ point.type_label }} · {{ point.state_label }} · {{ point.mastery_percent }}%{% if point.tasks_total %} · задачи {{ point.tasks_solved }}/{{ point.tasks_total }}{% endif %}</small>{% if point.due_date %}<small class="track-due {% if point.is_overdue %}is-overdue{% endif %}"><svg aria-hidden="true"><use href="#i-clock"></use></svg>{% if point.is_overdue %}просрочено с {{ point.due_date|date:"d.m" }}{% else %}по плану {{ point.due_date|date:"d.m" }}{% endif %}</small>{% endif %}</span>
               {% if point.unlock_tooltip %}<span class="track-tooltip" role="tooltip">{{ point.unlock_tooltip }}</span>{% endif %}
             {% if point.is_clickable %}</a>{% else %}</div>{% endif %}
           </div>

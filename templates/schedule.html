@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load l10n %}
+{% block title %}Расписание — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Расписание</h1><p>Раздел доступен ученику.</p></section>
+{% else %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">План по датам</p>
+      <h1>Расписание</h1>
+      <p>То же, что на дорожке, только по дням. Пункт можно перенести — план пересчитает остальное.</p>
+    </div>
+    {% if schedule.days_to_exam is not None %}
+      <div class="daily-clock">
+        <svg aria-hidden="true"><use href="#i-clock"></use></svg>
+        <div><small>До экзамена</small><br><b class="num">{{ schedule.days_to_exam }} дн.</b></div>
+      </div>
+    {% endif %}
+  </div>
+
+  <section class="card">
+    <div class="section-heading">
+      <div>
+        <h2>{{ month_label|capfirst }} {{ schedule.year }}</h2>
+        <p class="muted">Запланировано в этом месяце: <b class="num">{{ schedule.planned_count }}</b></p>
+      </div>
+      <div class="month-nav">
+        <a class="button button-small" href="?year={{ schedule.previous.year|unlocalize }}&amp;month={{ schedule.previous.month|unlocalize }}">← Раньше</a>
+        <a class="button button-small" href="{% url 'schedule' %}">Сегодня</a>
+        <a class="button button-small" href="?year={{ schedule.next.year|unlocalize }}&amp;month={{ schedule.next.month|unlocalize }}">Позже →</a>
+      </div>
+    </div>
+
+    <div class="calendar" data-calendar>
+      {% for label in schedule.weekday_labels %}<div class="calendar-weekday">{{ label }}</div>{% endfor %}
+      {% for week in schedule.weeks %}
+        {% for day in week %}
+          <div class="calendar-day {% if not day.in_month %}is-outside{% endif %} {% if day.is_today %}is-today{% endif %} {% if day.overdue %}is-overdue{% endif %}"
+               data-day="{{ day.iso }}">
+            <span class="calendar-date num">{{ day.day }}</span>
+            {% for entry in day.entries %}
+              <div class="calendar-entry entry-{{ entry.kind }} {% if entry.is_done %}is-done{% endif %}"
+                   {% if entry.movable %}data-plan-item="{{ entry.plan_item_id|unlocalize }}" draggable="true"{% endif %}
+                   title="{{ entry.kind_label }}: {{ entry.title }}">
+                {% if entry.url %}<a href="{{ entry.url }}">{{ entry.title }}</a>{% else %}<span>{{ entry.title }}</span>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      {% endfor %}
+    </div>
+    <p class="form-error" data-calendar-error hidden></p>
+
+    <div class="calendar-legend">
+      <span class="entry-lesson">занятие</span>
+      <span class="entry-practice">практика</span>
+      <span class="entry-review">повтор</span>
+      <span class="entry-homework">домашка</span>
+      <span class="entry-exam">экзамен</span>
+    </div>
+    <p class="disclaimer">Перетащите занятие на другой день, чтобы перенести его. Назад в прошлое и за дату экзамена перенос не делается.</p>
+  </section>
+{% endif %}
+{% endblock %}

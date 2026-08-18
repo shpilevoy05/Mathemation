@@ -66,6 +66,15 @@ def shop(request):
 
 
 @login_required
+def schedule(request):
+    """Календарь занятий. Не гейтим: видеть план — не то же, что заниматься."""
+    return _render_student_page(
+        request, "schedule.html", services.schedule_context,
+        year=request.GET.get("year"), month=request.GET.get("month"),
+    )
+
+
+@login_required
 @require_feature(Feature.LESSONS)
 def homework(request):
     return _render_student_page(request, "homework.html", services.homework_context)

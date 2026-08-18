@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -9,10 +9,12 @@ from apps.accounts.api import get_student
 
 from .models import PlanChangeLog, StudyPlanItem, TrajectoryTransition
 from .services import (
+    PlanItemMoveRefused,
     acknowledge_trajectory_transition,
     complete_item,
     get_active_plan,
     items_for_period,
+    move_item,
 )
 
 
@@ -117,6 +119,25 @@ class CompleteItemView(views.APIView):
             StudyPlanItem, pk=item_id, plan__student=student
         )
         complete_item(item)
+        return Response(_item_payload(item))
+
+
+class MoveItemView(views.APIView):
+    """POST /api/plan/items/<id>/move/ {"due_date": "2026-09-01"} — перенести пункт."""
+
+    def post(self, request, item_id):
+        student = get_student(request)
+        item = get_object_or_404(StudyPlanItem, pk=item_id, plan__student=student)
+        raw = request.data.get("due_date", "")
+        try:
+            new_date = date.fromisoformat(str(raw))
+        except ValueError:
+            return Response({"detail": "Дата в формате ГГГГ-ММ-ДД."}, status=400)
+        try:
+            move_item(item, new_date)
+        except PlanItemMoveRefused as error:
+            # 409: запрос понятен, но противоречит правилам плана.
+            return Response({"detail": str(error)}, status=409)
         return Response(_item_payload(item))
 
 

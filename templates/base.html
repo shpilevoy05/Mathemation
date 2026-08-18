@@ -60,32 +60,40 @@
       {% if user.is_authenticated %}
         {% is_expert user as expert_access %}
         {% is_methodist user as methodist_access %}
+        {% comment %}
+        Рельс в два уровня: сначала раздел («учёба», «проверить себя»), внутри —
+        страницы. Плоский список из одиннадцати ссылок приходилось читать
+        целиком, чтобы найти одну. Раскрытие — на <details>: работает и без
+        скрипта, а группа с активной страницей открыта сразу.
+        {% endcomment %}
         <nav class="main-nav" aria-label="Основная навигация">
-          {% if expert_access %}
-            <a class="{% if request.resolver_match.url_name == 'expert_queue' or request.resolver_match.url_name == 'expert_review' %}is-active{% endif %}" href="{% url 'expert_queue' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-doc"></use></svg></span><span>Проверка</span></a>
-          {% endif %}
-          {% if methodist_access %}
-            <a class="{% if request.resolver_match.url_name == 'methodist_dashboard' %}is-active{% endif %}" href="{% url 'methodist_dashboard' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-book"></use></svg></span><span>Контент</span></a>
-            <a class="{% if request.resolver_match.url_name == 'admin-panel' %}is-active{% endif %}" href="{% url 'admin-panel' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-map"></use></svg></span><span>Панель</span></a>
-            <a href="{% url 'admin:index' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-target"></use></svg></span><span>Django-админка</span></a>
-            <a class="{% if request.resolver_match.url_name == 'pricing' %}is-active{% endif %}" href="{% url 'pricing' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-ruble"></use></svg></span><span>Тарифы</span></a>
-          {% endif %}
-          {% if not expert_access and not methodist_access and user.student_profile %}
-            <a class="{% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-home"></use></svg></span><span>Кабинет</span></a>
-            <a class="{% if request.resolver_match.url_name == 'knowledge_map' or request.resolver_match.url_name == 'knowledge_node' %}is-active{% endif %}" href="{% url 'knowledge_map' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-map"></use></svg></span><span class="desktop-label">Карта навыков</span><span class="mobile-label">Карта</span></a>
-            <a class="{% if request.resolver_match.url_name == 'track' or request.resolver_match.url_name == 'lesson' %}is-active{% endif %}" href="{% url 'track' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-track"></use></svg></span><span>Дорожка</span></a>
-            <a class="{% if request.resolver_match.url_name == 'practice_backlog' %}is-active{% endif %}" href="{% url 'practice_backlog' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-repeat"></use></svg></span><span>Отработка</span></a>
-            <a class="{% if request.resolver_match.url_name == 'diagnostics' or request.resolver_match.url_name == 'diagnostic_run' %}is-active{% endif %}" href="{% url 'diagnostics' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-target"></use></svg></span><span>Диагностика</span></a>
-            <a class="{% if request.resolver_match.url_name == 'homework' %}is-active{% endif %}" href="{% url 'homework' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-doc"></use></svg></span><span>Домашки</span></a>
-            <a class="{% if request.resolver_match.url_name == 'daily_challenge' %}is-active{% endif %}" href="{% url 'daily_challenge' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-star"></use></svg></span><span class="desktop-label">Задание дня</span><span class="mobile-label">Задание</span></a>
-            <a class="{% if request.resolver_match.url_name == 'mocks' or request.resolver_match.url_name == 'mock_run' or request.resolver_match.url_name == 'mock_result' %}is-active{% endif %}" href="{% url 'mocks' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-cup"></use></svg></span><span>Пробники</span></a>
-            <a class="{% if request.resolver_match.url_name == 'forecast' %}is-active{% endif %}" href="{% url 'forecast' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-chart"></use></svg></span><span>Прогноз</span></a>
-            <a class="{% if request.resolver_match.url_name == 'shop' %}is-active{% endif %}" href="{% url 'shop' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-sigma"></use></svg></span><span>Магазин</span></a>
-            <a class="{% if request.resolver_match.url_name == 'pricing' %}is-active{% endif %}" href="{% url 'pricing' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-ruble"></use></svg></span><span>Тарифы</span></a>
-          {% elif not expert_access and not methodist_access and user.parent_profile %}
-            <a class="{% if request.resolver_match.url_name == 'parent_dashboard' %}is-active{% endif %}" href="{% url 'parent_dashboard' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-doc"></use></svg></span><span>Отчёт</span></a>
-            <a class="{% if request.resolver_match.url_name == 'pricing' %}is-active{% endif %}" href="{% url 'pricing' %}"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-ruble"></use></svg></span><span>Тарифы и оплата</span></a>
-          {% endif %}
+          {% for group in nav_groups %}
+            {% if group.is_single %}
+              {% with item=group.items.0 %}
+                <a class="nav-link {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}">
+                  <span class="nav-icon"><svg aria-hidden="true"><use href="#{{ item.icon }}"></use></svg></span>
+                  <span>{{ item.label }}</span>
+                </a>
+              {% endwith %}
+            {% else %}
+              <details class="nav-group" {% if group.is_open %}open{% endif %}>
+                <summary>
+                  <span class="nav-icon"><svg aria-hidden="true"><use href="#{{ group.icon }}"></use></svg></span>
+                  <span>{{ group.title }}</span>
+                  <svg class="nav-chevron" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+                </summary>
+                <div class="nav-sub">
+                  {% for item in group.items %}
+                    <a class="nav-link {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}">
+                      <span class="nav-icon"><svg aria-hidden="true"><use href="#{{ item.icon }}"></use></svg></span>
+                      <span class="desktop-label">{{ item.label }}</span>
+                      <span class="mobile-label">{{ item.short_label }}</span>
+                    </a>
+                  {% endfor %}
+                </div>
+              </details>
+            {% endif %}
+          {% endfor %}
         </nav>
         <div class="rail-foot">
           {% if access_state and not access_state.is_active %}

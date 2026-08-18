@@ -545,8 +545,46 @@ def knowledge_node_context(student, node_id):
     }
 
 
+def schedule_context(student, year=None, month=None):
+    """Календарь: план, повторы и дедлайны на сетке месяца."""
+    from apps.planning.schedule import month_schedule
+
+    def as_int(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    schedule = month_schedule(student, as_int(year), as_int(month))
+    return {
+        "schedule": schedule,
+        "month_label": MONTH_LABELS[schedule["month"] - 1],
+    }
+
+
+MONTH_LABELS = [
+    "январь", "февраль", "март", "апрель", "май", "июнь",
+    "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
+]
+
+
+def plan_due_dates(student) -> dict[tuple[int, str], object]:
+    """Сроки пунктов плана: (узел, тип пункта) → дата."""
+    from apps.planning.models import StudyPlanItem
+    from apps.planning.services import get_active_plan
+
+    plan = get_active_plan(student)
+    if plan is None:
+        return {}
+    return {
+        (item.node_id, item.item_type): item.due_date
+        for item in plan.items.all()
+    }
+
+
 def track_context(student):
     states = node_states(student)
+    due_dates = plan_due_dates(student)
     open_mistake_nodes = set(
         MistakeBacklogItem.objects.filter(student=student)
         .exclude(status=MistakeBacklogItem.Status.RESOLVED)
@@ -567,7 +605,7 @@ def track_context(student):
             for lesson in node.lessons.all():
                 point = _track_point(
                     "lesson", lesson.title, state_data, position, node.id,
-                    task_progress,
+                    task_progress, due_dates.get((node.id, "lesson")),
                 )
                 # Текущей не может быть уже пройденная точка: иначе «продолжить»
                 # ведёт туда, где всё решено.
@@ -580,7 +618,7 @@ def track_context(student):
                 position += 1
             point = _track_point(
                 "practice", f"Практика: {node.title}", state_data, position, node.id,
-                task_progress,
+                task_progress, due_dates.get((node.id, "practice")),
             )
             if not current_assigned and state_data["state"] in {
                 "available", "in_progress", "decayed"
@@ -859,7 +897,7 @@ def node_task_progress(student) -> dict[int, dict]:
 
 
 def _track_point(point_type, title, state_data, position, node_id=None,
-                 task_progress=None):
+                 task_progress=None, due_date=None):
     state = state_data["state"]
     mastery_percent = max(0, min(100, round(float(state_data.get("mastery", 0)))))
     progress = (task_progress or {}).get(node_id, {"solved": 0, "total": 0, "percent": 0})
@@ -916,6 +954,12 @@ def _track_point(point_type, title, state_data, position, node_id=None,
         "unlock_tooltip": unlock_tooltip,
         "url": url,
         "is_clickable": url is not None,
+        # Дата из плана: дорожка отвечает «что дальше», расписание — «когда»,
+        # и одно без другого заставляет ученика держать план в голове.
+        "due_date": due_date,
+        "is_overdue": bool(
+            due_date and not is_done and due_date < timezone.localdate()
+        ),
     }
 
 

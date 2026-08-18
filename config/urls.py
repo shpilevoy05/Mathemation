@@ -39,6 +39,7 @@ from apps.knowledge.api import KnowledgeMapView, NodeDetailView
 from apps.mocks.api import MockListView, StartMockView, SubmitMockView
 from apps.planning.api import (
     AcknowledgeChangeView,
+    MoveItemView,
     AcknowledgeTrajectoryTransitionView,
     CompleteItemView,
     PlanChangesView,
@@ -78,6 +79,7 @@ api_urls = [
     path("plan/today/", TodayPlanView.as_view()),
     path("plan/week/", WeekPlanView.as_view()),
     path("plan/items/<int:item_id>/complete/", CompleteItemView.as_view()),
+    path("plan/items/<int:item_id>/move/", MoveItemView.as_view()),
     path("plan/changes/", PlanChangesView.as_view()),
     path("plan/changes/<int:change_id>/ack/", AcknowledgeChangeView.as_view()),
     path("trajectory/", TrajectoryView.as_view()),
@@ -152,6 +154,7 @@ urlpatterns = [
     path("map/", web_views.knowledge_map, name="knowledge_map"),
     path("map/node/<int:node_id>/", web_views.knowledge_node, name="knowledge_node"),
     path("track/", web_views.track, name="track"),
+    path("schedule/", web_views.schedule, name="schedule"),
     path("lesson/<int:node_id>/", web_views.lesson, name="lesson"),
     path(
         "lesson/<int:node_id>/summary.md",

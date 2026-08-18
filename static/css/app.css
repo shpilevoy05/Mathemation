@@ -183,6 +183,17 @@ h3 { margin-bottom: 6px; font-size: 1rem; font-weight: 600; }
 .main-nav a.is-active, .main-nav a.is-active:hover { color: #fff; background: rgba(255, 255, 255, .12); font-weight: 600; }
 /* Полоска слева отмечает раздел, в котором стоит ученик. */
 .main-nav a.is-active::before { position: absolute; top: 9px; bottom: 9px; left: 0; width: 3px; border-radius: 0 3px 3px 0; background: var(--flame-1); content: ""; }
+/* Два уровня рельса. Группа — <details>: раскрытие работает без скрипта,
+   а группа с открытой страницей приходит уже раскрытой. */
+.nav-group summary { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--night-muted); font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; list-style: none; }
+.nav-group summary::-webkit-details-marker { display: none; }
+.nav-group summary:hover { color: #fff; background: rgba(255, 255, 255, .06); }
+.nav-chevron { width: 16px; height: 16px; margin-left: auto; transition: transform .18s ease; }
+.nav-group[open] summary { color: #fff; }
+.nav-group[open] .nav-chevron { transform: rotate(180deg); }
+.nav-sub { display: grid; gap: 2px; padding-left: 12px; margin-left: 21px; border-left: 1px solid rgba(255, 255, 255, .12); }
+.nav-sub .nav-icon { flex: 0 0 16px; }
+.nav-sub .nav-icon svg { width: 16px; height: 16px; }
 .nav-icon { display: grid; flex: 0 0 19px; place-items: center; }
 .nav-icon svg { width: 19px; height: 19px; }
 .nav-count { margin-left: auto; padding: 2px 7px; border-radius: 999px; background: var(--danger); color: #fff; font-size: .7rem; font-weight: 800; }
@@ -887,6 +898,35 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 .button-ghost { border-color: var(--line-strong); color: var(--muted-2); background: transparent; box-shadow: none; }
 .button-ghost:hover { border-color: var(--primary); color: var(--primary-dark); }
 
+/* — Календарь расписания — */
+.month-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 16px; }
+.calendar-weekday { padding: 4px 6px; color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.calendar-day { display: grid; align-content: start; gap: 4px; min-height: 96px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); }
+.calendar-day.is-outside { opacity: .45; }
+.calendar-day.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); }
+.calendar-day.is-overdue { border-color: var(--danger); }
+.calendar-date { color: var(--muted); font-size: .8rem; font-weight: 700; }
+.calendar-day.is-today .calendar-date { color: var(--primary-dark); }
+.calendar-entry { padding: 4px 6px; border-left: 3px solid var(--primary); border-radius: 6px; background: var(--primary-soft); font-size: .72rem; line-height: 1.25; cursor: grab; }
+.calendar-entry a { color: inherit; }
+.calendar-entry.is-done { opacity: .55; text-decoration: line-through; cursor: default; }
+.calendar-entry.entry-practice { border-left-color: var(--primary-2); }
+.calendar-entry.entry-review { border-left-color: var(--warning); background: var(--warning-soft); }
+.calendar-entry.entry-homework { border-left-color: var(--violet); background: var(--violet-soft); }
+.calendar-entry.entry-exam { border-left-color: var(--danger); background: var(--danger-soft); font-weight: 700; }
+.calendar-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 14px; font-size: .76rem; }
+.calendar-legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.calendar-legend span::before { width: 12px; height: 12px; border-radius: 4px; background: var(--primary); content: ""; }
+.calendar-legend .entry-practice::before { background: var(--primary-2); }
+.calendar-legend .entry-review::before { background: var(--warning); }
+.calendar-legend .entry-homework::before { background: var(--violet); }
+.calendar-legend .entry-exam::before { background: var(--danger); }
+/* Срок пункта прямо на дорожке: «что дальше» и «когда» — один вопрос. */
+.track-due { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; color: var(--muted); font-size: .7rem; }
+.track-due svg { width: 12px; height: 12px; }
+.track-due.is-overdue { color: var(--danger); font-weight: 700; }
+
 /* — Задание дня — */
 .daily-hero {
   position: relative; padding: 26px 28px; border-radius: 24px; overflow: hidden; color: #fff;
@@ -1064,6 +1104,8 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
   .main-nav a { display: flex; flex: 1 0 78px; justify-content: center; align-items: center; flex-direction: column; gap: 1px; min-width: 78px; padding: 5px 7px; border-radius: 0; color: var(--muted); font-size: 11px; }
   .main-nav a:hover { background: var(--primary-soft); }
   .main-nav a.is-active, .main-nav a.is-active:hover { color: var(--primary-dark); background: var(--primary-soft); }
+  .nav-group, .nav-sub { display: contents; }
+  .nav-group summary { display: none; }
   .nav-icon { display: block; height: 24px; font-size: 20px; line-height: 24px; }
   .desktop-label { display: none; }.mobile-label { display: inline; }
   .account-menu { margin-left: auto; }

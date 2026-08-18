@@ -277,6 +277,39 @@
     if (bar) bar.hidden = true;
   }
 
+  // — Календарь: перенос пункта плана перетаскиванием —
+  // Календарь не заводит своё расписание: он двигает сам план, поэтому
+  // единственное действие здесь — попросить сервер сменить дату пункта.
+  const calendar = document.querySelector("[data-calendar]");
+  if (calendar) {
+    let dragged = null;
+    calendar.addEventListener("dragstart", event => {
+      dragged = event.target.closest("[data-plan-item]");
+      if (dragged) event.dataTransfer.effectAllowed = "move";
+    });
+    calendar.addEventListener("dragover", event => {
+      if (dragged && event.target.closest("[data-day]")) event.preventDefault();
+    });
+    calendar.addEventListener("drop", async event => {
+      const day = event.target.closest("[data-day]");
+      if (!dragged || !day) return;
+      event.preventDefault();
+      const error = document.querySelector("[data-calendar-error]");
+      const item = dragged;
+      dragged = null;
+      try {
+        await apiFetch(`/api/plan/items/${item.dataset.planItem}/move/`, {
+          method: "POST",
+          body: JSON.stringify({ due_date: day.dataset.day }),
+        });
+        day.append(item);
+        if (error) error.hidden = true;
+      } catch (exception) {
+        if (error) { error.hidden = false; error.textContent = exception.message; }
+      }
+    });
+  }
+
   const viewSwitch = document.querySelector("[data-view-switch]");
   if (viewSwitch) {
     viewSwitch.addEventListener("click", event => {
