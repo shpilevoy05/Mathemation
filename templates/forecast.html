@@ -2,18 +2,48 @@
 {% block title %}Прогноз — Матемация{% endblock %}
 {% block content %}
 {% if not student %}<section class="empty-state"><h1>Прогноз</h1><p>Этот раздел доступен ученикам.</p></section>{% else %}
-<div class="page-heading"><div><p class="eyebrow">Честная оценка</p><h1>Прогноз и потолок</h1><p>Посмотри, как темп и время до экзамена влияют на достижимый результат.</p></div></div>
-<section class="forecast-hero" data-forecast><div class="forecast-score"><small>Текущий прогноз</small><strong data-current-score>{{ forecast.current_score }}</strong><span>при текущем темпе</span></div><div class="forecast-arrow">→</div><div class="forecast-score ceiling"><small>Потолок</small><strong data-ceiling-score>{{ forecast.ceiling_score }}</strong><span>при выбранных условиях</span></div></section>
-<p class="disclaimer prominent">Это не гарантия балла. Прогноз — условный диапазон результата при текущем темпе; фактический результат зависит от регулярности, пробников и работы над ошибками.</p>
-<section class="card target-score-card" data-target-score-card>
-  <div><p class="eyebrow">Целевой балл</p><h2><span data-target-score-current>{{ target_score }}</span> баллов</h2><p>Текущая траектория: <strong data-target-trajectory>{{ trajectory.title|default:"ещё не назначена" }}</strong></p></div>
-  <form class="target-score-form" data-target-score-form>
-    <label for="target-score">Новая цель</label>
-    <div><input id="target-score" name="target_score" type="number" min="40" max="100" step="1" value="{{ target_score }}" required><button class="button button-primary" type="submit">Изменить цель</button></div>
-    <p class="target-warning">План будет перестроен под новую траекторию.</p>
-    <p class="form-error" data-target-score-error hidden></p>
-    <p class="target-success" data-target-score-success hidden></p>
-  </form>
+<div class="page-heading"><div><p class="eyebrow">Честная оценка</p><h1>Прогноз</h1><p>Посмотри, как темп и время до экзамена влияют на достижимый результат.</p></div></div>
+<section class="forecast-hero" data-forecast data-platform-score="{{ forecast.forecast_score }}" data-saved-hours="{{ forecast.weekly_hours }}">
+  <div class="forecast-score"><small>Сейчас</small><strong data-current-level>{{ forecast.current_level }}</strong><span>если бы экзамен был сегодня</span></div>
+  <div class="forecast-arrow" aria-hidden="true">→</div>
+  <div class="forecast-score ceiling"><small>Прогноз платформы</small><strong data-platform-forecast>{{ forecast.forecast_score }}</strong><span>к <span data-platform-date>{{ forecast.exam_date|date:"d.m.Y"|default:"дате экзамена" }}</span> при <span data-platform-hours>{{ forecast.weekly_hours }}</span> ч/нед</span></div>
+  <span class="target-chip">Цель <span data-target-score-current>{{ target_score }}</span></span>
 </section>
-<section class="card levers"><div><p class="eyebrow">Рычаги</p><h2>Проверь другой сценарий</h2></div><label>Недельная нагрузка <strong><span data-hours-output>{{ forecast.weekly_hours }}</span> ч</strong><input type="range" min="1" max="24" value="{{ forecast.weekly_hours }}" data-forecast-hours></label><label>Дата экзамена<input type="date" value="{{ forecast.exam_date|date:'Y-m-d' }}" data-forecast-date></label><p class="form-error" data-forecast-error hidden></p></section>
+
+<div class="forecast-grid">
+  <section class="card scenario-card">
+    <p class="eyebrow">Сценарий</p><h2>Проверь другой темп</h2>
+    <label for="forecast-hours">Недельная нагрузка <strong><span data-hours-output>{{ forecast.weekly_hours }}</span> ч</strong></label>
+    <input id="forecast-hours" type="range" min="1" max="24" value="{{ forecast.weekly_hours }}" data-forecast-hours>
+    <label for="forecast-date">Дата экзамена</label>
+    <input id="forecast-date" type="date" value="{{ forecast.exam_date|date:'Y-m-d' }}" data-forecast-date>
+    <p class="scenario-result">В этом сценарии: <strong data-scenario-score>{{ forecast.forecast_score }}</strong> <span class="forecast-delta is-neutral" data-forecast-delta>= прогнозу платформы</span></p>
+    <button class="button button-primary" type="button" data-save-weekly-hours disabled>Сохранить {{ forecast.weekly_hours }} ч/нед и перестроить расписание</button>
+    <p class="form-error" data-forecast-error aria-live="polite" hidden></p>
+    <p class="target-success" data-weekly-hours-success aria-live="polite" hidden></p>
+  </section>
+
+  <section class="card target-score-card" data-target-score-card>
+    <p class="eyebrow">Целевой балл</p><h2><span>{{ target_score }}</span> баллов</h2><p>Текущая траектория: <strong data-target-trajectory>{{ trajectory.title|default:"ещё не назначена" }}</strong></p>
+    <form class="target-score-form" data-target-score-form>
+      <label for="target-score">Новая цель</label>
+      <div><input id="target-score" name="target_score" type="number" min="40" max="100" step="1" value="{{ target_score }}" required><button class="button button-primary" type="submit">Изменить цель</button></div>
+      <p class="target-warning">При смене траектории план будет перестроен.</p>
+      <p class="form-error" data-target-score-error aria-live="polite" hidden></p>
+      <p class="target-success" data-target-score-success aria-live="polite" hidden></p>
+    </form>
+  </section>
+
+  <section class="card recommendations-card" data-forecast-recommendations>
+    <p class="eyebrow">Рекомендации платформы</p><h2>Как приблизиться к цели</h2>
+    {% if recommendations.hours_needed_for_target %}
+      <p>Чтобы выйти на {{ target_score }}{% if forecast.exam_date %} к {{ forecast.exam_date|date:"d.m.Y" }}{% endif %}, нужно ≈ {{ recommendations.hours_needed_for_target }} ч/нед.</p>
+    {% else %}
+      <p>Цель {{ target_score }} недостижима даже при 24 ч/нед — сфокусируйся на ближайших темах и обсуди цель с преподавателем.</p>
+    {% endif %}
+    {% if recommendations.top_topics %}<ol class="recommendation-topics">{% for topic in recommendations.top_topics %}<li><a href="{{ topic.lesson_url }}">{{ topic.title }}</a><strong>+{{ topic.score_gain }} баллов</strong></li>{% endfor %}</ol>{% else %}<p>Все доступные темы уже дают максимум — открой следующие через карту навыков.</p>{% endif %}
+    {% if recommendations.trajectory_recommended_hours %}<p class="trajectory-recommendation">Для траектории {{ recommendations.trajectory_title }} рекомендуем {{ recommendations.trajectory_recommended_hours }} ч/нед.</p>{% endif %}
+  </section>
+</div>
+<p class="disclaimer prominent">Это не гарантия балла. Прогноз — условный результат при текущем темпе; фактический результат зависит от регулярности, пробников и работы над ошибками.</p>
 {% endif %}{% endblock %}

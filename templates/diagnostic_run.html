@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ result.test.title }} — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Диагностика</h1><p>Для этого аккаунта кабинет ученика недоступен.</p></section>
+{% elif result.status != 'in_progress' %}
+  <section class="empty-state"><h1>Диагностика уже завершена</h1><a class="button" href="{% url 'dashboard' %}">Вернуться в кабинет</a></section>
+{% else %}
+  <section class="page-heading"><div><p class="eyebrow">Диагностика</p><h1>{{ result.test.title }}</h1><p>Краткие ответы проверятся автоматически. Готовые ответы во время работы не показываются.</p></div></section>
+  <form data-diagnostic-form data-result-id="{{ result.id }}">
+    <section class="card mock-part"><p class="eyebrow">Часть 1</p><h2>Краткие ответы</h2>
+      {% for assignment in part1_assignments %}
+        <article class="mock-task"><h3>{{ forloop.counter }}. {{ assignment.title }}</h3><p>{{ assignment.statement }}</p><label for="diagnostic-answer-{{ assignment.id }}">Ответ</label><input id="diagnostic-answer-{{ assignment.id }}" name="answer_{{ assignment.id }}" autocomplete="off"></article>
+      {% empty %}<p>В этой диагностике нет задач части 1.</p>{% endfor %}
+    </section>
+    {% if part2_assignments %}
+      <section class="card mock-part"><p class="eyebrow">Часть 2</p><h2>Задачи с развёрнутым решением</h2>
+        <p>Задания второй части в диагностике не оцениваются автоматически — их проверим в пробнике.</p>
+        {% for assignment in part2_assignments %}<article class="mock-task"><h3>{{ assignment.title }}</h3><p>{{ assignment.statement }}</p></article>{% endfor %}
+      </section>
+    {% endif %}
+    <p class="form-error" data-diagnostic-error aria-live="polite" hidden></p>
+    <button class="button button-primary mock-submit" type="submit">Завершить диагностику</button>
+  </form>
+{% endif %}
+{% endblock %}

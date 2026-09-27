@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Диагностика — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Диагностика</h1><p>Для этого аккаунта кабинет ученика недоступен.</p></section>
+{% else %}
+  <section class="page-heading"><div><p class="eyebrow">Точка старта</p><h1>Диагностика</h1><p>Выбери формат, чтобы определить текущий уровень и построить план.</p></div></section>
+  {% if latest_completed_result %}
+    <section class="card"><h2>Последний результат</h2><p><strong>{{ latest_completed_result.test.title }}</strong> · оценка {{ latest_completed_result.estimated_score|default:"—" }} баллов</p></section>
+  {% endif %}
+  <div class="content-grid">
+    {% for item in diagnostics %}
+      <article class="card">
+        <p class="eyebrow">{{ item.task_count }} задач</p>
+        <h2>{{ item.test.title }}</h2>
+        {% if item.in_progress_result %}
+          <a class="button button-primary" href="{% url 'diagnostic_run' item.in_progress_result.id %}">Продолжить</a>
+        {% else %}
+          <button class="button button-primary" type="button" data-start-diagnostic="/api/diagnostics/{{ item.test.id }}/start/">Начать</button>
+        {% endif %}
+      </article>
+    {% empty %}
+      <section class="empty-state card-wide"><h2>Активных диагностик пока нет</h2></section>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,9 +1,12 @@
 """Diagnostic completion → mastery map seed → study plan."""
 from django.utils import timezone
 
+from apps.content.models import Assignment
 from apps.knowledge.models import KnowledgeNode
 from apps.knowledge.services import set_mastery
 from apps.planning.services import assign_trajectory, build_study_plan
+from apps.practice.models import Attempt
+from apps.practice.services import submit_attempt
 from apps.progress.services import create_snapshot, predict_score
 
 from .models import DiagnosticResult, DiagnosticTest
@@ -21,6 +24,33 @@ def start_diagnostic(student, test: DiagnosticTest) -> DiagnosticResult:
         result_id=result.id,
     )
     return result
+
+
+def get_or_start_diagnostic(student, test: DiagnosticTest) -> DiagnosticResult:
+    """Resume the student's latest unfinished run of this diagnostic, if any."""
+    result = (
+        DiagnosticResult.objects.filter(
+            student=student,
+            test=test,
+            status=DiagnosticResult.Status.IN_PROGRESS,
+        )
+        .order_by("-started_at")
+        .first()
+    )
+    return result or start_diagnostic(student, test)
+
+
+def submit_diagnostic_answers(result: DiagnosticResult, answers: dict) -> DiagnosticResult:
+    """Auto-check only part 1 and complete a diagnostic result."""
+    for assignment in result.test.assignments.filter(exam_part=Assignment.Part.PART1):
+        submit_attempt(
+            result.student,
+            assignment,
+            str(answers.get(str(assignment.id), "")),
+            context=Attempt.Context.DIAGNOSTIC,
+            diagnostic_result=result,
+        )
+    return complete_diagnostic(result)
 
 
 def complete_diagnostic(result: DiagnosticResult) -> DiagnosticResult:

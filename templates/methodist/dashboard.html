@@ -19,8 +19,8 @@
   </section>
 
   <section class="card backoffice-section"><h2>Граф по кластерам</h2>
-    {% for cluster in content_clusters %}<section class="methodist-cluster" style="--cluster-color: {{ cluster.color }}"><h3>{{ cluster.title }}</h3><div class="table-scroll"><table><thead><tr><th>Код</th><th>Название</th><th>Пререквизиты</th><th>Уроки / задачи</th><th></th></tr></thead><tbody>
-      {% for node in cluster.nodes.all %}<tr><td>{{ node.code }}</td><td>{{ node.title }}</td><td>{{ node.ui_prerequisites }}</td><td>{{ node.lesson_count }} / {{ node.assignment_count }}</td><td><a href="/admin/knowledge/knowledgenode/{{ node.id }}/change/">Редактировать</a></td></tr>{% endfor %}
+    {% for cluster in content_clusters %}<section class="methodist-cluster" style="--cluster-color: {{ cluster.color }}"><h3>{{ cluster.title }}</h3><div class="table-scroll"><table><colgroup><col class="col-code"><col class="col-title"><col class="col-prerequisites"><col class="col-count"><col class="col-action"></colgroup><thead><tr><th>Код</th><th>Название</th><th>Пререквизиты</th><th>Уроки / задачи</th><th></th></tr></thead><tbody>
+      {% for node in cluster.nodes.all %}<tr><td><code class="node-code" title="{{ node.code }}">{{ node.code }}</code></td><td>{{ node.title }}</td><td>{{ node.ui_prerequisites }}</td><td>{{ node.lesson_count }} / {{ node.assignment_count }}</td><td><a href="/admin/knowledge/knowledgenode/{{ node.id }}/change/">Редактировать</a></td></tr>{% endfor %}
     </tbody></table></div></section>{% empty %}<p class="muted">Кластеры ещё не созданы.</p>{% endfor %}
   </section>
   <a class="button button-primary" href="/admin/">Открыть админку</a>

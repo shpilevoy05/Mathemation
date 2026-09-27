@@ -7,14 +7,14 @@
   <section class="parent-hero card">
     <div><p class="eyebrow">Родительский отчёт</p><h1>Как дела у {{ child.user.get_full_name|default:child.user.username }}</h1><p>Неделя {{ report.week_start|date:"d.m" }}–{{ week_end|date:"d.m.Y" }}</p></div>
     <div class="gauge-wrap">
-      <svg class="gauge gauge-svg" viewBox="0 0 200 110" width="200" height="110" role="img" aria-label="Прогноз {{ report_data.dynamics.current_predicted_score|default:0 }} из 100">
+      <svg class="gauge gauge-svg" viewBox="0 0 200 110" width="200" height="110" role="img" aria-label="Прогноз платформы к экзамену {{ report_data.platform_forecast.forecast_score }} из 100">
         <defs><linearGradient id="gaugeGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3D6BE5"/><stop offset="1" stop-color="#7C9BF5"/></linearGradient></defs>
         <path class="gauge-base" d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="#E8EEFC" stroke-width="14" stroke-linecap="round" pathLength="{{ gauge_dash }}"/>
         <path class="gauge-value" d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round" pathLength="{{ gauge_dash }}" stroke-dasharray="{{ gauge_dash }}" stroke-dashoffset="{{ gauge_offset }}"/>
-        <text class="gauge-score" x="100" y="72" text-anchor="middle">{{ report_data.dynamics.current_predicted_score|default:"—" }}</text>
-        <text class="gauge-caption" x="100" y="92" text-anchor="middle">из 100 · при текущем темпе</text>
+        <text class="gauge-score" x="100" y="72" text-anchor="middle">{{ report_data.platform_forecast.forecast_score }}</text>
       </svg>
-      <p>Старт {{ report_data.dynamics.start_score|default:"—" }} → Цель {{ report_data.dynamics.target_score }}</p>
+      <p class="gauge-caption-text">прогноз платформы к экзамену</p>
+      <p>сейчас {{ report_data.platform_forecast.current_level }} · цель {{ report_data.platform_forecast.target_score }} · при {{ report_data.platform_forecast.weekly_hours }} ч/нед</p>
     </div>
   </section>
 

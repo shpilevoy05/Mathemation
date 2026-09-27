@@ -1,4 +1,5 @@
 """Forecast (текущий балл + потолок с рычагами), snapshots, weekly reports."""
+from dataclasses import replace
 from datetime import timedelta
 
 from django.conf import settings
@@ -13,6 +14,7 @@ from apps.content.models import Assignment
 from apps.knowledge.models import KnowledgeNode, SkillMastery
 from apps.knowledge.models import KnowledgeDependency
 from apps.planning.models import StudyPlanItem
+from apps.planning.labels import STUDY_PLAN_ITEM_TYPE_LABELS
 from apps.planning.services import get_active_plan
 from apps.practice.models import Attempt, MistakeBacklogItem
 
@@ -119,6 +121,18 @@ def predict_score(student, mastery_override: dict[int, float] | None = None) -> 
     return int(min(max(round(scaled), 0), 100)), round(avg, 2)
 
 
+def _score_from_dtos(student, states, weights, mastery_override=None) -> int:
+    """Score cached DTOs, optionally replacing mastery without touching the DB."""
+    if mastery_override is not None:
+        states = [
+            replace(state, mastery=float(mastery_override.get(state.node_id, state.mastery)))
+            for state in states
+        ]
+    primary = engine_expected_primary(states, weights, _engine_params())
+    score = primary_to_scaled(primary) + student.forecast_calibration
+    return int(min(max(round(score), 0), 100))
+
+
 def calibrate_forecast(student, actual_scaled: int) -> None:
     """После пробника сверяем предсказание с фактом и подтягиваем модель."""
     raw_predicted = primary_to_scaled(expected_primary(student))
@@ -166,6 +180,83 @@ def ceiling_forecast(student, weekly_hours: int | None = None, exam_date=None) -
         "exam_date": exam_date,
         "reachable_node_ids": list(result.reachable_node_ids),
         "unreachable_node_ids": list(result.unreachable_node_ids),
+    }
+
+
+def platform_forecast(student) -> dict:
+    """The saved platform forecast displayed consistently across the product."""
+    forecast = ceiling_forecast(student)
+    return {
+        "current_level": forecast["current_score"],
+        "forecast_score": forecast["ceiling_score"],
+        "weekly_hours": forecast["weekly_hours"],
+        "exam_date": forecast["exam_date"],
+        "target_score": student.target_score,
+    }
+
+
+def forecast_recommendations(student) -> dict:
+    """Return pace and topic levers while reusing one set of forecast DTOs."""
+    states, weights = _forecast_dtos(student)
+    edges = [
+        EdgeDTO(
+            from_node_id=dependency.prerequisite_id,
+            to_node_id=dependency.node_id,
+            min_mastery=float(dependency.min_mastery),
+        )
+        for dependency in KnowledgeDependency.objects.all()
+    ]
+    days_left = (
+        None
+        if student.exam_date is None
+        else max((student.exam_date - timezone.localdate()).days, 0)
+    )
+    params = _engine_params()
+    current_level = _score_from_dtos(student, states, weights)
+    hours_needed = None
+    for hours in range(1, 25):
+        result = simulate_ceiling(states, edges, days_left, hours, params)
+        forecast_score = max(
+            current_level,
+            _score_from_dtos(student, states, weights, result.mastery_profile),
+        )
+        if forecast_score >= student.target_score:
+            hours_needed = hours
+            break
+
+    from apps.knowledge.services import node_states
+    from apps.planning.services import order_pending_nodes
+
+    ui_states = node_states(student)
+    mastery_profile = {state.node_id: state.mastery for state in states}
+    topics = []
+    for node in order_pending_nodes(student):
+        if ui_states[node.id]["state"] not in {"available", "in_progress"}:
+            continue
+        improved = dict(mastery_profile)
+        improved[node.id] = max(improved.get(node.id, 0), settings.ATTAINABLE_MASTERY)
+        improved_score = _score_from_dtos(student, states, weights, improved)
+        score_gain = improved_score - current_level
+        if score_gain <= 0:
+            continue
+        topics.append(
+            {
+                "node_id": node.id,
+                "title": node.title,
+                "score_gain": score_gain,
+                "lesson_url": f"/lesson/{node.id}/",
+            }
+        )
+        if len(topics) == 3:
+            break
+
+    plan = get_active_plan(student)
+    trajectory = plan.trajectory if plan and plan.trajectory_id else None
+    return {
+        "hours_needed_for_target": hours_needed,
+        "top_topics": topics,
+        "trajectory_title": trajectory.title if trajectory else None,
+        "trajectory_recommended_hours": trajectory.weekly_load_hours if trajectory else None,
     }
 
 
@@ -294,11 +385,17 @@ def build_parent_report(student, week_start=None) -> ParentReport:
         else None
     )
     next_step = (
-        f"{next_item.get_item_type_display()}: {next_item.node.title}"
+        f"{STUDY_PLAN_ITEM_TYPE_LABELS.get(next_item.item_type, next_item.item_type)}: "
+        f"{next_item.node.title}"
         if next_item and next_item.node
         else "Пройти входную диагностику."
     )
 
+    platform = platform_forecast(student)
+    serialized_platform = {
+        **platform,
+        "exam_date": platform["exam_date"].isoformat() if platform["exam_date"] else None,
+    }
     payload = {
         "week_fact": {
             "attempts": total,
@@ -323,7 +420,12 @@ def build_parent_report(student, week_start=None) -> ParentReport:
             "sparkline_last_y": sparkline_last_y,
             "start_score": student.start_score,
             "target_score": student.target_score,
+            "current_level": platform["current_level"],
+            "forecast_score": platform["forecast_score"],
+            "weekly_hours": platform["weekly_hours"],
+            "exam_date": serialized_platform["exam_date"],
         },
+        "platform_forecast": serialized_platform,
         "risks": risks,
         "weak_topics": weak_topics(student),
         "error_type_distribution": error_type_distribution,

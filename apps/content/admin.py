@@ -1,11 +1,15 @@
 from django.contrib import admin
+from django.db import models
 
 from .models import Assignment, AssignmentSkillTag, Lesson, TheoryBlock
+
+LATEX_HELP_TEXT = "Формулы: $...$ (строчные), $$...$$ (выносные), LaTeX-синтаксис KaTeX."
 
 
 class TheoryBlockInline(admin.TabularInline):
     model = TheoryBlock
     extra = 1
+    formfield_overrides = {models.TextField: {"help_text": LATEX_HELP_TEXT}}
 
 
 class SkillTagInline(admin.TabularInline):
@@ -30,7 +34,12 @@ class AssignmentAdmin(admin.ModelAdmin):
     list_display = ["title", "exam_part", "difficulty", "max_score"]
     search_fields = ["title", "statement"]
     inlines = [SkillTagInline]
+    formfield_overrides = {models.TextField: {"help_text": LATEX_HELP_TEXT}}
 
 
-admin.site.register(TheoryBlock)
+@admin.register(TheoryBlock)
+class TheoryBlockAdmin(admin.ModelAdmin):
+    formfield_overrides = {models.TextField: {"help_text": LATEX_HELP_TEXT}}
+
+
 admin.site.register(AssignmentSkillTag)

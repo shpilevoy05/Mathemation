@@ -3,12 +3,13 @@ from django.test import TestCase
 from apps.knowledge.services import mastery_map
 from apps.knowledge.tests import make_node, make_student
 from apps.planning.services import get_active_plan
+from apps.content.models import Assignment
 from apps.practice.models import Attempt
 from apps.practice.services import submit_attempt
 from apps.practice.tests import make_assignment
 
 from .models import DiagnosticResult, DiagnosticTest
-from .services import complete_diagnostic
+from .services import complete_diagnostic, submit_diagnostic_answers
 
 
 class DiagnosticFlowTests(TestCase):
@@ -41,3 +42,25 @@ class DiagnosticFlowTests(TestCase):
         self.assertIsNotNone(student.start_score)
         self.assertEqual(result.status, DiagnosticResult.Status.COMPLETED)
         self.assertEqual(result.primary_score, 1)
+
+    def test_submit_auto_checks_only_part1(self):
+        student = make_student(username="diagnostic-part1-only")
+        node = make_node("diagnostic-part1")
+        part1 = make_assignment(node, answer="7")
+        part2 = make_assignment(
+            node,
+            answer="",
+            part=Assignment.Part.PART2,
+        )
+        test = DiagnosticTest.objects.create(title="Полная диагностика")
+        test.assignments.set([part1, part2])
+        result = DiagnosticResult.objects.create(student=student, test=test)
+
+        submit_diagnostic_answers(
+            result,
+            {str(part1.id): "7", str(part2.id): "не проверять"},
+        )
+
+        self.assertEqual(result.attempts.count(), 1)
+        self.assertEqual(result.attempts.get().assignment, part1)
+        self.assertEqual(result.status, DiagnosticResult.Status.COMPLETED)

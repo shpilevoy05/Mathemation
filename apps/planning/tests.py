@@ -2,6 +2,7 @@ from django.test import TestCase
 
 from apps.knowledge.models import KnowledgeDependency, TopicCluster
 from apps.knowledge.services import set_mastery
+from apps.accounts.models import ParentProfile, User
 from apps.knowledge.tests import make_node, make_student
 from apps.events.models import Event
 from apps.planning.models import (
@@ -13,8 +14,10 @@ from apps.planning.models import (
 from apps.planning.services import (
     assign_trajectory,
     build_study_plan,
+    change_weekly_hours,
     get_active_plan,
     maybe_transition,
+    weekly_topics_label,
 )
 
 
@@ -83,6 +86,69 @@ class StudyPlanTests(TestCase):
         from apps.planning.services import rebuild_after_inactivity
 
         self.assertIsNone(rebuild_after_inactivity(self.student, idle_days=14))
+
+    def test_change_weekly_hours_rebuilds_with_student_pacing_and_non_major_log(self):
+        for index in range(4):
+            make_node(f"extra-{index}", cluster=self.cluster)
+        trajectory = Trajectory.objects.get(slug="score84")
+        trajectory.weekly_load_hours = 8
+        trajectory.save(update_fields=["weekly_load_hours"])
+        assign_trajectory(self.student, 84)
+
+        result = change_weekly_hours(self.student, 4)
+
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.weekly_hours, 4)
+        self.assertEqual(result["nodes_per_week"], 1)
+        week_zero_nodes = set(
+            result["plan"].items.filter(week_index=0).values_list("node_id", flat=True)
+        )
+        self.assertEqual(len(week_zero_nodes), 1)
+        change = result["plan"].change_logs.get(reason=PlanChangeLog.Reason.MANUAL)
+        self.assertFalse(change.is_major)
+        self.assertTrue(
+            Event.objects.filter(event_type=Event.Type.WEEKLY_HOURS_CHANGED).exists()
+        )
+        rebuild = Event.objects.filter(event_type=Event.Type.PLAN_REBUILT).first()
+        self.assertFalse(rebuild.payload["is_major"])
+
+    def test_weekly_hours_api_validates_range_and_rejects_parent(self):
+        self.client.force_login(self.student.user)
+        for value in (0, 25, "bad"):
+            with self.subTest(value=value):
+                response = self.client.post(
+                    "/api/me/weekly-hours/",
+                    {"weekly_hours": value},
+                    content_type="application/json",
+                )
+                self.assertEqual(response.status_code, 400)
+
+        parent_user = User.objects.create_user(
+            username="weekly-parent", role=User.Role.PARENT
+        )
+        ParentProfile.objects.create(user=parent_user)
+        self.client.force_login(parent_user)
+        response = self.client.post(
+            "/api/me/weekly-hours/",
+            {"weekly_hours": 8},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_weekly_topics_label_uses_russian_plural_rules(self):
+        expected = {
+            1: "тема",
+            2: "темы",
+            4: "темы",
+            5: "тем",
+            11: "тем",
+            14: "тем",
+            21: "тема",
+            22: "темы",
+        }
+        for count, label in expected.items():
+            with self.subTest(count=count):
+                self.assertEqual(weekly_topics_label(count), label)
 
 
 class TrajectoryTests(TestCase):

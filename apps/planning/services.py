@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.content.models import Assignment
@@ -121,7 +122,9 @@ def order_pending_nodes(student) -> list[KnowledgeNode]:
     return [by_id[state.node_id] for state in ordered]
 
 
-def build_study_plan(student, reason: str = "initial") -> StudyPlan:
+def build_study_plan(
+    student, reason: str = "initial", is_major: bool | None = None
+) -> StudyPlan:
     """Build a plan from current mastery, dependencies and topic weights.
 
     Nodes already at/above MASTERY_THRESHOLD are skipped. Each node gets a
@@ -147,8 +150,8 @@ def build_study_plan(student, reason: str = "initial") -> StudyPlan:
         trajectory=trajectory,
     )
 
-    weekly_hours = trajectory.weekly_load_hours if trajectory else student.weekly_hours
-    nodes_per_week = max(1, weekly_hours // settings.HOURS_PER_NODE)
+    weekly_hours = student.weekly_hours
+    nodes_per_week = int(max(1, weekly_hours // settings.HOURS_PER_NODE))
     today = timezone.localdate()
     order = 0
     for i, node in enumerate(order_pending_nodes(student)):
@@ -169,7 +172,7 @@ def build_study_plan(student, reason: str = "initial") -> StudyPlan:
         plan_id=plan.id,
         trajectory_id=trajectory.id if trajectory else None,
         reason=reason,
-        is_major=reason != "initial",
+        is_major=reason != "initial" if is_major is None else is_major,
     )
     return plan
 
@@ -361,6 +364,67 @@ def change_target_score(student, target_score: int) -> dict:
     }
 
 
+@transaction.atomic
+def change_weekly_hours(student, hours: int) -> dict:
+    """Save the student's commitment and rebuild without a major-change alert."""
+    old_hours = student.weekly_hours
+    student.weekly_hours = hours
+    student.save(update_fields=["weekly_hours"])
+    plan = build_study_plan(
+        student, reason=PlanChangeLog.Reason.MANUAL, is_major=False
+    )
+    log_plan_change(
+        student,
+        reason=PlanChangeLog.Reason.MANUAL,
+        description=f"Недельная нагрузка изменена на {hours} ч. Расписание перестроено.",
+        is_major=False,
+    )
+
+    from apps.events.models import Event
+    from apps.events.services import log_event
+
+    log_event(
+        Event.Type.WEEKLY_HOURS_CHANGED,
+        student=student,
+        old_hours=old_hours,
+        new_hours=hours,
+        plan_id=plan.id,
+    )
+    nodes_per_week = int(max(1, hours // settings.HOURS_PER_NODE))
+    first_due_dates = []
+    seen_nodes = set()
+    for item in plan.items.select_related("node").order_by("due_date", "order"):
+        if item.node_id is None or item.node_id in seen_nodes:
+            continue
+        seen_nodes.add(item.node_id)
+        first_due_dates.append(
+            {"node_id": item.node_id, "title": item.node.title, "due_date": item.due_date}
+        )
+        if len(first_due_dates) == 3:
+            break
+    return {
+        "weekly_hours": hours,
+        "plan": plan,
+        "nodes_per_week": nodes_per_week,
+        "schedule_summary": (
+            f"Расписание перестроено: {nodes_per_week} "
+            f"{weekly_topics_label(nodes_per_week)} в неделю."
+        ),
+        "first_due_dates": first_due_dates,
+    }
+
+
+def weekly_topics_label(count: int) -> str:
+    """Return the Russian topic form for a weekly count."""
+    if count % 100 in range(11, 15):
+        return "тем"
+    if count % 10 == 1:
+        return "тема"
+    if count % 10 in range(2, 5):
+        return "темы"
+    return "тем"
+
+
 def _recovery_actions(student, details: dict, trajectory: Trajectory) -> list[str]:
     node_ids = []
     for node_id in details.get("node_ids", []):
@@ -391,7 +455,7 @@ def _recovery_actions(student, details: dict, trajectory: Trajectory) -> list[st
         quoted_titles = ", ".join(f'"{title}"' for title in node_titles)
         actions.append(f"Вернуть в план: {quoted_titles}.")
     actions.append(
-        f"Пересобрать недельный план под нагрузку {trajectory.weekly_load_hours} ч."
+        f"Пересобрать недельный план под нагрузку {student.weekly_hours} ч."
     )
     return actions
 
@@ -524,3 +588,18 @@ def items_for_period(student, start, end):
     if plan is None:
         return StudyPlanItem.objects.none()
     return plan.items.filter(due_date__gte=start, due_date__lte=end).select_related("node")
+
+
+def today_items_with_overdue(student, today):
+    """Return unfinished overdue work before every item scheduled for today."""
+    plan = get_active_plan(student)
+    if plan is None:
+        return StudyPlanItem.objects.none()
+    return (
+        plan.items.filter(
+            Q(status=StudyPlanItem.Status.PENDING, due_date__lt=today)
+            | Q(due_date=today)
+        )
+        .select_related("node")
+        .order_by("due_date", "order")
+    )

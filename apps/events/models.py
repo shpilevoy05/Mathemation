@@ -17,6 +17,7 @@ class Event(models.Model):
         TRAJECTORY_ASSIGNED = "trajectory_assigned"
         TRAJECTORY_TRANSITION = "trajectory_transition"
         TARGET_SCORE_CHANGED = "target_score_changed"
+        WEEKLY_HOURS_CHANGED = "weekly_hours_changed"
         XP_AWARDED = "xp_awarded"
         STREAK_ADVANCED = "streak_advanced"
         STREAK_RESET = "streak_reset"

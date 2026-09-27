@@ -21,6 +21,22 @@
   }
   window.apiFetch = apiFetch;
 
+  function renderMath(root) {
+    if (!root || !window.renderMathInElement) return;
+    window.renderMathInElement(root, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "\\(", right: "\\)", display: false },
+        { left: "$", right: "$", display: false }
+      ],
+      throwOnError: false,
+      trust: false,
+      ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "input", "option"]
+    });
+  }
+  window.renderMath = renderMath;
+  renderMath(document.querySelector("main"));
+
   function openInitialDialog() {
     const dialog = document.querySelector("dialog[data-auto-open]");
     if (dialog && !dialog.open) dialog.showModal();
@@ -28,6 +44,18 @@
   openInitialDialog();
 
   document.addEventListener("click", async event => {
+    const startDiagnosticButton = event.target.closest("[data-start-diagnostic]");
+    if (startDiagnosticButton) {
+      startDiagnosticButton.disabled = true;
+      try {
+        const data = await apiFetch(startDiagnosticButton.dataset.startDiagnostic, {
+          method: "POST",
+          body: JSON.stringify({ reuse_in_progress: true })
+        });
+        window.location.assign(`/diagnostic/run/${data.result_id}/`);
+      } catch (error) { startDiagnosticButton.disabled = false; alert(error.message); }
+    }
+
     const startMockButton = event.target.closest("[data-start-mock]");
     if (startMockButton) {
       startMockButton.disabled = true;
@@ -63,6 +91,7 @@
         content.replaceChildren();
         const title = document.createElement("h3"); title.textContent = session.assignment; content.append(title);
         session.messages.forEach(item => { const message = document.createElement("p"); message.className = `message ${item.role === "student" ? "message-student" : "message-mentor"}`; message.textContent = item.text; content.append(message); });
+        renderMath(content);
       } catch (error) { content.textContent = error.message; }
     }
     const openButton = event.target.closest("[data-open-dialog]");
@@ -77,7 +106,8 @@
       try {
         await Promise.all([...dialog.querySelectorAll("[data-ack-url]")].map(item => apiFetch(item.dataset.ackUrl, { method: "POST", body: "{}" })));
         dialog.close();
-        document.getElementById("week-plan-dialog")?.showModal();
+        const weekDialog = document.getElementById("week-plan-dialog");
+        if (weekDialog?.hasAttribute("data-session-start")) weekDialog.showModal();
       } catch (error) {
         const output = dialog.querySelector("[data-dialog-error]"); output.hidden = false; output.textContent = error.message; ackButton.disabled = false;
       }
@@ -121,6 +151,33 @@
   updateTaskProgress();
 
   document.addEventListener("submit", async event => {
+    const diagnosticForm = event.target.closest("[data-diagnostic-form]");
+    if (diagnosticForm) {
+      event.preventDefault();
+      if (diagnosticForm.dataset.submitting === "true") return;
+      diagnosticForm.dataset.submitting = "true";
+      const button = diagnosticForm.querySelector("[type=submit]");
+      const errorOutput = diagnosticForm.querySelector("[data-diagnostic-error]");
+      button.disabled = true;
+      errorOutput.hidden = true;
+      const answers = {};
+      diagnosticForm.querySelectorAll("input[name^=answer_]").forEach(input => {
+        answers[input.name.slice(7)] = input.value;
+      });
+      try {
+        await apiFetch(`/api/diagnostics/results/${diagnosticForm.dataset.resultId}/submit/`, {
+          method: "POST",
+          body: JSON.stringify({ answers })
+        });
+        window.location.assign("/");
+      } catch (error) {
+        errorOutput.textContent = error.message;
+        errorOutput.hidden = false;
+        button.disabled = false;
+        diagnosticForm.dataset.submitting = "false";
+      }
+    }
+
     const targetScoreForm = event.target.closest("[data-target-score-form]");
     if (targetScoreForm) {
       event.preventDefault();
@@ -128,12 +185,7 @@
       button.disabled = true; error.hidden = true; success.hidden = true;
       try {
         const data = await apiFetch("/api/me/target/", { method: "POST", body: JSON.stringify({ target_score: Number(input.value) }) });
-        document.querySelector("[data-target-score-current]").textContent = data.target_score;
-        document.querySelector("[data-target-trajectory]").textContent = data.trajectory.title;
-        document.querySelector("[data-current-score]").textContent = data.forecast.current_score;
-        document.querySelector("[data-ceiling-score]").textContent = data.forecast.ceiling_score;
-        success.textContent = data.trajectory_changed ? `Цель изменена. План перестроен под траекторию ${data.trajectory.title}.` : `Цель изменена. Траектория ${data.trajectory.title} сохранена, план не перестраивался.`;
-        success.hidden = false;
+        window.location.reload();
       } catch (exception) { error.textContent = exception.message; error.hidden = false; }
       finally { button.disabled = false; }
     }
@@ -167,16 +219,110 @@
     if (hintForm) {
       event.preventDefault(); const task = hintForm.closest("[data-task]"), button = hintForm.querySelector("button"), input = hintForm.querySelector("input"), history = task.querySelector("[data-mentor-history]"); button.disabled = true;
       const studentMessage = document.createElement("p"); studentMessage.className = "message message-student"; studentMessage.textContent = input.value; history.append(studentMessage);
-      try { const data = await apiFetch(`/api/assignments/${task.dataset.assignmentId}/hint/`, { method: "POST", body: JSON.stringify({ question: input.value, context: "lesson" }) }); const message = document.createElement("p"); message.className = "message message-mentor"; message.textContent = data.hint; history.append(message); input.value = ""; if (data.escalated_to_expert) hintForm.remove(); else button.disabled = false; }
+      try { const data = await apiFetch(`/api/assignments/${task.dataset.assignmentId}/hint/`, { method: "POST", body: JSON.stringify({ question: input.value, context: "lesson" }) }); const message = document.createElement("p"); message.className = "message message-mentor"; message.textContent = data.hint; history.append(message); renderMath(message); input.value = ""; if (data.escalated_to_expert) hintForm.remove(); else button.disabled = false; }
       catch (error) { const message = document.createElement("p"); message.className = "form-error"; message.textContent = error.message; history.append(message); button.disabled = false; }
     }
   });
 
-  const hours = document.querySelector("[data-forecast-hours]"), date = document.querySelector("[data-forecast-date]");
+  const hours = document.querySelector("[data-forecast-hours]"), date = document.querySelector("[data-forecast-date]"), forecastRoot = document.querySelector("[data-forecast]");
   if (hours && date) {
     let timer;
-    const refresh = () => { clearTimeout(timer); document.querySelector("[data-hours-output]").textContent = hours.value; timer = setTimeout(async () => { const error = document.querySelector("[data-forecast-error]"); try { const params = new URLSearchParams({ weekly_hours: hours.value }); if (date.value) params.set("exam_date", date.value); const data = await apiFetch(`/api/forecast/?${params}`); document.querySelector("[data-current-score]").textContent = data.current_score; document.querySelector("[data-ceiling-score]").textContent = data.ceiling_score; error.hidden = true; } catch (exception) { error.hidden = false; error.textContent = exception.message; } }, 250); };
+    const saveButton = document.querySelector("[data-save-weekly-hours]");
+    const refresh = () => { clearTimeout(timer); document.querySelector("[data-hours-output]").textContent = hours.value; saveButton.textContent = `Сохранить ${hours.value} ч/нед и перестроить расписание`; saveButton.disabled = hours.value === forecastRoot.dataset.savedHours; timer = setTimeout(async () => { const error = document.querySelector("[data-forecast-error]"); try { const params = new URLSearchParams({ weekly_hours: hours.value }); if (date.value) params.set("exam_date", date.value); const data = await apiFetch(`/api/forecast/?${params}`); document.querySelector("[data-scenario-score]").textContent = data.forecast_score; const delta = data.forecast_score - Number(forecastRoot.dataset.platformScore); const output = document.querySelector("[data-forecast-delta]"); output.textContent = delta > 0 ? `+${delta}` : (delta < 0 ? `−${Math.abs(delta)}` : "= прогнозу платформы"); output.className = `forecast-delta ${delta > 0 ? "is-positive" : (delta < 0 ? "is-negative" : "is-neutral")}`; error.hidden = true; } catch (exception) { error.hidden = false; error.textContent = exception.message; } }, 250); };
     hours.addEventListener("input", refresh); date.addEventListener("change", refresh);
+    saveButton.addEventListener("click", async () => {
+      const error = document.querySelector("[data-forecast-error]"), success = document.querySelector("[data-weekly-hours-success]");
+      saveButton.disabled = true; error.hidden = true; success.hidden = true;
+      try {
+        const data = await apiFetch("/api/me/weekly-hours/", { method: "POST", body: JSON.stringify({ weekly_hours: Number(hours.value) }) });
+        forecastRoot.dataset.savedHours = String(data.weekly_hours);
+        forecastRoot.dataset.platformScore = String(data.platform_forecast.forecast_score);
+        saveButton.disabled = true;
+        document.querySelector("[data-platform-forecast]").textContent = data.platform_forecast.forecast_score;
+        document.querySelector("[data-current-level]").textContent = data.platform_forecast.current_level;
+        document.querySelector("[data-platform-hours]").textContent = data.weekly_hours;
+        document.querySelector("[data-forecast-delta]").textContent = "= прогнозу платформы";
+        document.querySelector("[data-forecast-delta]").className = "forecast-delta is-neutral";
+        success.textContent = data.schedule_summary;
+        success.hidden = false;
+      } catch (exception) { error.textContent = exception.message; error.hidden = false; saveButton.disabled = false; }
+    });
+  }
+
+  const learningTrack = document.querySelector("[data-learning-track]");
+  if (learningTrack) {
+    let activeTrackNode = null;
+
+    const closeTrackPopover = (restoreFocus = true) => {
+      if (!activeTrackNode) return;
+      const popover = document.getElementById(activeTrackNode.getAttribute("aria-controls"));
+      activeTrackNode.setAttribute("aria-expanded", "false");
+      if (popover) popover.hidden = true;
+      const nodeToRestore = activeTrackNode;
+      activeTrackNode = null;
+      if (restoreFocus) nodeToRestore.focus();
+    };
+
+    const openTrackPopover = node => {
+      if (activeTrackNode === node) {
+        closeTrackPopover();
+        return;
+      }
+      closeTrackPopover(false);
+      const popover = document.getElementById(node.getAttribute("aria-controls"));
+      if (!popover) return;
+      activeTrackNode = node;
+      node.setAttribute("aria-expanded", "true");
+      popover.hidden = false;
+      const focusTarget = popover.querySelector("[data-track-cta]") || popover;
+      focusTarget.focus();
+    };
+
+    document.addEventListener("click", event => {
+      const node = event.target.closest("[data-track-node]");
+      if (node && learningTrack.contains(node)) {
+        event.preventDefault();
+        openTrackPopover(node);
+        return;
+      }
+      if (activeTrackNode && !event.target.closest("[data-track-popover]")) {
+        closeTrackPopover();
+      }
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && activeTrackNode) {
+        event.preventDefault();
+        closeTrackPopover();
+      }
+    });
+
+    const currentRow = learningTrack.querySelector("[data-current-track-point]");
+    const jumpButton = document.querySelector("[data-track-jump]");
+    if (currentRow && jumpButton) {
+      const updateJumpDirection = () => {
+        jumpButton.classList.toggle(
+          "is-up", currentRow.getBoundingClientRect().top < 0
+        );
+      };
+      const observer = new IntersectionObserver(entries => {
+        const visible = entries[0]?.isIntersecting;
+        jumpButton.hidden = visible;
+        if (!visible) updateJumpDirection();
+      }, { threshold: 0.55 });
+      observer.observe(currentRow);
+      window.addEventListener("scroll", () => {
+        if (!jumpButton.hidden) updateJumpDirection();
+      }, { passive: true });
+      jumpButton.addEventListener("click", () => {
+        currentRow.scrollIntoView({ block: "center", behavior: "smooth" });
+      });
+      requestAnimationFrame(() => {
+        if (currentRow.getBoundingClientRect().bottom > window.innerHeight) {
+          currentRow.scrollIntoView({ block: "center", behavior: "auto" });
+        }
+      });
+    }
   }
 
   const mockTimer = document.querySelector("[data-mock-timer]");

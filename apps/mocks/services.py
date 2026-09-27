@@ -46,9 +46,11 @@ def complete_mock_part1(result: MockExamResult) -> MockExamResult:
     """Finish auto-checked part; part 2 items may still await expert review."""
     result.primary_score = result.attempts.filter(is_correct=True).count()
     _rescore(result)
-    has_part2 = result.exam.assignments.filter(exam_part=Assignment.Part.PART2).exists()
+    has_submitted_part2 = result.expert_reviews.exists()
     result.status = (
-        MockExamResult.Status.PART1_CHECKED if has_part2 else MockExamResult.Status.COMPLETED
+        MockExamResult.Status.PART1_CHECKED
+        if has_submitted_part2
+        else MockExamResult.Status.COMPLETED
     )
     result.completed_at = timezone.now()
     result.save()
@@ -91,9 +93,9 @@ def maybe_complete_mock(result: MockExamResult) -> MockExamResult:
     result.part2_primary_score = sum(r.total_score or 0 for r in reviews)
     _rescore(result)
 
-    part2_count = result.exam.assignments.filter(exam_part=Assignment.Part.PART2).count()
-    reviewed = reviews.filter(reviewed_at__isnull=False).count()
-    all_done = part2_count and reviewed >= part2_count
+    from apps.expert_review.models import ExpertReviewRequest
+
+    all_done = not reviews.exclude(status=ExpertReviewRequest.Status.REVIEWED).exists()
     if all_done and result.status == MockExamResult.Status.PART1_CHECKED:
         result.status = MockExamResult.Status.COMPLETED
         result.save()

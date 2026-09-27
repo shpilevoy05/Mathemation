@@ -2,20 +2,20 @@
 {% block title %}Кабинет — Матемация{% endblock %}
 {% block content %}
 {% if not student %}
-  <section class="empty-state"><h1>Кабинет ученика</h1><p>Для этого аккаунта кабинет ученика недоступен. Выберите подходящий раздел или войдите под аккаунтом ученика.</p></section>
+  <section class="empty-state"><h1>Кабинет ученика</h1><p>Кабинет ученика недоступен для этого аккаунта. Выберите подходящий раздел или войдите под аккаунтом ученика.</p></section>
 {% else %}
   <section class="hero student-hero">
     <div class="hero-copy">
       <h1>Привет, {{ user.first_name|default:user.username }}!</h1>
-      {% if trajectory %}<p>Траектория {{ trajectory.title }} · {{ trajectory.weekly_load_hours }} ч/нед · прогноз при текущем темпе</p>{% else %}<p>Траектория появится после диагностики · прогноз при текущем темпе</p>{% endif %}
+      {% if trajectory %}<p>Траектория {{ trajectory.title }} · {{ student.weekly_hours }} ч/нед</p>{% else %}<p>Траектория появится после диагностики</p>{% endif %}
     </div>
     <div class="hero-streak"><span aria-hidden="true">🔥</span><strong>{{ gamification.streak_current }} дн. подряд</strong></div>
     <div class="score-journey">
       {% if has_diagnostic %}
-        <div class="journey-labels"><span>Старт {{ snapshot.start_score }}</span><strong>Прогноз {{ snapshot.predicted_score }}</strong><span>🎯 Цель {{ target_score }}</span></div>
+        <div class="journey-labels"><span>Старт {{ student.start_score|default:"—" }}</span><strong>Сейчас {{ forecast.current_level }}</strong><span>🎯 Цель {{ target_score }}</span></div>
         <div class="journey-track"><span style="width: {{ journey_percent }}%"></span></div>
       {% else %}
-        <button class="button hero-button" type="button">Пройти диагностику</button>
+        <a class="button hero-button" href="{% url 'diagnostic' %}">Пройти диагностику</a>
       {% endif %}
     </div>
   </section>
@@ -26,7 +26,7 @@
       {% for transition in trajectory_transitions %}
         <article class="dialog-card" data-ack-url="/api/trajectory/transitions/{{ transition.id }}/ack/">
           <h3>{{ transition.from_trajectory.title|default:"Старт" }} → {{ transition.to_trajectory.title }}</h3>
-          {% if transition.reasons %}<p><strong>Причины:</strong> {{ transition.reasons|join:", " }}</p>{% endif %}
+          {% if transition.ui_reasons %}<p><strong>Причины:</strong> {{ transition.ui_reasons|join:", " }}</p>{% endif %}
           {% if transition.recovery_actions %}<p><strong>Что вернуть:</strong></p><ul>{% for action in transition.recovery_actions %}<li>{{ action }}</li>{% endfor %}</ul>{% endif %}
         </article>
       {% endfor %}
@@ -37,7 +37,7 @@
   {% endif %}
 
   {% if week_items %}
-    <dialog class="app-dialog" id="week-plan-dialog" {% if not major_changes and not trajectory_transitions %}data-auto-open{% endif %}>
+    <dialog class="app-dialog" id="week-plan-dialog"{% if show_week_plan %} data-session-start{% endif %}{% if show_week_plan and not major_changes and not trajectory_transitions %} data-auto-open{% endif %}>
       <p class="eyebrow">Твой ритм</p><h2>План на неделю</h2>
       <ul class="check-list compact">{% for item in week_items %}<li class="{% if item.status == 'done' %}is-done{% endif %}"><span>{% if item.status == 'done' %}✓{% else %}{{ item.due_date|date:"D" }}{% endif %}</span><div><strong>{{ item.ui_type_label }}</strong><small>{{ item.node.title }} · {{ item.due_date|date:"d.m" }}</small></div></li>{% endfor %}</ul>
       <button class="button button-primary" type="button" data-close-dialog>К занятиям</button>
@@ -45,8 +45,8 @@
   {% endif %}
 
   <section class="stat-grid" aria-label="Главные показатели">
-    <article class="stat-tile"><span class="stat-icon">📈</span><div><strong>{{ snapshot.predicted_score|default:"—" }}</strong><h2>Прогноз</h2><small>при текущем темпе</small></div></article>
-    <article class="stat-tile"><span class="stat-icon">🚀</span><div><strong>{{ forecast.ceiling_score|default:"—" }}</strong><h2>Потолок</h2><small>при {{ forecast.weekly_hours|default:student.weekly_hours }} ч/нед</small></div></article>
+    <article class="stat-tile"><span class="stat-icon">📍</span><div><strong>{{ forecast.current_level }}</strong><h2>Сейчас</h2><small>если бы экзамен был сегодня</small></div></article>
+    <article class="stat-tile"><span class="stat-icon">📈</span><div><strong>{{ forecast.forecast_score }}</strong><h2>Прогноз к экзамену</h2><small>при {{ forecast.weekly_hours }} ч/нед</small></div></article>
     <article class="stat-tile"><span class="stat-icon">🔥</span><div><strong>{{ gamification.streak_current }} дн.</strong><h2>Стрик</h2><small>лучший {{ gamification.streak_best }}</small></div></article>
     <article class="stat-tile"><span class="stat-icon">⭐</span><div><strong>{{ gamification.level }}</strong><h2>Уровень</h2><div class="xp-progress" aria-label="{{ gamification.xp }} XP"><span style="width: {{ gamification.xp_progress_percent }}%"></span></div><small>{{ gamification.xp }} / {{ gamification.level_end_xp }} XP</small></div></article>
   </section>
@@ -67,14 +67,14 @@
 
     <section class="card card-wide today-card">
       <div class="section-heading"><div><p class="eyebrow">Сегодня</p><h2>План на сегодня</h2></div>{% if week_items %}<button class="link-button" type="button" data-open-dialog="week-plan-dialog">Показать неделю</button>{% endif %}</div>
-      {% if today_items %}<ul class="check-list today-list">{% for item in today_items %}<li data-plan-item class="{% if item.status == 'done' %}is-done{% endif %}">{% if item.status != 'done' %}<button class="plan-check" type="button" aria-label="Отметить выполненным" data-complete-plan="/api/plan/items/{{ item.id }}/complete/">✓</button>{% endif %}<div><strong>{{ item.node.title }}</strong><small>{{ item.ui_status_label }}</small></div><span class="item-type-chip">{{ item.ui_type_label }}</span></li>{% endfor %}</ul>{% else %}<p class="empty-copy">На сегодня пунктов плана нет. Можно заглянуть в карту навыков.</p>{% endif %}
+      {% if today_items %}<ul class="check-list today-list">{% for item in today_items %}<li data-plan-item class="{% if item.status == 'done' %}is-done{% endif %}{% if item.ui_is_overdue %} is-overdue{% endif %}">{% if item.status != 'done' %}<button class="plan-check" type="button" aria-label="Отметить выполненным" data-complete-plan="/api/plan/items/{{ item.id }}/complete/">✓</button>{% endif %}<div><strong>{{ item.node.title }}</strong><small>{{ item.ui_status_label }}</small></div><span class="item-type-chip">{{ item.ui_type_label }}</span></li>{% endfor %}</ul>{% else %}<p class="empty-copy">На сегодня пунктов плана нет. Можно заглянуть в карту навыков.</p>{% endif %}
     </section>
 
     <section class="card">
       <p class="eyebrow">Возврат ошибок</p><h2>Отработка на сегодня</h2>
       {% if due_reviews %}<ul class="plain-list">{% for review in due_reviews %}<li><strong>{{ review.backlog_item.node.title }}</strong><small>{{ review.backlog_item.assignment.title }}</small></li>{% endfor %}</ul><a class="button button-secondary" href="{% url 'practice_backlog' %}">Перейти к отработке</a>{% else %}<p>Повторов на сегодня нет — петли ошибок под контролем.</p>{% endif %}
     </section>
-    <section class="card quick-links"><p class="eyebrow">Разделы</p><h2>Куда дальше</h2><a href="{% url 'knowledge_map' %}">Карта навыков <span>→</span></a><a href="{% url 'track' %}">Дорожка <span>→</span></a><a href="{% url 'forecast' %}">Прогноз и потолок <span>→</span></a></section>
+    <section class="card quick-links"><p class="eyebrow">Разделы</p><h2>Куда дальше</h2><a href="{% url 'knowledge_map' %}">Карта навыков <span>→</span></a><a href="{% url 'track' %}">Дорожка <span>→</span></a><a href="{% url 'forecast' %}">Прогноз <span>→</span></a></section>
   </div>
 {% endif %}
 {% endblock %}

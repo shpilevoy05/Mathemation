@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import views
+from rest_framework import permissions, serializers, status, views
 from rest_framework.response import Response
 
 from apps.accounts.api import get_student
@@ -11,9 +11,42 @@ from .models import PlanChangeLog, StudyPlanItem, TrajectoryTransition
 from .services import (
     acknowledge_trajectory_transition,
     complete_item,
+    change_weekly_hours,
     get_active_plan,
     items_for_period,
 )
+
+
+class WeeklyHoursSerializer(serializers.Serializer):
+    weekly_hours = serializers.IntegerField(min_value=1, max_value=24)
+
+
+class WeeklyHoursView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        student = getattr(request.user, "student_profile", None)
+        if student is None:
+            return Response(
+                {"detail": "Изменять нагрузку может только ученик."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = WeeklyHoursSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = change_weekly_hours(
+            student, serializer.validated_data["weekly_hours"]
+        )
+        from apps.progress.services import platform_forecast
+
+        return Response(
+            {
+                "weekly_hours": result["weekly_hours"],
+                "platform_forecast": platform_forecast(student),
+                "nodes_per_week": result["nodes_per_week"],
+                "schedule_summary": result["schedule_summary"],
+                "first_due_dates": result["first_due_dates"],
+            }
+        )
 
 
 def _transition_payload(transition: TrajectoryTransition) -> dict:

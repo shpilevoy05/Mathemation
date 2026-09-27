@@ -11,19 +11,29 @@ from django.utils import timezone
 from apps.ai_mentor.models import AiHintMessage, AiHintSession
 from apps.ai_mentor.services import mentor_available
 from apps.content.models import Assignment, Lesson, TheoryBlock
+from apps.diagnostics.models import DiagnosticResult, DiagnosticTest
 from apps.expert_review.models import ExpertReviewRequest
 from apps.gamification.services import gamification_snapshot
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.knowledge.services import apply_decay, node_states
 from apps.mocks.models import MockExam, MockExamResult
+from apps.planning.labels import STUDY_PLAN_ITEM_TYPE_LABELS
 from apps.planning.models import StudyPlanItem, TrajectoryTransition
-from apps.planning.services import get_active_plan, items_for_period
+from apps.planning.services import (
+    get_active_plan,
+    items_for_period,
+    today_items_with_overdue,
+)
 from apps.practice.models import Attempt, MistakeBacklogItem
 from apps.practice.services import due_reviews, practice_queue
 from apps.progress.models import ProgressSnapshot
-from apps.progress.services import ceiling_forecast
+from apps.progress.services import (
+    ceiling_forecast,
+    forecast_recommendations,
+    platform_forecast,
+)
 
-from .labels import ERROR_TYPE_LABELS
+from .labels import ERROR_TYPE_LABELS, TRAJECTORY_REASON_LABELS
 
 
 def expert_queue_context(user):
@@ -160,12 +170,7 @@ NODE_STATE_LABELS = {
     "mastered": "освоено",
     "decayed": "подзабылось",
 }
-POINT_TYPE_LABELS = {
-    "lesson": "Урок",
-    "practice": "Практика",
-    "review": "Отработка",
-    "mock": "Пробник",
-}
+POINT_TYPE_LABELS = STUDY_PLAN_ITEM_TYPE_LABELS
 BACKLOG_STATUS_LABELS = {
     "open": "открыта",
     "in_review": "на интервальных повторах",
@@ -206,9 +211,17 @@ def gauge_metrics(score):
 
 def _prepare_plan_items(items):
     prepared = list(items)
+    today = timezone.localdate()
     for item in prepared:
         item.ui_type_label = POINT_TYPE_LABELS[item.item_type]
-        item.ui_status_label = PLAN_STATUS_LABELS[item.status]
+        item.ui_is_overdue = (
+            item.status == StudyPlanItem.Status.PENDING
+            and item.due_date is not None
+            and item.due_date < today
+        )
+        item.ui_status_label = (
+            "Просрочено" if item.ui_is_overdue else PLAN_STATUS_LABELS[item.status]
+        )
     return prepared
 
 
@@ -219,7 +232,7 @@ def dashboard_context(student):
     plan = get_active_plan(student)
     trajectory = plan.trajectory if plan and plan.trajectory_id else None
     snapshot = ProgressSnapshot.objects.filter(student=student).first()
-    forecast = ceiling_forecast(student) if plan else None
+    forecast = platform_forecast(student)
     gamification = gamification_snapshot(student)
     level = gamification["level"]
     level_start_xp = 100 * (level - 1) ** 2
@@ -231,12 +244,22 @@ def dashboard_context(student):
         "xp_progress_percent": xp_progress_percent(gamification["xp"], level),
     }
     score_journey_percent = journey_percent(
-        snapshot.start_score if snapshot else None,
-        snapshot.predicted_score if snapshot else 0,
+        student.start_score,
+        forecast["current_level"],
         student.target_score,
     )
+    transitions = list(
+        TrajectoryTransition.objects.filter(
+            student=student, acknowledged=False
+        ).select_related("from_trajectory", "to_trajectory")
+    )
+    for transition in transitions:
+        transition.ui_reasons = [
+            TRAJECTORY_REASON_LABELS.get(reason, reason)
+            for reason in transition.reasons
+        ]
     return {
-        "today_items": _prepare_plan_items(items_for_period(student, today, today)),
+        "today_items": _prepare_plan_items(today_items_with_overdue(student, today)),
         "week_items": _prepare_plan_items(
             items_for_period(student, week_start, week_start + timedelta(days=6))
         ),
@@ -248,9 +271,7 @@ def dashboard_context(student):
         "major_changes": (
             plan.change_logs.filter(is_major=True, acknowledged=False) if plan else []
         ),
-        "trajectory_transitions": TrajectoryTransition.objects.filter(
-            student=student, acknowledged=False
-        ).select_related("from_trajectory", "to_trajectory"),
+        "trajectory_transitions": transitions,
         "forecast": forecast,
         "gamification": gamification,
         "has_diagnostic": snapshot is not None and snapshot.start_score is not None,
@@ -285,6 +306,13 @@ def knowledge_map_context(student, overlay=False):
                             **condition,
                             "current_mastery_percent": max(
                                 0, min(100, round(float(condition["current_mastery"])))
+                            ),
+                            "remaining_mastery_percent": max(
+                                0,
+                                round(
+                                    float(condition["required_mastery"])
+                                    - float(condition["current_mastery"])
+                                ),
                             ),
                         }
                         for condition in state["unmet_conditions"]
@@ -336,35 +364,39 @@ def track_context(student):
         .exclude(status=MistakeBacklogItem.Status.RESOLVED)
         .values_list("node_id", flat=True)
     )
-    clusters = []
+    units = []
     current_assigned = False
-    position = 0
-    for cluster in TopicCluster.objects.prefetch_related("nodes__lessons"):
+    current_point = None
+    offset_pattern = (0, 44, 70, 44, 0, -44, -70, -44)
+    deco_emojis = ("🧮", "📐", "📏", "🧊", "🎲", "📈")
+    for unit_index, cluster in enumerate(
+        TopicCluster.objects.prefetch_related("nodes__lessons")
+    ):
         points = []
         cluster_has_mistakes = False
         for node in cluster.nodes.all():
             state_data = states[node.id]
             for lesson in node.lessons.all():
                 point = _track_point(
-                    "lesson", lesson.title, state_data, position, node.id
+                    "lesson", lesson.title, state_data, node.id
                 )
                 if not current_assigned and state_data["state"] in {
                     "available", "in_progress", "decayed"
                 }:
                     _make_current(point)
                     current_assigned = True
+                    current_point = point
                 points.append(point)
-                position += 1
             point = _track_point(
-                "practice", f"Практика: {node.title}", state_data, position, node.id
+                "practice", f"Практика: {node.title}", state_data, node.id
             )
             if not current_assigned and state_data["state"] in {
                 "available", "in_progress", "decayed"
             }:
                 _make_current(point)
                 current_assigned = True
+                current_point = point
             points.append(point)
-            position += 1
             cluster_has_mistakes = cluster_has_mistakes or node.id in open_mistake_nodes
         if cluster_has_mistakes:
             points.append(
@@ -372,48 +404,138 @@ def track_context(student):
                     "review",
                     f"Отработка: {cluster.title}",
                     {"state": "available", "mastery": 0, "unmet_conditions": []},
-                    position,
                 )
             )
-            position += 1
-        clusters.append({"title": cluster.title, "color": cluster.color, "points": points})
-    mocks = []
+        mirrored = unit_index % 2 == 1
+        for point_index, point in enumerate(points):
+            offset = offset_pattern[point_index % len(offset_pattern)]
+            point["offset_px"] = -offset if mirrored else offset
+        cluster_nodes = list(cluster.nodes.all())
+        units.append(
+            {
+                "index": unit_index + 1,
+                "title": cluster.title,
+                "color": cluster.color,
+                "mirrored": mirrored,
+                "mastered_count": sum(
+                    states[node.id]["state"] == "mastered" for node in cluster_nodes
+                ),
+                "total_nodes": len(cluster_nodes),
+                "first_node_url": (
+                    reverse("knowledge_node", args=[cluster_nodes[0].id])
+                    if cluster_nodes
+                    else None
+                ),
+                "deco_emoji": deco_emojis[unit_index % len(deco_emojis)],
+                "is_mock_unit": False,
+                "points": points,
+            }
+        )
+
+    mock_points = []
     for mock in MockExam.objects.filter(is_active=True):
-        mocks.append(
+        mock_points.append(
             _track_point(
                 "mock",
                 mock.title,
                 {"state": "available", "mastery": 0, "unmet_conditions": []},
-                position,
             )
         )
-        position += 1
-    return {"track_clusters": clusters, "mock_points": mocks}
+    if mock_points:
+        unit_index = len(units)
+        mirrored = unit_index % 2 == 1
+        for point_index, point in enumerate(mock_points):
+            offset = offset_pattern[point_index % len(offset_pattern)]
+            point["offset_px"] = -offset if mirrored else offset
+        units.append(
+            {
+                "index": unit_index + 1,
+                "title": "Пробники",
+                "color": "#FFC800",
+                "mirrored": mirrored,
+                "mastered_count": 0,
+                "total_nodes": len(mock_points),
+                "first_node_url": None,
+                "deco_emoji": "🏆",
+                "is_mock_unit": True,
+                "points": mock_points,
+            }
+        )
+
+    if current_point is None:
+        current_point = next(
+            (
+                point
+                for unit in units
+                for point in unit["points"]
+                if point["visual_state"] in {"review", "mock"}
+            ),
+            None,
+        )
+        if current_point is not None:
+            _make_current(current_point)
+
+    return {
+        "track_units": units,
+        "current_point": current_point,
+        "gamification": gamification_snapshot(student),
+        "platform_forecast": platform_forecast(student),
+    }
 
 
-def _track_point(point_type, title, state_data, position, node_id=None):
+def _track_point(point_type, title, state_data, node_id=None):
     state = state_data["state"]
     mastery_percent = max(0, min(100, round(float(state_data.get("mastery", 0)))))
-    unlock_conditions = [
+    popover_conditions = [
         {
-            **condition,
-            "current_mastery": round(float(condition["current_mastery"])),
+            "title": condition["title"],
+            "current": round(float(condition["current_mastery"])),
+            "required": round(float(condition["required_mastery"])),
+            "percent": max(
+                0,
+                min(
+                    100,
+                    round(
+                        float(condition["current_mastery"])
+                        * 100
+                        / max(float(condition["required_mastery"]), 1)
+                    ),
+                ),
+            ),
         }
         for condition in state_data.get("unmet_conditions", [])
     ]
-    unlock_tooltip = "; ".join(
-        f"Тема {condition['title']} — нужно {condition['required_mastery']}%, "
-        f"сейчас {condition['current_mastery']}%"
-        for condition in unlock_conditions
-    )
     if point_type == "review":
-        visual_state, marker, url = "review", "↻", reverse("practice_backlog")
+        visual_state, icon, url = "review", "review", reverse("practice_backlog")
+        cta_label = "К ОТРАБОТКЕ"
     elif point_type == "mock":
-        visual_state, marker, url = "mock", "🏆", reverse("mocks")
+        visual_state, icon, url = "mock", "mock", reverse("mocks")
+        cta_label = "К ПРОБНИКУ"
     else:
         visual_state = state
-        marker = "✓" if state == "mastered" else ("🔒" if state == "locked" else "●")
+        icon = (
+            "check"
+            if state == "mastered"
+            else "review"
+            if state == "decayed"
+            else point_type
+        )
         url = reverse("lesson", args=[node_id]) if state != "locked" else None
+        if state == "locked":
+            cta_label = "ЗАКРЫТО"
+        elif state in {"mastered", "decayed"}:
+            cta_label = "ПОВТОРИТЬ"
+        elif mastery_percent > 0:
+            cta_label = "ПРОДОЛЖИТЬ"
+        else:
+            cta_label = "НАЧАТЬ"
+    if state == "mastered":
+        subtitle = f"Освоено · {mastery_percent}%"
+    else:
+        subtitle = (
+            f"{POINT_TYPE_LABELS[point_type]} · "
+            f"{NODE_STATE_LABELS.get(state, state)} · освоено {mastery_percent}%"
+        )
     return {
         "type": point_type,
         "type_label": POINT_TYPE_LABELS[point_type],
@@ -424,20 +546,18 @@ def _track_point(point_type, title, state_data, position, node_id=None):
         "is_done": state == "mastered",
         "is_current": False,
         "visual_state": visual_state,
-        "marker": marker,
+        "icon": icon,
+        "cta_label": cta_label,
+        "subtitle": subtitle,
         "mastery_percent": mastery_percent,
-        "progress_style": f"--track-progress: {mastery_percent}%",
-        "position": position % 5,
-        "position_class": f"track-pos-{position % 5}",
-        "unlock_conditions": unlock_conditions,
-        "unlock_tooltip": unlock_tooltip,
+        "offset_px": 0,
+        "popover_conditions": popover_conditions,
         "url": url,
-        "is_clickable": url is not None,
     }
 
 
 def _make_current(point):
-    point.update({"is_current": True, "visual_state": "current", "marker": "★"})
+    point["is_current"] = True
 
 
 def lesson_context(student, node_id, attempt_context=Attempt.Context.LESSON):
@@ -503,9 +623,65 @@ def practice_backlog_context(student):
 def forecast_context(student):
     plan = get_active_plan(student)
     return {
-        "forecast": ceiling_forecast(student),
+        "forecast": platform_forecast(student),
+        "recommendations": forecast_recommendations(student),
         "target_score": student.target_score,
         "trajectory": plan.trajectory if plan and plan.trajectory_id else None,
+    }
+
+
+def diagnostics_context(student):
+    tests = list(
+        DiagnosticTest.objects.filter(is_active=True).prefetch_related("assignments")
+    )
+    in_progress = {}
+    for result in (
+        DiagnosticResult.objects.filter(
+            student=student,
+            test__in=tests,
+            status=DiagnosticResult.Status.IN_PROGRESS,
+        )
+        .select_related("test")
+        .order_by("test_id", "-started_at")
+    ):
+        in_progress.setdefault(result.test_id, result)
+    return {
+        "diagnostics": [
+            {
+                "test": test,
+                "task_count": len(test.assignments.all()),
+                "in_progress_result": in_progress.get(test.id),
+            }
+            for test in tests
+        ],
+        "latest_completed_result": (
+            DiagnosticResult.objects.filter(
+                student=student,
+                status=DiagnosticResult.Status.COMPLETED,
+            )
+            .select_related("test")
+            .order_by("-completed_at", "-started_at")
+            .first()
+        ),
+    }
+
+
+def diagnostic_run_context(student, result_id):
+    result = get_object_or_404(
+        DiagnosticResult.objects.select_related("test").prefetch_related(
+            "test__assignments"
+        ),
+        pk=result_id,
+        student=student,
+    )
+    return {
+        "result": result,
+        "part1_assignments": result.test.assignments.filter(
+            exam_part=Assignment.Part.PART1
+        ),
+        "part2_assignments": result.test.assignments.filter(
+            exam_part=Assignment.Part.PART2
+        ),
     }
 
 
@@ -598,7 +774,7 @@ def parent_context(parent):
         }
         for risk in payload.get("risks", [])
     ]
-    score = payload.get("dynamics", {}).get("current_predicted_score") or 0
+    score = payload.get("platform_forecast", {}).get("forecast_score") or 0
     delta = payload.get("dynamics", {}).get("delta")
     if delta is None:
         delta_label, delta_class = "без изменений", "muted"

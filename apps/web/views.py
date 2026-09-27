@@ -1,7 +1,7 @@
 """Server-rendered student cabinet views."""
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from apps.practice.models import Attempt
 
@@ -19,7 +19,25 @@ def _render_student_page(request, template_name, context_factory, *args, **kwarg
 
 @login_required
 def dashboard(request):
-    return _render_student_page(request, "dashboard.html", services.dashboard_context)
+    student = getattr(request.user, "student_profile", None)
+    if student is None:
+        if request.user.is_superuser:
+            return redirect("admin:index")
+        if is_expert(request.user):
+            return redirect("expert_queue")
+        if is_methodist(request.user):
+            return redirect("methodist_dashboard")
+        if getattr(request.user, "parent_profile", None) is not None:
+            return redirect("parent_dashboard")
+        if request.user.is_staff:
+            return redirect("admin:index")
+        return render(request, "dashboard.html", {"student": None})
+    show_week_plan = not request.session.get("week_plan_shown", False)
+    if show_week_plan:
+        request.session["week_plan_shown"] = True
+    context = {"student": student, "show_week_plan": show_week_plan}
+    context.update(services.dashboard_context(student))
+    return render(request, "dashboard.html", context)
 
 
 @login_required
@@ -66,6 +84,23 @@ def practice_backlog(request):
 @login_required
 def forecast(request):
     return _render_student_page(request, "forecast.html", services.forecast_context)
+
+
+@login_required
+def diagnostics(request):
+    return _render_student_page(
+        request, "diagnostics.html", services.diagnostics_context
+    )
+
+
+@login_required
+def diagnostic_run(request, result_id):
+    return _render_student_page(
+        request,
+        "diagnostic_run.html",
+        services.diagnostic_run_context,
+        result_id=result_id,
+    )
 
 
 @login_required

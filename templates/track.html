@@ -2,33 +2,60 @@
 {% block title %}Дорожка — Матемация{% endblock %}
 {% block content %}
 {% if not student %}<section class="empty-state"><h1>Дорожка</h1><p>Этот раздел доступен ученикам.</p></section>{% else %}
-<div class="page-heading"><div><p class="eyebrow">Твой маршрут</p><h1>Дорожка подготовки</h1><p>Двигайся от точки к точке: освоенные темы остаются позади, а следующая цель подсвечена.</p></div></div>
-<div class="track" data-learning-track>
-  {% for cluster in track_clusters %}
-    <section class="track-unit" style="--cluster-color: {{ cluster.color }}" data-track-cluster>
-      <header class="track-unit-banner"><span>Раздел {{ forloop.counter }}</span><h2>{{ cluster.title }}</h2></header>
-      <div class="track-path">
-        {% for point in cluster.points %}
-          <div class="track-node-row {{ point.position_class }} track-state-{{ point.visual_state }}" data-track-point data-position="{{ point.position }}" data-state="{{ point.visual_state }}">
-            {% if point.is_clickable %}<a class="track-node-link" href="{{ point.url }}" aria-label="{{ point.type_label }}: {{ point.title }}">
-            {% else %}<div class="track-node-link is-locked" tabindex="0" title="{{ point.unlock_tooltip }}" aria-label="{{ point.title }}. {{ point.unlock_tooltip }}">
-            {% endif %}
-              <span class="track-progress-ring" style="{{ point.progress_style }}"><span class="track-node-button" aria-hidden="true">{{ point.marker }}</span></span>
-              <span class="track-node-copy"><strong>{{ point.title }}</strong><small>{{ point.type_label }} · {{ point.state_label }} · {{ point.mastery_percent }}%</small></span>
-              {% if point.unlock_tooltip %}<span class="track-tooltip" role="tooltip">{{ point.unlock_tooltip }}</span>{% endif %}
-            {% if point.is_clickable %}</a>{% else %}</div>{% endif %}
+<div class="track-layout" data-learning-track>
+  <div class="track-column">
+    <div class="track-heading"><p class="eyebrow">Твой маршрут</p><h1>Дорожка подготовки</h1></div>
+    <div class="track-compact-stats" aria-label="Твоя статистика">
+      <span>🔥 <strong>{{ gamification.streak_current }}</strong></span>
+      <span>⚡ <strong>{{ gamification.xp }} XP</strong></span>
+      <span>⭐ <strong>{{ gamification.level }}</strong></span>
+    </div>
+    <div class="track-path-column">
+      {% for unit in track_units %}
+        <section class="track-unit{% if unit.is_mock_unit %} track-unit-mock{% endif %}" style="--cluster-color: {{ unit.color }}; --cluster-shadow: color-mix(in srgb, {{ unit.color }} 72%, #000);" data-track-unit data-unit-index="{{ unit.index }}">
+          <header class="track-unit-header">
+            <div>
+              {% if unit.is_mock_unit %}<span>КОНТРОЛЬ · ПРОБНИКИ</span>{% else %}<span>РАЗДЕЛ {{ unit.index }} · {{ unit.mastered_count }}/{{ unit.total_nodes }} тем</span>{% endif %}
+              <h2>{{ unit.title }}</h2>
+            </div>
+            {% if unit.first_node_url %}<a class="track-unit-notes" href="{{ unit.first_node_url }}" aria-label="Конспект раздела {{ unit.title }}"><span aria-hidden="true">📖</span><b>Конспект</b></a>{% endif %}
+          </header>
+          <div class="track-unit-path">
+            <div class="track-deco {% if unit.mirrored %}is-right{% else %}is-left{% endif %}" aria-hidden="true">{{ unit.deco_emoji }}</div>
+            {% for point in unit.points %}
+              <div class="track-row track-state-{{ point.visual_state }}{% if point.is_current %} is-current{% endif %}" style="--offset: {{ point.offset_px }}px; --progress: {{ point.mastery_percent }};" data-track-point data-state="{{ point.visual_state }}"{% if point.is_current %} data-current-track-point{% endif %}>
+                <div class="track-node-wrap">
+                  {% if point.is_current %}<span class="track-start-bubble">{% if point.mastery_percent %}ПРОДОЛЖИТЬ{% else %}НАЧАТЬ{% endif %}</span>{% endif %}
+                  {% if point.is_current %}<svg class="track-progress-ring" viewBox="0 0 104 104" aria-hidden="true"><circle class="track-ring-base" cx="52" cy="52" r="46" pathLength="100"/><circle class="track-ring-value" cx="52" cy="52" r="46" pathLength="100" stroke-dasharray="{{ point.mastery_percent }} 100"/></svg>{% endif %}
+                  <button class="track-node{% if point.type == 'mock' %} track-node-mock{% endif %}" type="button" data-track-node aria-expanded="false" aria-controls="track-popover-{{ unit.index }}-{{ forloop.counter }}" aria-label="{{ point.title }}. {{ point.subtitle }}">
+                    {% include "partials/track_icon.html" with icon=point.icon %}
+                  </button>
+                </div>
+                <div class="track-popover{% if point.state == 'locked' %} is-locked{% endif %}" id="track-popover-{{ unit.index }}-{{ forloop.counter }}" role="dialog" aria-label="{{ point.title }}" tabindex="-1" hidden data-track-popover>
+                  <h3>{{ point.title }}</h3>
+                  {% if point.state == 'locked' %}
+                    <p>Чтобы открыть:</p>
+                    <div class="track-lock-conditions">{% for condition in point.popover_conditions %}<div><span>{{ condition.title }} — {{ condition.current }}% из {{ condition.required }}%</span><i><b style="width: {{ condition.percent }}%"></b></i></div>{% endfor %}</div>
+                    <button class="track-popover-cta" type="button" disabled>{{ point.cta_label }}</button>
+                  {% else %}
+                    <p>{{ point.subtitle }}</p>
+                    <a class="track-popover-cta" href="{{ point.url }}" data-track-cta>{{ point.cta_label }}</a>
+                  {% endif %}
+                </div>
+              </div>
+            {% empty %}<p class="track-empty">Точки раздела пока готовятся.</p>{% endfor %}
           </div>
-        {% endfor %}
-      </div>
-    </section>
-  {% endfor %}
-  {% if mock_points %}
-    <section class="track-unit mock-cluster" data-track-cluster>
-      <header class="track-unit-banner"><span>Контроль</span><h2>Пробники</h2></header>
-      <div class="track-path">
-        {% for point in mock_points %}<div class="track-node-row {{ point.position_class }} track-state-{{ point.visual_state }}" data-track-point data-position="{{ point.position }}" data-state="{{ point.visual_state }}"><a class="track-node-link" href="{{ point.url }}"><span class="track-progress-ring" style="{{ point.progress_style }}"><span class="track-node-button" aria-hidden="true">{{ point.marker }}</span></span><span class="track-node-copy"><strong>{{ point.title }}</strong><small>{{ point.type_label }}</small></span></a></div>{% endfor %}
-      </div>
-    </section>
-  {% endif %}
+        </section>
+      {% empty %}<section class="empty-state"><p>Дорожка пока не настроена.</p></section>{% endfor %}
+    </div>
+  </div>
+
+  <aside class="track-sidebar" aria-label="Прогресс и следующий шаг">
+    <section class="track-side-card track-side-stats" aria-label="Твоя статистика"><span class="is-streak">🔥 <strong>{{ gamification.streak_current }}</strong></span><span>⚡ <strong>{{ gamification.xp }} XP</strong></span><span>⭐ <strong>ур. {{ gamification.level }}</strong></span></section>
+    <section class="track-side-card"><h2>Квесты недели</h2><div class="track-quests">{% for quest in gamification.quests %}<article><div><strong>{{ quest.title }}{% if quest.completed %} ✓{% endif %}</strong><span>{{ quest.progress_count }}/{{ quest.target_count }}</span></div><div class="track-quest-progress"><i style="width: {{ quest.progress_percent }}%"></i></div><small>+{{ quest.reward_xp }} XP</small></article>{% empty %}<p>Квесты появятся вместе с планом.</p>{% endfor %}</div></section>
+    <section class="track-side-card track-next-step"><h2>Следующий шаг</h2>{% if current_point %}<h3>{{ current_point.title }}</h3><p>{{ current_point.subtitle }}</p><a class="track-side-cta" href="{{ current_point.url }}">{{ current_point.cta_label }}</a>{% else %}<p>Все доступные темы пройдены 🎉</p>{% endif %}</section>
+    <section class="track-side-card track-side-forecast"><h2>Прогноз</h2><p>Прогноз к экзамену <strong>{{ platform_forecast.forecast_score }}</strong> · цель {{ platform_forecast.target_score }}</p><small>при {{ platform_forecast.weekly_hours }} ч/нед</small><a href="{% url 'forecast' %}">Подробнее →</a></section>
+  </aside>
 </div>
+<button class="track-jump" type="button" aria-label="К текущему занятию" hidden data-track-jump>{% include "partials/track_icon.html" with icon="arrow" %}</button>
 {% endif %}{% endblock %}

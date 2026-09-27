@@ -7,7 +7,12 @@ from apps.accounts.api import get_student
 from apps.accounts.models import ParentProfile, StudentProfile
 
 from .models import ParentReport, ProgressSnapshot
-from .services import build_parent_report, ceiling_forecast
+from .services import (
+    build_parent_report,
+    ceiling_forecast,
+    forecast_recommendations,
+    platform_forecast,
+)
 
 
 class ForecastView(views.APIView):
@@ -34,6 +39,10 @@ class ForecastView(views.APIView):
         forecast = ceiling_forecast(student, weekly_hours=weekly_hours, exam_date=exam_date)
         forecast["target_score"] = student.target_score
         forecast["forecast_calibration"] = student.forecast_calibration
+        forecast["current_level"] = forecast["current_score"]
+        forecast["forecast_score"] = forecast["ceiling_score"]
+        forecast["platform_forecast"] = platform_forecast(student)
+        forecast["recommendations"] = forecast_recommendations(student)
         return Response(forecast)
 
 

@@ -21,6 +21,7 @@ from apps.planning.api import (
     TodayPlanView,
     TrajectoryView,
     WeekPlanView,
+    WeeklyHoursView,
 )
 from apps.practice.api import (
     BacklogView,
@@ -40,6 +41,7 @@ api_urls = [
     path("", include(router.urls)),
     path("me/", MeView.as_view()),
     path("me/target/", TargetScoreView.as_view()),
+    path("me/weekly-hours/", WeeklyHoursView.as_view()),
     path("knowledge-map/", KnowledgeMapView.as_view()),
     path("nodes/<int:node_id>/", NodeDetailView.as_view()),
     path("nodes/<int:node_id>/practice/", NodePracticeView.as_view()),
@@ -88,6 +90,12 @@ urlpatterns = [
     path("lesson/<int:node_id>/", web_views.lesson, name="lesson"),
     path("practice/backlog/", web_views.practice_backlog, name="practice_backlog"),
     path("forecast/", web_views.forecast, name="forecast"),
+    path("diagnostic/", web_views.diagnostics, name="diagnostic"),
+    path(
+        "diagnostic/run/<int:result_id>/",
+        web_views.diagnostic_run,
+        name="diagnostic_run",
+    ),
     path("mocks/", web_views.mocks, name="mocks"),
     path("mocks/run/<int:result_id>/", web_views.mock_run, name="mock_run"),
     path("mocks/result/<int:result_id>/", web_views.mock_result, name="mock_result"),

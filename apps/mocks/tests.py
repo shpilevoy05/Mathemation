@@ -33,27 +33,36 @@ class MockLifecycleTests(TestCase):
             username="exp", role="expert"
         )
 
-    def _run_part1(self, correct=True):
+    def _run_part1(self, correct=True, uploaded_assignments=()):
         result = MockExamResult.objects.create(student=self.student, exam=self.exam)
+        for assignment in uploaded_assignments:
+            submit_solution(
+                self.student, assignment, _solution_file(), mock_result=result
+            )
         submit_attempt(
             self.student, self.a1, "7" if correct else "0",
             context=Attempt.Context.MOCK, mock_result=result,
         )
         return complete_mock_part1(result)
 
-    def test_part1_checked_waits_for_expert(self):
+    def test_no_part2_uploads_complete_immediately(self):
         result = self._run_part1()
-        self.assertEqual(result.status, MockExamResult.Status.PART1_CHECKED)
+        self.assertEqual(result.status, MockExamResult.Status.COMPLETED)
         self.assertEqual(result.primary_score, 1)
-        # Калибровка не трогается, пока вторая часть у эксперта.
-        self.student.refresh_from_db()
-        self.assertEqual(self.student.forecast_calibration, 0)
 
-    def test_expert_verdict_completes_mock_and_calibrates(self):
-        result = self._run_part1()
-        review = submit_solution(
-            self.student, self.a2, _solution_file(), mock_result=result
-        )
+    def test_one_of_four_uploaded_waits_only_for_linked_review(self):
+        extra_part2 = [
+            make_assignment(
+                self.node2,
+                answer="",
+                part=Assignment.Part.PART2,
+            )
+            for _ in range(3)
+        ]
+        self.exam.assignments.add(*extra_part2)
+        result = self._run_part1(uploaded_assignments=[self.a2])
+        self.assertEqual(result.status, MockExamResult.Status.PART1_CHECKED)
+        review = result.expert_reviews.get()
         finish_review(review, self.expert, {"К1": 1, "К2": 1}, comment="Отлично")
         result.refresh_from_db()
         self.assertEqual(result.status, MockExamResult.Status.COMPLETED)
@@ -62,6 +71,18 @@ class MockLifecycleTests(TestCase):
         self.assertIsNotNone(result.scaled_score)
         self.student.refresh_from_db()
         self.assertNotEqual(self.student.forecast_calibration, 0)
+
+    def test_review_awaiting_resubmission_does_not_complete_mock(self):
+        result = self._run_part1(uploaded_assignments=[self.a2])
+        review = result.expert_reviews.get()
+        finish_review(
+            review,
+            self.expert,
+            {"К1": 0},
+            needs_resubmission=True,
+        )
+        result.refresh_from_db()
+        self.assertEqual(result.status, MockExamResult.Status.PART1_CHECKED)
 
     def test_exam_without_part2_completes_immediately(self):
         self.exam.assignments.set([self.a1])

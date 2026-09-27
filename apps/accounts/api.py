@@ -46,14 +46,14 @@ class TargetScoreView(views.APIView):
 
     def post(self, request):
         from apps.planning.services import change_target_score
-        from apps.progress.services import ceiling_forecast
+        from apps.progress.services import platform_forecast
 
         student = get_student(request)
         serializer = TargetScoreSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = change_target_score(student, serializer.validated_data["target_score"])
         trajectory = result["trajectory"]
-        forecast = ceiling_forecast(student)
+        forecast = platform_forecast(student)
         return Response({
             "target_score": result["target_score"],
             "trajectory_changed": result["trajectory_changed"],
@@ -66,7 +66,10 @@ class TargetScoreView(views.APIView):
                 "weekly_load_hours": trajectory.weekly_load_hours,
             },
             "forecast": {
-                "current_score": forecast["current_score"],
-                "ceiling_score": forecast["ceiling_score"],
+                "current_level": forecast["current_level"],
+                "forecast_score": forecast["forecast_score"],
+                # Kept for older clients.
+                "current_score": forecast["current_level"],
+                "ceiling_score": forecast["forecast_score"],
             },
         })
