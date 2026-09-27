@@ -1,6 +1,25 @@
 ---
 name: score-forecast-and-ceiling
 description: Use when implementing, changing, displaying, or testing current score forecasts, attainable ceilings, pace controls, or forecast explanations.
+metadata:
+  owner: ml
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: high
+activation_examples:
+  positive:
+    - "Проверь, что достижимый потолок не снижается при увеличении времени до экзамена"
+    - "Добавь объяснение прогноза с диапазоном и формулировкой при текущем темпе"
+  negative:
+    - "Импортируй новый набор условий задач"
+    - "Настрой retry для уведомлений"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Прогноз и потолок

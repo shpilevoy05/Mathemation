@@ -1,0 +1,47 @@
+name: Skills integrity
+
+on:
+  push:
+    paths:
+      - "agent-skills/**"
+      - "skills.lock.yaml"
+      - "scripts/*skills*"
+  pull_request:
+    paths:
+      - "agent-skills/**"
+      - "skills.lock.yaml"
+      - "scripts/*skills*"
+
+jobs:
+  skills-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check skill integrity
+        run: python scripts/check-skills-integrity.py
+
+      - name: Audit skills
+        shell: bash
+        run: |
+          set +e
+          pwsh -NoProfile -File scripts/audit-skills.ps1
+          audit_code=$?
+          set -e
+
+          if [ "$audit_code" -eq 0 ]; then
+            echo "PASS: skill audit found no suspicious constructs."
+            exit 0
+          fi
+          if [ "$audit_code" -eq 1 ]; then
+            echo "REVIEW: documented residual findings require human review but do not block CI."
+            exit 0
+          fi
+          if [ "$audit_code" -eq 2 ]; then
+            echo "BLOCK: forbidden skill content detected."
+            exit 1
+          fi
+
+          echo "Unexpected audit exit code: $audit_code"
+          exit "$audit_code"

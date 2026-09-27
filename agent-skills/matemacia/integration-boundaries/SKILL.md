@@ -1,6 +1,25 @@
 ---
 name: integration-boundaries
 description: Use when integrating an LLM, payments, video, push, object storage, webhooks, or any external provider with Mathemation.
+metadata:
+  owner: architecture
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Подключи РФ-совместимое объектное хранилище для фото решений через адаптер"
+    - "Спроектируй платёжный webhook с проверкой подписи и идемпотентностью"
+  negative:
+    - "Проверь чистую формулу прогноза без внешних вызовов"
+    - "Добавь локальный CSS-класс для предупреждения"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Границы внешних интеграций

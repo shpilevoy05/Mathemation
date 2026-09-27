@@ -1,6 +1,25 @@
 ---
 name: adaptive-planner
 description: Use when changing study-plan ordering, prerequisite handling, score-gain priorities, blocked skills, replan logic, or deterministic tie-breaking.
+metadata:
+  owner: ml
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: high
+activation_examples:
+  positive:
+    - "Измени порядок учебного плана по приросту баллов в час с детерминированным tie-break"
+    - "Запрети планировщику назначать навык с незакрытым пререквизитом"
+  negative:
+    - "Добавь поле alt к изображению решения"
+    - "Проверь подпись webhook платёжного провайдера"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Адаптивный планировщик

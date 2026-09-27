@@ -1,6 +1,25 @@
 ---
 name: parent-pulse-reporting
 description: Use when building or reviewing parent reports, forecast explanations, risk summaries, mentor activity summaries, or parent access to student data.
+metadata:
+  owner: product
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Добавь в недельный отчёт родителя причины изменения прогноза и один следующий шаг"
+    - "Проверь, что родитель видит только отчёт своего ребёнка и не видит заблокированные подсказки"
+  negative:
+    - "Измени алгоритм выбора пререквизитов в планировщике"
+    - "Добавь поле версии в событие попытки"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Родительский weekly pulse

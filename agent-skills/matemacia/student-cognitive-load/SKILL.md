@@ -1,6 +1,25 @@
 ---
 name: student-cognitive-load
 description: Use when changing student lessons, task flow, dashboards, dialogs, navigation, feedback, or any screen that can increase cognitive load.
+metadata:
+  owner: ux
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Упрости экран урока до одной текущей задачи и одного следующего действия"
+    - "Проверь dashboard ученика на перегрузку карточками, рисками и модальными окнами"
+  negative:
+    - "Добавь тип доменного события для экспертного вердикта"
+    - "Калибруй прогноз после пробника"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Когнитивная нагрузка ученика

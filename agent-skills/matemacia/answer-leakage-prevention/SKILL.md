@@ -1,6 +1,25 @@
 ---
 name: answer-leakage-prevention
 description: Use when changing tutor outputs, answer redaction, numeric-equivalence checks, task statements, prompt context, or hint-block events.
+metadata:
+  owner: tutor
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Заблокируй подсказку, которая раскрывает ответ в эквивалентной дробной форме"
+    - "Убери correct_answer из всех блоков контекста наставника и его истории"
+  negative:
+    - "Настрой недельный режим стрика"
+    - "Добавь пререквизит к узлу графа"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Предотвращение утечки ответа

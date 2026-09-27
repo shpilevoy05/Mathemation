@@ -1,6 +1,25 @@
 ---
 name: llm-prompt-injection-defense
 description: Use when constructing tutor prompts, adding RAG documents, handling student questions, task text, chat history, or provider context.
+metadata:
+  owner: tutor
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Защити промпт наставника от инструкций, встроенных в условие импортированной задачи"
+    - "Проверь, что текст ученика и RAG-документ остаются данными и не меняют системные правила"
+  negative:
+    - "Сделай data migration для нового поля задания"
+    - "Проверь reflow формулы на экране 320 пикселей"
+conflicts_with: [sentry-security-review]
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Защита от prompt injection

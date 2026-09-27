@@ -1,6 +1,25 @@
 ---
 name: event-contracts-analytics
 description: Use when adding, emitting, consuming, migrating, or analyzing Mathemation domain events and append-only learning history.
+metadata:
+  owner: architecture
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: high
+activation_examples:
+  positive:
+    - "Добавь версионированное событие отправки попытки без персональных данных"
+    - "Проверь обратную совместимость payload и идемпотентность потребителя событий"
+  negative:
+    - "Измени CSS-радиус карточки урока"
+    - "Добавь математический пример в проверенный разбор"
+conflicts_with: [supabase-postgres-best-practices, clickhouse-best-practices]
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Контракты событий

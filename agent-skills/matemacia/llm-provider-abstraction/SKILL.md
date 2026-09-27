@@ -1,6 +1,25 @@
 ---
 name: llm-provider-abstraction
 description: Use when adding, replacing, configuring, testing, or failing over Mathemation LLM hint providers and their network transports.
+metadata:
+  owner: tutor
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Подключи нового LLM-провайдера через HintProvider без изменения доменного сервиса"
+    - "Добавь timeout, безопасный fallback и тест транспорта генерации подсказок"
+  negative:
+    - "Измени формулу достижимого потолка"
+    - "Добавь aria-label к SVG-иконке"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Абстракция LLM-провайдера

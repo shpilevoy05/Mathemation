@@ -1,6 +1,25 @@
 ---
 name: data-quality-and-drift
 description: Use when auditing learning-event completeness, detecting anomalies, monitoring task difficulty drift, validating ML datasets, or running local analytical checks.
+metadata:
+  owner: ml
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Сверь каждую Attempt с событием attempt_submitted и найди пропуски"
+    - "Построй отчёт о дрейфе сложности задач по обезличенной выгрузке"
+  negative:
+    - "Измени логику закрытия диалога клавишей Escape"
+    - "Добавь criteria scores в форму эксперта"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Качество данных и дрейф

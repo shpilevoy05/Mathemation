@@ -1,6 +1,25 @@
 ---
 name: sympy-math-verifier
 description: Use when parsing, normalizing, verifying, or displaying mathematical claims in tutor hints or when changing SymPy safety behavior.
+metadata:
+  owner: tutor
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Отклони математически неверную подсказку до показа ученику через SymPy-гардрейл"
+    - "Добавь безопасную проверку равенств и обработку непарсируемых выражений"
+  negative:
+    - "Проверь циклы в графе знаний"
+    - "Измени SLA экспертной очереди"
+conflicts_with: [sentry-security-review]
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # SymPy-проверка математики

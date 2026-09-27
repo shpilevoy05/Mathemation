@@ -1,6 +1,25 @@
 ---
 name: expert-review-workflow
 description: Use when implementing or reviewing part-2 submission, expert queue, SLA, verdict, resubmission, scoring criteria, or error-tag workflows.
+metadata:
+  owner: product
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: high
+activation_examples:
+  positive:
+    - "Реализуй выставление баллов части 2 по критериям через finish_review с аудитом эксперта"
+    - "Проверь очередь экспертных заявок, SLA и сценарий повторной отправки решения"
+  negative:
+    - "Нормализуй десятичную запятую в ответе части 1"
+    - "Добавь новый цветовой токен для карточек"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Экспертная проверка части 2

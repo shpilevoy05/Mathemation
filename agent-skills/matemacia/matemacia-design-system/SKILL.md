@@ -1,6 +1,25 @@
 ---
 name: matemacia-design-system
 description: Use when creating or changing Mathemation UI styles, components, templates, colors, typography, branding, logos, or product wording.
+metadata:
+  owner: ux
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Собери новую карточку кабинета на существующих токенах дизайн-системы Матемации"
+    - "Обнови логотип и продуктовую лексику, сохранив бренд и локальные стили"
+  negative:
+    - "Измени ORM-блокировку начисления XP"
+    - "Проверь временной leakage в ML-датасете"
+conflicts_with: [frontend-design, frontend-app-builder, figma-design-to-code]
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Дизайн-система Матемации

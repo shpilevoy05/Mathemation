@@ -1,6 +1,25 @@
 ---
 name: cold-start-calibration
 description: Use when bootstrapping mastery, task difficulty, forecast calibration, priors, or deciding when to replace methodist estimates with observed data.
+metadata:
+  owner: ml
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Задай прозрачные приоры сложности для запуска без истории учеников"
+    - "Определи критерий перехода от методических оценок к калибровке по событиям"
+  negative:
+    - "Добавь новое действие в Django Admin"
+    - "Проверь доступность диалога с клавиатуры"
+conflicts_with: [huggingface-llm-trainer, huggingface-community-evals]
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Холодный старт и калибровка

@@ -1,6 +1,25 @@
 ---
 name: architecture-guardrails
 description: Use when adding modules, moving business logic, changing cross-app dependencies, or evaluating whether Mathemation needs a new service or architecture boundary.
+metadata:
+  owner: architecture
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Добавь новый доменный модуль Матемации, сохранив границы модульного монолита"
+    - "Проверь перенос бизнес-логики из view в сервис приложения-владельца"
+  negative:
+    - "Исправь формулировку подсказки без изменения сервисов"
+    - "Добавь тест на нормализацию символа корня"
+conflicts_with: [sentry-code-review, differential-review]
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Архитектурные границы

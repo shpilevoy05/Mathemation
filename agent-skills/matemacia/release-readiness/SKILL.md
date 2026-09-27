@@ -1,6 +1,25 @@
 ---
 name: release-readiness
 description: Use when preparing, reviewing, or approving a Mathemation release, deployment, migration rollout, static build, or production configuration.
+metadata:
+  owner: architecture
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Подготовь чек-лист релиза Матемации с совместимыми миграциями и планом отката"
+    - "Проверь production-конфигурацию, критические пути и готовность к развёртыванию"
+  negative:
+    - "Исправь один unit-тест чистой функции BKT"
+    - "Отредактируй описание скилла без выпуска продукта"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Готовность к релизу

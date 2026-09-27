@@ -1,6 +1,25 @@
 ---
 name: socratic-tutor-rag
 description: Use when designing, prompting, implementing, or reviewing Mathemation tutor hints, RAG context, help levels, availability, or escalation behavior.
+metadata:
+  owner: tutor
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: high
+activation_examples:
+  positive:
+    - "Измени уровни помощи наставника, сохранив два вопроса и запрет готового ответа"
+    - "Собери RAG-контекст подсказки только из проверенного reference_solution"
+  negative:
+    - "Добавь PostgreSQL-индекс для таблицы событий"
+    - "Подготовь план отката релиза"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Сократический наставник и RAG

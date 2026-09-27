@@ -1,6 +1,25 @@
 ---
 name: llm-evaluation-suite
 description: Use when changing a tutor provider, model, system prompt, RAG corpus, redaction logic, or output guardrail and before enabling it in production.
+metadata:
+  owner: tutor
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Сравни новый системный промпт наставника с baseline на фиксированном корпусе диалогов"
+    - "Проверь смену LLM-провайдера на утечки ответа, ложную математику и эскалации"
+  negative:
+    - "Проверь миграцию внешнего ключа на PostgreSQL"
+    - "Измени текст пустого состояния родительского отчёта"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Набор оценки LLM-наставника

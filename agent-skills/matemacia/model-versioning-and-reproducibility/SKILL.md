@@ -1,6 +1,25 @@
 ---
 name: model-versioning-and-reproducibility
 description: Use when changing engine algorithms, parameters, score tables, calibration artifacts, forecast events, or reproducing a historical prediction.
+metadata:
+  owner: ml
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Сделай исторический прогноз воспроизводимым по manifest входов и версии движка"
+    - "Версионируй изменение tie-breaker планировщика и параметры пересчёта"
+  negative:
+    - "Проверь IDOR в родительском отчёте"
+    - "Добавь label к полю формы"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Версии и воспроизводимость модели

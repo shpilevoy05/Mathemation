@@ -1,6 +1,25 @@
 ---
 name: gamification-integrity
 description: Use when changing XP, levels, streaks, quests, rewards, activity tracking, or anti-farming rules in Mathemation.
+metadata:
+  owner: product
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Сделай начисление XP за завершение повтора идемпотентным и защищённым от фарминга"
+    - "Измени недельный стрик и проверь событие сброса без давления на ученика"
+  negative:
+    - "Проверь формулу BKT после обычной попытки"
+    - "Добавь object permission для экспертной заявки"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Целостность геймификации

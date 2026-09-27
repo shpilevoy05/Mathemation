@@ -1,6 +1,25 @@
 ---
 name: responsive-performance-budget
 description: Use when adding frontend assets, scripts, fonts, video, images, responsive layouts, or measuring page weight and load performance.
+metadata:
+  owner: ux
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Проверь вес кабинета и загрузку страницы на медленном мобильном соединении"
+    - "Добавь адаптивное изображение решения без выхода за performance budget"
+  negative:
+    - "Исправь проверку object permission для родителя"
+    - "Измени критерии экспертной проверки части 2"
+conflicts_with: [react-best-practices]
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Responsive и performance budget

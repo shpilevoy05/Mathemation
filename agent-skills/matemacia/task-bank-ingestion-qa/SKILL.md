@@ -1,6 +1,25 @@
 ---
 name: task-bank-ingestion-qa
 description: Use when importing, creating, publishing, deduplicating, or quality-checking Mathemation assignments and diagnostic task sets.
+metadata:
+  owner: product
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Импортируй набор заданий ЕГЭ в банк Матемации с проверкой источника и дублей"
+    - "Проверь готовность задач диагностики к публикации и покрытие узлов знаний"
+  negative:
+    - "Настрой повтор Celery-задачи формирования отчёта"
+    - "Измени цвет карточки задания без правки его содержимого"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Приёмка банка задач

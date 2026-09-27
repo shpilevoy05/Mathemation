@@ -1,6 +1,25 @@
 ---
 name: django-drf-celery-conventions
 description: Use when implementing Django views, DRF endpoints, serializers, service functions, Celery tasks, retries, schedules, or local worker instructions.
+metadata:
+  owner: architecture
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Добавь DRF API для учебного объекта с тонким serializer и вызовом доменного сервиса"
+    - "Сделай Celery-задачу пересчёта плана безопасной при повторной доставке"
+  negative:
+    - "Обнови годовую шкалу перевода баллов ЕГЭ"
+    - "Проверь цветовой контраст навигации"
+conflicts_with: [sentry-code-review, differential-review]
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Конвенции Django, DRF и Celery

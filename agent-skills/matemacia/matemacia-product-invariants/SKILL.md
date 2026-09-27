@@ -1,6 +1,25 @@
 ---
 name: matemacia-product-invariants
 description: Use when designing, implementing, or reviewing any Mathemation product behavior that can affect trust, learning flow, forecasts, trajectories, event history, or personal data.
+metadata:
+  owner: product
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: high
+activation_examples:
+  positive:
+    - "Проверь новую логику Матемации на соответствие продуктовым инвариантам и контуру доверия"
+    - "Спроектируй изменение учебной траектории без нарушения событийной истории и ФЗ-152"
+  negative:
+    - "Исправь опечатку в комментарии к тесту"
+    - "Объясни стандартный синтаксис pathlib без привязки к продукту"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Инварианты продукта

@@ -1,6 +1,25 @@
 ---
 name: ml-offline-evaluation
 description: Use when evaluating forecast, mastery, difficulty, ranking, or future ML models on historical Mathemation learning events.
+metadata:
+  owner: ml
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Сравни новую модель прогноза с bootstrap baseline на временном holdout"
+    - "Проверь ML-датасет попыток на leakage из будущих пробников"
+  negative:
+    - "Добавь серверный маршрут для загрузки фото"
+    - "Переименуй CSS-класс карточки"
+conflicts_with: [huggingface-llm-trainer, huggingface-community-evals]
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Офлайн-оценка ML

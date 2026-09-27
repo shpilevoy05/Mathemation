@@ -1,6 +1,25 @@
 ---
 name: rbac-and-object-permissions
 description: Use when adding endpoints, back-office pages, admin actions, parent access, expert access, role checks, or any route containing an object identifier.
+metadata:
+  owner: architecture
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Запрети родителю открывать отчёт ученика из другой семьи по прямому id"
+    - "Добавь object-level permissions для экспертного API и тесты всех ролей"
+  negative:
+    - "Измени интервал повторения темы после забывания"
+    - "Оптимизируй размер SVG-логотипа"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # RBAC и object-level permissions

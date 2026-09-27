@@ -1,6 +1,25 @@
 ---
 name: safe-database-migrations
 description: Use when adding, altering, backfilling, renaming, or removing Django models and fields, constraints, choices, groups, or production data.
+metadata:
+  owner: architecture
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Проверь миграцию Django на блокировки и возможность rollback"
+    - "Добавь обязательное поле в заполненную таблицу через безопасный expand и backfill"
+  negative:
+    - "Исправь текст кнопки в интерфейсе"
+    - "Сравни два варианта промпта наставника"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Безопасные миграции

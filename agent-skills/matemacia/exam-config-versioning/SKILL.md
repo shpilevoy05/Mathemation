@@ -1,6 +1,25 @@
 ---
 name: exam-config-versioning
 description: Use when changing EGE score conversion tables, exam structure, maximum scores, task numbering, or assessment criteria across exam years.
+metadata:
+  owner: product
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: high
+activation_examples:
+  positive:
+    - "Добавь шкалу перевода первичных баллов ЕГЭ 2027 без изменения результатов прошлых лет"
+    - "Обнови структуру заданий и критерии части 2 с версией экзамена"
+  negative:
+    - "Исправь таймаут запроса к LLM-провайдеру"
+    - "Проверь контраст кнопок на странице урока"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Версионирование конфигурации ЕГЭ

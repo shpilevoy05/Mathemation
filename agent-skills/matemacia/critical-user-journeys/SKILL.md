@@ -1,6 +1,25 @@
 ---
 name: critical-user-journeys
 description: Use when adding features, release tests, integration tests, or regression coverage across student, parent, expert, and methodist end-to-end journeys.
+metadata:
+  owner: ux
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Добавь сквозной регрессионный сценарий ученика от диагностики до экспертной проверки"
+    - "Проверь критические пути родителя, эксперта и методиста перед релизом"
+  negative:
+    - "Оптимизируй одну чистую функцию сортировки узлов"
+    - "Обнови комментарий в lock-файле скиллов"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Критические пользовательские пути

@@ -1,6 +1,25 @@
 ---
 name: mastery-bkt-irt-fsrs
 description: Use when changing mastery updates, forgetting curves, review intervals, IRT score probabilities, engine parameters, or algorithm tests.
+metadata:
+  owner: ml
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: high
+activation_examples:
+  positive:
+    - "Измени обновление mastery после попытки и докажи границы формулы BKT тестами"
+    - "Настрой FSRS-подобные интервалы повторов и возврат забытой темы в план"
+  negative:
+    - "Добавь permission для страницы методиста"
+    - "Исправь мобильный размер кнопки отправки"
+conflicts_with: [huggingface-llm-trainer, huggingface-community-evals]
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # BKT, IRT и FSRS-подобный движок

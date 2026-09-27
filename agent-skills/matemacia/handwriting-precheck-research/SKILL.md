@@ -1,6 +1,25 @@
 ---
 name: handwriting-precheck-research
 description: Use when researching or prototyping OCR, handwriting recognition, rubric pre-labeling, or AI-assisted checking for EGE part-2 solution scans.
+metadata:
+  owner: tutor
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Прототипируй OCR-предразметку фото решения части 2 без автоматического финального балла"
+    - "Оцени качество распознавания почерка на обезличенном holdout с подтверждением эксперта"
+  negative:
+    - "Добавь новый статус mastery в интерфейс карты"
+    - "Настрой периодическую Celery-задачу отчётов"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Исследование OCR и предразметки части 2

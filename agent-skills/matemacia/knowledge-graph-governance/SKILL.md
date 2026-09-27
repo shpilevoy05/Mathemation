@@ -1,6 +1,25 @@
 ---
 name: knowledge-graph-governance
 description: Use when changing Mathemation knowledge nodes, prerequisite edges, mastery states, graph traversal, or methodist graph administration.
+metadata:
+  owner: product
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: high
+activation_examples:
+  positive:
+    - "Добавь новый узел графа знаний и проверь, что пререквизиты не создают цикл"
+    - "Измени порог mastery на ребре KnowledgeDependency и сохрани историю узлов"
+  negative:
+    - "Оптимизируй индекс таблицы событий без изменения графа знаний"
+    - "Исправь отступы в шаблоне родительского отчёта"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Управление графом знаний

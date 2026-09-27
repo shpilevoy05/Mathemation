@@ -1,6 +1,25 @@
 ---
 name: math-input-and-rendering
 description: Use when accepting, normalizing, checking, parsing, or rendering mathematical answers, expressions, Unicode notation, or LaTeX-like task text.
+metadata:
+  owner: ux
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Добавь безопасный ввод дробей, корней и десятичной запятой в ответе части 1"
+    - "Проверь отображение длинной формулы на мобильном экране и HTML-экранирование"
+  negative:
+    - "Настрой SLA очереди экспертной проверки"
+    - "Добавь feature flag для варианта стрика"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Ввод и отображение математики

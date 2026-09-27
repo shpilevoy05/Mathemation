@@ -1,6 +1,25 @@
 ---
 name: verified-solutions-corpus
 description: Use when authoring, reviewing, importing, or consuming Mathemation reference solutions for tutoring, RAG, and expert checking.
+metadata:
+  owner: product
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Добавь проверенный пошаговый разбор задачи в reference_solution для RAG-наставника"
+    - "Проверь корпус решений части 2 на методическую верификацию и версии"
+  negative:
+    - "Добавь индекс для выборки попыток ученика"
+    - "Настрой доступ родителя к недельному отчёту"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Корпус проверенных решений

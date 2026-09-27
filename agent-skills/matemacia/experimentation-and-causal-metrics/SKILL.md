@@ -1,6 +1,25 @@
 ---
 name: experimentation-and-causal-metrics
 description: Use when designing A/B tests, feature flags, product experiments, streak variants, tutor limits, plan variants, or causal success metrics.
+metadata:
+  owner: ml
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Спроектируй A/B-тест лимита подсказок с учебными guardrail-метриками"
+    - "Добавь стабильное назначение варианта плана и событие exposure без ПДн"
+  negative:
+    - "Исправь ORM-запрос списка экспертных заявок"
+    - "Добавь новый математический символ в нормализацию"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Эксперименты и причинные метрики

@@ -1,6 +1,25 @@
 ---
 name: human-escalation-and-audit
 description: Use when implementing tutor escalation, blocked-message storage, methodist audit, expert handoff, hint limits, or visibility rules for AI conversations.
+metadata:
+  owner: tutor
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Передай диалог наставника человеку после лимита подсказок и сохрани аудит блока"
+    - "Проверь видимость заблокированных сообщений для ученика, родителя и методиста"
+  negative:
+    - "Добавь индекс по дате создания попытки"
+    - "Обнови таблицу перевода первичных баллов"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Эскалация человеку и аудит

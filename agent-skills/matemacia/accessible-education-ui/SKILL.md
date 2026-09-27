@@ -1,6 +1,25 @@
 ---
 name: accessible-education-ui
 description: Use when creating or reviewing forms, navigation, SVG, dialogs, mobile controls, color states, keyboard behavior, or screen-reader output.
+metadata:
+  owner: ux
+  version: 1.0.0
+  status: active
+  last_reviewed: 2026-07-19
+  criticality: medium
+activation_examples:
+  positive:
+    - "Проверь прохождение урока только с клавиатуры и озвучивание ошибок формы"
+    - "Добавь доступное имя SVG и управление фокусом в диалоге"
+  negative:
+    - "Измени BKT-параметр обучения"
+    - "Добавь подпись webhook внешнего сервиса"
+conflicts_with: []
+precedence:
+  - "Product invariants first (matemacia-product-invariants)"
+  - "Then this domain skill"
+  - "Then vendor best practices"
+  - "Then generic engineering advice"
 ---
 
 # Доступный образовательный UI
