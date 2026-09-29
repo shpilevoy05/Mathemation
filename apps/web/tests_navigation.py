@@ -1,6 +1,9 @@
 """Двухуровневый рельс: группы и активный пункт считаются по маршруту."""
 
-from django.test import RequestFactory, TestCase
+import re
+
+from django.conf import settings
+from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.urls import reverse
 
 from apps.accounts.models import User
@@ -76,6 +79,129 @@ class NavigationContextTests(TestCase):
         body = self.client.get(reverse("track")).content.decode()
 
         self.assertIn('class="nav-group"', body)
+        self.assertIn('class="nav-link nav-level-one', body)
         self.assertIn("Проверить себя", body)
         # Группа с открытой страницей приходит раскрытой.
         self.assertIn('<details class="nav-group" open>', body)
+        self.assertIn('aria-current="page"', body)
+
+    def test_mobile_navigation_contains_only_destination_links(self):
+        student = make_student("nav-mobile-student")
+        self.client.force_login(student.user)
+
+        body = self.client.get(reverse("track")).content.decode()
+        mobile_nav = re.search(
+            r'<nav class="mobile-tabs".*?>(.*?)</nav>',
+            body,
+            flags=re.DOTALL,
+        )
+        self.assertIsNotNone(mobile_nav)
+        links = re.findall(
+            r'<a class="mobile-tab.*?</a>',
+            mobile_nav.group(1),
+            flags=re.DOTALL,
+        )
+        expected_urls = [
+            item.url
+            for group in nav_groups(student.user)
+            for item in group.items
+        ]
+        rendered_urls = [re.search(r'href="([^"]+)"', link).group(1) for link in links]
+
+        self.assertEqual(len(links), len(expected_urls))
+        self.assertCountEqual(rendered_urls, expected_urls)
+        self.assertEqual(sum('aria-current="page"' in link for link in links), 1)
+        for link in links:
+            self.assertIn('<use href="#i-', link)
+            self.assertRegex(link, r'<span class="mobile-tab-label">\s*\S+.*?</span>')
+
+
+class ThemeCssTests(SimpleTestCase):
+    TRACK_TOKENS = (
+        "--track-title",
+        "--track-copy",
+        "--tooltip-bg",
+        "--tooltip-ink",
+        "--locked-bg",
+        "--locked-shadow",
+        "--locked-ink",
+        "--track-line",
+        "--track-line-done",
+    )
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.css = (settings.BASE_DIR / "static" / "css" / "app.css").read_text(encoding="utf-8")
+        cls.javascript = (settings.BASE_DIR / "static" / "js" / "app.js").read_text(encoding="utf-8")
+
+    def css_block(self, selector, start=0):
+        block_start = self.css.index(selector, start) + len(selector)
+        depth = 1
+        for position in range(block_start, len(self.css)):
+            if self.css[position] == "{":
+                depth += 1
+            elif self.css[position] == "}":
+                depth -= 1
+                if depth == 0:
+                    return self.css[block_start:position]
+        self.fail(f"CSS block is not closed: {selector}")
+
+    def test_every_theme_defines_track_tokens(self):
+        selectors = (
+            ":root {",
+            ':root[data-theme="dark"] {',
+            ':root[data-theme="sunrise"] {',
+            ':root[data-theme="forest"] {',
+            ':root[data-theme="graphite"] {',
+        )
+        for selector in selectors:
+            with self.subTest(selector=selector):
+                block = self.css_block(selector)
+                for token in self.TRACK_TOKENS:
+                    self.assertIn(f"{token}:", block)
+
+        media_start = self.css.index("@media (prefers-color-scheme: dark)")
+        automatic_dark = self.css_block(
+            ':root:not([data-theme="light"]):not([data-theme="sunrise"]):not([data-theme="forest"]):not([data-theme="graphite"]) {',
+            media_start,
+        )
+        for token in self.TRACK_TOKENS:
+            self.assertIn(f"{token}:", automatic_dark)
+
+    def test_light_theme_rail_tokens_are_readable_values(self):
+        sunrise = self.css_block(':root[data-theme="sunrise"] {')
+        forest = self.css_block(':root[data-theme="forest"] {')
+
+        self.assertIn("--night-ink: #F4E3CC", sunrise)
+        self.assertIn("--night-muted: #D7BC96", sunrise)
+        self.assertIn("--night-ink: #D3EADD", forest)
+        self.assertIn("--night-muted: #A5C6B4", forest)
+
+    def test_mobile_navigation_and_track_rules(self):
+        cabinet_breakpoints = self.css.index("@media (max-width: 900px)")
+        mobile = self.css_block("@media (max-width: 720px) {", cabinet_breakpoints)
+
+        self.assertIn(".main-nav { display: none; }", mobile)
+        self.assertIn(".mobile-tabs", mobile)
+        self.assertIn("flex-direction: row", mobile)
+        self.assertIn("flex: 0 0 72px", mobile)
+        self.assertIn("min-width: 72px", mobile)
+        self.assertIn("scroll-snap-type: x proximity", mobile)
+        self.assertIn("text-overflow: ellipsis", mobile)
+        self.assertIn("translate: -36px 0", mobile)
+        self.assertIn("translate: 36px 0", mobile)
+        self.assertIn("padding-inline: 16px", mobile)
+
+    def test_curve_and_labels_stay_clear_of_track_text(self):
+        self.assertIn(
+            "text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg), 0 0 10px var(--bg)",
+            self.css,
+        )
+        self.assertIn(
+            "const points = [{ x: nodePoints[0].x, y: 0 }, ...nodePoints];",
+            self.javascript,
+        )
+        self.assertIn('document.querySelector(".mobile-tabs")', self.javascript)
+        self.assertIn('nav?.querySelector(".mobile-tab.is-active")', self.javascript)
+        self.assertIn("nav.scrollTo", self.javascript)

@@ -70,7 +70,7 @@
           {% for group in nav_groups %}
             {% if group.is_single %}
               {% with item=group.items.0 %}
-                <a class="nav-link {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}">
+                <a class="nav-link nav-level-one {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}"{% if item.is_active %} aria-current="page"{% endif %}>
                   <span class="nav-icon"><svg aria-hidden="true"><use href="#{{ item.icon }}"></use></svg></span>
                   <span>{{ item.label }}</span>
                 </a>
@@ -84,7 +84,7 @@
                 </summary>
                 <div class="nav-sub">
                   {% for item in group.items %}
-                    <a class="nav-link {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}">
+                    <a class="nav-link {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}"{% if item.is_active %} aria-current="page"{% endif %}>
                       <span class="nav-icon"><svg aria-hidden="true"><use href="#{{ item.icon }}"></use></svg></span>
                       <span class="desktop-label">{{ item.label }}</span>
                       <span class="mobile-label">{{ item.short_label }}</span>
@@ -93,6 +93,16 @@
                 </div>
               </details>
             {% endif %}
+          {% endfor %}
+        </nav>
+        <nav class="mobile-tabs" aria-label="Основная навигация (мобильная)">
+          {% for group in nav_groups %}
+            {% for item in group.items %}
+              <a class="mobile-tab {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}"{% if item.is_active %} aria-current="page"{% endif %}>
+                <span class="nav-icon"><svg aria-hidden="true"><use href="#{{ item.icon }}"></use></svg></span>
+                <span class="mobile-tab-label">{{ item.short_label }}</span>
+              </a>
+            {% endfor %}
           {% endfor %}
         </nav>
         <div class="rail-foot">

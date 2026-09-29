@@ -86,6 +86,78 @@
   layoutGaugeLabels();
   window.addEventListener("resize", layoutGaugeLabels);
 
+  function revealActiveMobileTab() {
+    const nav = document.querySelector(".mobile-tabs");
+    const active = nav?.querySelector(".mobile-tab.is-active");
+    if (!nav || !active || !window.matchMedia("(max-width: 720px)").matches) return;
+    requestAnimationFrame(() => {
+      const left = active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2;
+      nav.scrollTo({ left: Math.max(0, left), behavior: "auto" });
+    });
+  }
+  revealActiveMobileTab();
+  window.addEventListener("resize", revealActiveMobileTab);
+
+  // Дорожка идёт через фактические центры точек: translate у змейки уже учтён
+  // getBoundingClientRect. Без JS остаётся прямая пунктирная линия из CSS.
+  function initTrackCurves() {
+    const tracks = [...document.querySelectorAll(".track-path")];
+    if (!tracks.length) return;
+    const NS = "http://www.w3.org/2000/svg";
+    const curvePath = points => {
+      if (points.length < 2) return "";
+      return points.slice(1).reduce((path, point, index) => {
+        const previous = points[index];
+        const halfGap = (point.y - previous.y) / 2;
+        return `${path} C ${previous.x} ${previous.y + halfGap}, ${point.x} ${point.y - halfGap}, ${point.x} ${point.y}`;
+      }, `M ${points[0].x} ${points[0].y}`);
+    };
+    const entries = tracks.map(track => {
+      const svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("class", "track-curve");
+      svg.setAttribute("aria-hidden", "true");
+      svg.setAttribute("focusable", "false");
+      const full = document.createElementNS(NS, "path");
+      const done = document.createElementNS(NS, "path");
+      done.setAttribute("class", "track-curve-done");
+      svg.append(full, done);
+      track.prepend(svg);
+      return { track, svg, full, done };
+    });
+    const draw = entry => {
+      const bounds = entry.track.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) return;
+      const rows = [...entry.track.querySelectorAll("[data-track-point]")];
+      const nodePoints = rows.map(row => {
+        const button = row.querySelector(".track-node-button");
+        const rect = button.getBoundingClientRect();
+        return { x: rect.left - bounds.left + rect.width / 2, y: rect.top - bounds.top + rect.height / 2 };
+      });
+      if (!nodePoints.length) return;
+      const points = [{ x: nodePoints[0].x, y: 0 }, ...nodePoints];
+      const path = curvePath(points);
+      if (!path) return;
+      entry.svg.setAttribute("viewBox", `0 0 ${bounds.width} ${bounds.height}`);
+      entry.full.setAttribute("d", path);
+      const current = rows.findIndex(row => row.dataset.state === "current");
+      entry.done.setAttribute("d", current >= 0 ? curvePath(points.slice(0, current + 2)) : "");
+      entry.track.classList.add("has-curve");
+    };
+    let frame = 0;
+    const drawAll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => entries.forEach(draw));
+    };
+    drawAll();
+    window.addEventListener("resize", drawAll);
+    if ("ResizeObserver" in window) {
+      const observer = new ResizeObserver(drawAll);
+      tracks.forEach(track => observer.observe(track));
+    }
+    if (document.fonts?.ready) document.fonts.ready.then(drawAll);
+  }
+  initTrackCurves();
+
   // Граф карты навыков: координаты приходят с сервера, здесь только отрисовка
   // и подсветка цепочки пререквизитов выбранной темы.
   function renderKnowledgeGraph() {
