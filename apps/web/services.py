@@ -554,6 +554,7 @@ MATCH_MODE_HINTS = {
 
 def arena_context(student) -> dict:
     """Арена: друзья, вызовы, идущие и сыгранные партии."""
+    from apps.arena.leagues import league_for_rating
     from apps.arena.models import Friendship, Match
     from apps.arena.matchmaking import get_profile
     from apps.arena.services import friends_of, rank, rewarded_today, DAILY_REWARDED_MATCHES
@@ -568,11 +569,17 @@ def arena_context(student) -> dict:
     for match in matches:
         me = match.participants.filter(student=student).first()
         other = match.participants.exclude(student=student).first()
+        results = rank(match) if match.is_finished else []
+        for participant in results:
+            if not participant.is_bot and participant.student_id is not None:
+                participant.league_code = league_for_rating(
+                    get_profile(participant.student).rating
+                )["code"]
         row = {
             "match": match,
             "opponent": other.title if other else "—",
             "mine_done": me.finished_at is not None if me else False,
-            "results": rank(match) if match.is_finished else [],
+            "results": results,
         }
         if match.status == Match.Status.FINISHED:
             history.append(row)
@@ -580,6 +587,7 @@ def arena_context(student) -> dict:
             invites.append(row)
         elif match.status in (Match.Status.ACTIVE, Match.Status.INVITED):
             active.append(row)
+    arena_rating = get_profile(student).rating
     return {
         "friends": list(friends_of(student)),
         "incoming": list(
@@ -596,7 +604,8 @@ def arena_context(student) -> dict:
         "match_invites": invites,
         "match_history": history,
         "mode_hints": MATCH_MODE_HINTS,
-        "arena_rating": get_profile(student).rating,
+        "arena_rating": arena_rating,
+        "arena_league": league_for_rating(arena_rating),
         "rewarded_today": rewarded_today(student),
         "reward_limit": DAILY_REWARDED_MATCHES,
     }
@@ -883,6 +892,18 @@ SHOP_EFFECT_ICONS = {
     "streak_freeze": ("i-flame-ice", "ice"),
     "xp_boost": ("i-bolt", "indigo"),
 }
+# Подписи слотов на ярлыке: в модели у выбора нет русских названий, а менять
+# choices ради подписи — лишняя миграция.
+SHOP_SLOT_LABELS = {"avatar": "аватар", "frame": "рамка", "theme": "тема", "badge": "значок"}
+# Косметику показываем самой вещью, а не условной иконкой: аватар — аватаром,
+# рамку — на аватаре ученика, тему — её цветами. Код без рисунка остаётся
+# на иконке слота.
+SHOP_ART_CODES = {
+    "avatar": {"owl", "fox", "rocket", "sigma"},
+    "frame": {"coordinates", "flame", "integral", "gold"},
+    "theme": {"dark", "sunrise", "forest", "graphite"},
+    "badge": {"streak7"},
+}
 
 
 def _shop_card(row: dict, balance: int) -> dict:
@@ -902,7 +923,8 @@ def _shop_card(row: dict, balance: int) -> dict:
     elif item.effect == ShopItem.Effect.XP_BOOST:
         tag, tag_class = "ускоритель", "warning-soft"
     else:
-        tag, tag_class = item.get_slot_display().lower(), "chip-mute"
+        tag, tag_class = SHOP_SLOT_LABELS.get(item.slot, item.get_slot_display().lower()), "chip-mute"
+    has_art = item.effect == ShopItem.Effect.NONE and item.code in SHOP_ART_CODES.get(item.slot, set())
     return {
         **row,
         "icon": icon,
@@ -918,6 +940,7 @@ def _shop_card(row: dict, balance: int) -> dict:
         # чтобы показать вещь на месте, ничего не сохраняя.
         "previewable": not row["is_consumable"] and not row["equipped"],
         "code": item.code,
+        "art": item.slot if has_art else "",
     }
 
 

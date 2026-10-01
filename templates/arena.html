@@ -10,9 +10,18 @@
       <h1>Арена</h1>
       <p>Короткие партии против друга или бота. Задачи те же, что в тренировке, — меняется только азарт.</p>
     </div>
-    <div class="daily-clock">
-      <svg aria-hidden="true"><use href="#i-cup"></use></svg>
-      <div><small>Рейтинг · награда сегодня</small><br><b class="num">{{ arena_rating }} · {{ rewarded_today }} из {{ reward_limit }}</b></div>
+    <div class="league-card league-card--{{ arena_league.code }}">
+      <svg class="league-card-badge" viewBox="0 0 48 48" aria-hidden="true"><use href="#league-{{ arena_league.code }}"></use></svg>
+      <div class="league-card-copy">
+        <small>Лига</small>
+        <b>{{ arena_league.title }} <span class="num">· {{ arena_rating }}</span></b>
+        {% if arena_league.next_title %}
+          <span class="league-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ arena_league.progress_percent }}" aria-label="До лиги «{{ arena_league.next_title }}»"><i style="width: {{ arena_league.progress_percent }}%"></i></span>
+          <small class="num">до «{{ arena_league.next_title }}» {{ arena_league.points_to_next }} очк. · наград сегодня {{ rewarded_today }} из {{ reward_limit }}</small>
+        {% else %}
+          <small class="num">высшая лига · наград сегодня {{ rewarded_today }} из {{ reward_limit }}</small>
+        {% endif %}
+      </div>
     </div>
   </div>
 
@@ -145,7 +154,7 @@
           <li class="arena-row">
             <span>
               <strong>{{ row.match.get_mode_display }} · против {{ row.opponent }}</strong>
-              <small>{% for participant in row.results %}{{ participant.title }} — {{ participant.score }}{% if not forloop.last %} · {% endif %}{% endfor %}</small>
+              <small class="arena-results">{% for participant in row.results %}<span>{% if participant.league_code %}<svg class="league-mini" viewBox="0 0 48 48" aria-hidden="true"><use href="#league-{{ participant.league_code }}"></use></svg>{% endif %}{{ participant.title }} — {{ participant.score }}</span>{% if not forloop.last %} · {% endif %}{% endfor %}</small>
             </span>
             <a class="button button-small" href="{% url 'arena_match' row.match.id %}">Разбор</a>
           </li>

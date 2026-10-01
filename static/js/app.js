@@ -67,10 +67,21 @@
         else if (centre + width / 2 > bounds.width) entry.label.classList.add("is-right");
         const start = Math.max(0, Math.min(bounds.width - width, centre - width / 2));
         const end = start + width;
+        // Близкие флажки сначала разводим в стороны: левая подпись кончается у
+        // своей линии, правая начинается от своей — линии не режут текст.
+        // Ряды друг над другом — запасной путь, когда места в стороны нет.
+        const clash = placed.find(other => other.row === 0 && !other.split && start < other.end + 8 && other.start < end + 8);
+        if (clash && clash.centre < centre && clash.centre - clash.width - 4 >= 0 && centre + width + 4 <= bounds.width) {
+          clash.entry.label.classList.remove("is-left"); clash.entry.label.classList.add("is-right");
+          entry.label.classList.remove("is-right"); entry.label.classList.add("is-left");
+          Object.assign(clash, { start: clash.centre - clash.width - 4, end: clash.centre, split: true });
+          placed.push({ row: 0, start: centre, end: centre + width + 4, centre, width, entry, split: true });
+          return;
+        }
         let row = 0;
         while (placed.some(other => other.row === row && start < other.end + 8 && other.start < end + 8)) row += 1;
         if (row) entry.flag.dataset.row = String(Math.min(row, 2));
-        placed.push({ row, start, end });
+        placed.push({ row, start, end, centre, width, entry });
       });
 
       const caption = axis.querySelector(".gauge-caption-now");
@@ -1243,4 +1254,16 @@
     };
     tick(); timerId = setInterval(tick, 1000);
   }
+
+  // Заливка ползунка до бегунка: в WebKit у трека нет «прогресса», поэтому
+  // долю заливки держим в CSS-переменной и обновляем при каждом движении.
+  const paintRange = range => {
+    const min = Number(range.min || 0), max = Number(range.max || 100);
+    const share = max > min ? (Number(range.value) - min) / (max - min) : 0;
+    range.style.setProperty("--fill", `${Math.round(share * 1000) / 10}%`);
+  };
+  document.querySelectorAll("input[type=range]").forEach(paintRange);
+  document.addEventListener("input", event => {
+    if (event.target.matches?.("input[type=range]")) paintRange(event.target);
+  });
 })();

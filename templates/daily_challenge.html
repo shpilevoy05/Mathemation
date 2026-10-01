@@ -10,17 +10,19 @@
       <h1>Задание дня</h1>
       <p>Одна задача из слабой темы. Решишь — серия не прервётся, а награда придёт сразу.</p>
     </div>
-    <div class="daily-clock">
-      <svg aria-hidden="true"><use href="#i-moon"></use></svg>
-      <div><small>До конца дня</small><br><b>{{ time_left }}</b></div>
-    </div>
+    {% if time_left != "—" %}
+      <div class="daily-clock">
+        <svg aria-hidden="true"><use href="#i-moon"></use></svg>
+        <div><small>До конца дня</small><br><b class="num">{{ time_left }}</b></div>
+      </div>
+    {% endif %}
   </div>
 
   <div class="grid-lesson">
     <div style="display: grid; gap: 16px; min-width: 0">
       <section class="daily-hero">
         <span class="hero-decor hero-decor--glow"></span>
-        <span class="hero-decor hero-decor--beam" style="top: 30%"><span></span></span>
+        <span class="hero-decor hero-decor--beam" style="bottom: 0"><span></span></span>
         <div class="daily-hero-row">
           <div style="flex: 1; min-width: 250px">
             <p class="eyebrow">Прогресс дня</p>

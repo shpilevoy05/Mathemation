@@ -47,10 +47,20 @@
       <article class="shop-card {% if row.equipped %}is-equipped{% endif %} {% if not row.available %}is-locked{% endif %}"
                data-shop-item="{{ row.item.id }}" data-shop-slot="{{ row.item.slot }}" data-shop-group="{{ row.group }}">
         <div class="shop-card-top">
-          <span class="shop-card-icon shop-card-icon--{{ row.tone }}">
-            <svg aria-hidden="true"><use href="#{{ row.icon }}"></use></svg>
-            {% if row.frosted %}<svg class="frost frost-a" aria-hidden="true"><use href="#i-snow"></use></svg><svg class="frost frost-b" aria-hidden="true"><use href="#i-snow"></use></svg>{% endif %}
-          </span>
+          {% if row.art == "avatar" %}
+            <span class="shop-art shop-art--avatar"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#avatar-{{ row.code }}"></use></svg></span>
+          {% elif row.art == "frame" %}
+            <span class="shop-art shop-art--frame">{% include "partials/avatar.html" with size="md" ui_frame=row.code %}</span>
+          {% elif row.art == "theme" %}
+            <span class="shop-art theme-swatch theme-swatch--{{ row.code }}" aria-hidden="true"><i></i><i></i><i></i></span>
+          {% elif row.art == "badge" %}
+            <span class="shop-art shop-art--badge"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#badge-{{ row.code }}"></use></svg></span>
+          {% else %}
+            <span class="shop-card-icon shop-card-icon--{{ row.tone }}">
+              <svg aria-hidden="true"><use href="#{{ row.icon }}"></use></svg>
+              {% if row.frosted %}<svg class="frost frost-a" aria-hidden="true"><use href="#i-snow"></use></svg><svg class="frost frost-b" aria-hidden="true"><use href="#i-snow"></use></svg>{% endif %}
+            </span>
+          {% endif %}
           <span class="chip {{ row.tag_class }}">{{ row.tag }}</span>
         </div>
         <div class="shop-card-copy">

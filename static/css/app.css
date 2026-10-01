@@ -188,12 +188,10 @@ h3 { margin-bottom: 6px; font-size: 1rem; font-weight: 600; }
 .site-header { position: fixed; z-index: 20; inset: 0 auto 0 0; width: var(--rail); border-right: 0; background: var(--night); color: var(--night-ink); }
 .header-inner { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: auto; height: 100%; padding: 22px 14px; margin: 0; overflow-y: auto; }
 .brand { flex: 0 0 auto; padding: 2px 8px 22px; color: #fff; }
-/* Знак стоит на той же линии, что и написание: по центру он «висел» выше
-   строки и разъезжался с ней на разных кеглях. */
-.logo { display: inline-flex; align-items: baseline; gap: 10px; color: #fff; }
-/* Высота — по самому знаку: в файле обрезаны прозрачные поля, поэтому
-   34px рамки превратились бы в 34px рисунка и знак вырос бы на треть. */
-.logo-mark { flex: 0 0 auto; width: auto; height: 26px; object-fit: contain; }
+/* Знак — квадратная плашка, поэтому он центрируется по строке написания;
+   тень под плашкой отделяет её и от тёмного рельса, и от светлой карточки. */
+.logo { display: inline-flex; align-items: center; gap: 11px; color: #fff; }
+.logo-mark { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 10px; box-shadow: 0 6px 14px -6px rgba(46, 61, 184, .75); }
 .logo-word {
   font-family: var(--display); font-weight: 800; font-size: 15px;
   letter-spacing: .13em; line-height: 1; text-transform: uppercase; color: #fff;
@@ -201,7 +199,7 @@ h3 { margin-bottom: 6px; font-size: 1rem; font-weight: 600; }
 /* Коробка сигмы обрезана по самой букве, поэтому её высота — это высота
    прописной, а низ стоит на базовой линии, как у соседних букв. */
 .logo-e { display: inline-block; width: auto; height: .72em; margin: 0 .04em; color: var(--sigma); vertical-align: baseline; }
-.logo--lg .logo-mark { height: 41px; }
+.logo--lg .logo-mark { width: 48px; height: 48px; border-radius: 14px; }
 .logo--lg .logo-word { font-size: 1.5rem; }
 .main-nav { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
 .main-nav a {
@@ -267,6 +265,9 @@ body.no-rail { padding-left: 0; }
 .card-night h2, .card-night h3, .card-night strong { color: #fff; }
 .card-night small, .card-night .muted { color: var(--night-muted); }
 .card-night .eyebrow { color: var(--primary-3); }
+/* На тёмной карточке светлый трек читался как заполненная полоса: 0 из 18
+   выглядело выполненным. Трек — приглушённый, заливка — яркая. */
+.card-night .quest-progress, .card-night .xp-progress { background: rgba(255, 255, 255, .12); }
 .node-card, .quick-links a, a.card, .track-card, .stat-tile { transition: box-shadow .2s ease, transform .2s ease; }
 .node-card:hover, .quick-links a:hover, a.card:hover, .track-card:hover, .stat-tile:hover { box-shadow: var(--shadow-lift); transform: translateY(-4px); }
 .dashboard-grid, .content-grid, .parent-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
@@ -383,9 +384,9 @@ body.no-rail { padding-left: 0; }
 .delta-danger { color: var(--danger); }
 .delta-muted { color: var(--muted); }
 .risk-list { display: grid; gap: 10px; }
-.risk-item { display: flex; gap: 10px; padding: 12px; border-left: 4px solid var(--warning); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: var(--warning-soft); }
+.risk-item { display: flex; gap: 10px; padding: 12px; border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); border-radius: var(--radius-sm); background: var(--warning-soft); }
 .risk-item p { margin: 0; }
-.risk-danger { border-left-color: var(--danger); background: var(--danger-soft); }
+.risk-danger { border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: var(--danger-soft); }
 .topic-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .topic-chips span { padding: 6px 11px; border-radius: 999px; color: var(--primary-dark); background: var(--primary-soft); font-size: .84rem; }
 .error-row { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(100px, 1.5fr) 28px; align-items: center; gap: 12px; margin: 12px 0; font-size: .84rem; }
@@ -408,6 +409,50 @@ body.no-rail { padding-left: 0; }
 .ai-session-button { display: block; width: 100%; border: 0; color: var(--ink); text-align: left; cursor: pointer; }
 input { width: 100%; min-height: 43px; padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); background: var(--card); }
 input:focus { border-color: var(--primary); outline: 3px solid var(--primary-soft); }
+/* Поверхности браузера — тоже часть системы: выделение, каретка, прокрутка и
+   нативные контролы берут цвета темы, а не системные серые. */
+::selection { color: #fff; background: var(--primary); }
+html { caret-color: var(--primary); accent-color: var(--primary); scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent; scrollbar-width: thin; }
+select, textarea { font: inherit; }
+select {
+  width: 100%; min-height: 43px; padding: 9px 40px 9px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  color: var(--ink); background-color: var(--card); cursor: pointer; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%238E9AC2' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 20px;
+  transition: border-color .15s ease;
+}
+select:hover, input:hover:not(:focus):not([type=range]) { border-color: color-mix(in srgb, var(--primary) 40%, var(--line)); }
+select:focus { border-color: var(--primary); outline: 3px solid var(--primary-soft); }
+textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink); background: var(--card); resize: vertical; }
+textarea:focus { border-color: var(--primary); outline: 3px solid var(--primary-soft); }
+input[type=range] {
+  min-height: 28px; padding: 0; border: 0; outline: none; background: transparent; cursor: pointer; appearance: none; -webkit-appearance: none;
+  --fill: 50%;
+}
+input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 999px; background: linear-gradient(90deg, var(--range-fill, var(--primary)) 0 var(--fill), var(--primary-soft) var(--fill) 100%); }
+input[type=range]::-moz-range-track { height: 8px; border-radius: 999px; background: var(--primary-soft); }
+input[type=range]::-moz-range-progress { height: 8px; border-radius: 999px; background: var(--range-fill, var(--primary)); }
+input[type=range]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -7px; border: 3px solid var(--card); border-radius: 50%; background: var(--range-fill, var(--primary)); box-shadow: 0 2px 6px rgba(16, 22, 42, .35); appearance: none; -webkit-appearance: none; transition: transform .15s ease; }
+input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border: 3px solid var(--card); border-radius: 50%; background: var(--range-fill, var(--primary)); box-shadow: 0 2px 6px rgba(16, 22, 42, .35); }
+input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.08); }
+/* В тёмных темах основной цвет приглушён и сливается с треком — заливка светлее. */
+html[data-theme="dark"], html[data-theme="graphite"] { --range-fill: var(--primary-2); }
+@media (prefers-color-scheme: dark) { html:not([data-theme]) { --range-fill: var(--primary-2); } }
+input[type=range]:focus-visible::-webkit-slider-thumb { outline: 3px solid var(--primary-soft); outline-offset: 2px; }
+/* Лига на арене: значок, название, рейтинг и шаг до следующей лиги. */
+.league-card { display: flex; align-items: center; gap: 14px; min-width: 280px; padding: 12px 18px 12px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); }
+.league-card-badge { flex: 0 0 auto; width: 56px; height: 56px; filter: drop-shadow(0 6px 10px rgba(16, 22, 42, .22)); }
+.league-card-copy { display: grid; gap: 3px; min-width: 0; }
+.league-card-copy > small:first-child { color: var(--muted); font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.league-card-copy b { font-family: var(--display); font-size: 1.12rem; line-height: 1.2; }
+.league-card-copy b .num { color: var(--muted); font-weight: 600; }
+.league-card-copy small.num { color: var(--muted); font-size: .74rem; }
+.league-progress { display: block; height: 6px; margin: 3px 0 1px; overflow: hidden; border-radius: 999px; background: var(--primary-soft); }
+.league-progress i { display: block; height: 100%; border-radius: inherit; background: var(--league-tone, var(--primary)); }
+.league-card--bronze { --league-tone: #B8733E; } .league-card--silver { --league-tone: #7F8BA0; } .league-card--gold { --league-tone: #E3A82A; }
+.league-card--platinum { --league-tone: #2FA39A; } .league-card--diamond { --league-tone: #6F5CF0; }
+.arena-results span { display: inline-flex; align-items: center; gap: 4px; }
+.league-mini { width: 16px; height: 16px; flex: 0 0 auto; }
 .form-error { color: var(--danger); }
 .auth-shell { display: grid; place-items: center; min-height: calc(100vh - 150px); }
 .auth-card { width: min(380px, 100%); padding: 32px; border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); text-align: center; }
@@ -446,7 +491,7 @@ input:focus { border-color: var(--primary); outline: 3px solid var(--primary-sof
 .skill-group-head strong { color: var(--ink); font-size: 1.02rem; }
 .skill-group-head small { color: var(--muted); }
 .node-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.node-card { position: relative; display: block; min-height: 190px; padding: 18px; overflow: hidden; border-left: 4px solid var(--cluster-color); border-radius: var(--radius); color: var(--ink); background: var(--card); box-shadow: var(--shadow); }
+.node-card { position: relative; display: block; min-height: 190px; padding: 18px; overflow: hidden; box-shadow: inset 0 3px 0 var(--cluster-color); border-radius: var(--radius); color: var(--ink); background: var(--card); box-shadow: var(--shadow); }
 .node-card p, .node-card small { color: var(--muted); }
 .node-top { display: flex; justify-content: space-between; gap: 8px; }
 .status-pill, .phase-pill { display: inline-flex; padding: 4px 8px; border-radius: 999px; color: var(--muted); background: var(--gray-soft); font-size: .73rem; font-weight: 700; }
@@ -473,7 +518,7 @@ input:focus { border-color: var(--primary); outline: 3px solid var(--primary-sof
 .compact-hero { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 24px; border-radius: 20px; background: var(--card); box-shadow: var(--shadow); }
 .compact-hero h1 { font-size: clamp(1.8rem, 3vw, 2.6rem); }
 .hero-actions, .review-actions, .answer-row { display: flex; gap: 10px; }
-.theory-block { padding: 18px 0 18px 16px; border-left: 3px solid var(--primary); }
+.theory-block { padding: 18px 0 18px 16px; border-left: 1px solid color-mix(in srgb, var(--primary) 45%, transparent); }
 .theory-summary { margin-bottom: 20px; }
 .theory-summary summary { display: flex; justify-content: space-between; cursor: pointer; }
 .theory-summary summary span { color: var(--primary); }
@@ -491,7 +536,7 @@ input:focus { border-color: var(--primary); outline: 3px solid var(--primary-sof
    должен понять правила до первой ошибки, а не после. */
 .answer-hint { display: block; margin: -6px 0 10px; color: var(--muted); font-size: .8rem; }
 /* Что не сошлось в работе: шаги эталона, которые эксперт не отметил верными. */
-.missing-steps { margin-top: 10px; padding: 10px 12px; border-left: 3px solid var(--warning); border-radius: var(--radius-sm); background: var(--warning-soft); }
+.missing-steps { margin-top: 10px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); border-radius: var(--radius-sm); background: var(--warning-soft); }
 .missing-steps ol { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; }
 .missing-steps li small { display: block; color: var(--muted); font-size: .76rem; }
 /* Чек-лист шагов в форме эксперта: строка на шаг, переключатель справа. */
@@ -605,7 +650,7 @@ a.track-node-link:hover { transform: translateY(-3px); }
 .chip-toggle span { display: inline-flex; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); cursor: pointer; }.chip-toggle input:checked + span { color: var(--on-accent); border-color: var(--primary); background: var(--primary); }
 .checkbox-list { display: grid; gap: 7px; }.checkbox-list label, .check-control { display: flex; align-items: center; gap: 9px; }.checkbox-list input, .check-control input { width: auto; min-height: auto; accent-color: var(--primary); }
 .review-form textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); resize: vertical; font: inherit; }.review-form textarea:focus { border-color: var(--primary); outline: 3px solid var(--primary-soft); }
-.admin-link-list { margin: 10px 0 18px; }.methodist-cluster { padding: 14px 0 14px 16px; margin-top: 18px; border-left: 5px solid var(--cluster-color); }.table-scroll { overflow-x: auto; }
+.admin-link-list { margin: 10px 0 18px; }.methodist-cluster { padding: 14px 0 14px 16px; margin-top: 18px; border-top: 3px solid var(--cluster-color); }.table-scroll { overflow-x: auto; }
 .methodist-cluster table { width: 100%; border-collapse: collapse; }.methodist-cluster th, .methodist-cluster td { padding: 9px 12px; border-bottom: 1px solid var(--line); text-align: left; }.methodist-cluster th { color: var(--muted); font-size: .78rem; }
 
 /* Шкала первичных баллов. Ось одна — первичная; тестовые подписываются как
@@ -630,8 +675,8 @@ a.track-node-link:hover { transform: translateY(-3px); }
 /* Ряды раскладываются кодом: подпись уезжает выше, если пересекается с соседней. */
 .gauge-flag[data-row="1"] { top: 24px; } .gauge-flag[data-row="1"] span { top: -22px; }
 .gauge-flag[data-row="2"] { top: 2px; } .gauge-flag[data-row="2"] span { top: -22px; }
-.gauge-flag span.is-left { left: 0; transform: none; }
-.gauge-flag span.is-right { right: 0; left: auto; transform: none; }
+.gauge-flag span.is-left { left: 4px; transform: none; }
+.gauge-flag span.is-right { right: 4px; left: auto; transform: none; }
 .gauge-caption-now { position: absolute; top: 92px; font-family: var(--data); font-size: .74rem; color: var(--primary-dark); white-space: nowrap; transform: translateX(-50%); }
 .gauge-caption-now.is-left { left: 0 !important; transform: none; }
 .gauge-caption-now.is-right { right: 0; left: auto !important; transform: none; }
@@ -954,8 +999,8 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 /* Разбор партии: ошибка видна вместе с правильным ответом — ради этого в
    партию и стоит играть, даже если она не двигает освоение. */
 .review-answers { display: grid; gap: 10px; margin: 8px 0 14px; padding-left: 20px; }
-.review-answers li { display: grid; gap: 3px; padding: 10px 12px; border-left: 3px solid var(--success); border-radius: var(--radius-sm); background: var(--success-soft); }
-.review-answers li.is-wrong { border-left-color: var(--danger); background: var(--danger-soft); }
+.review-answers li { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--success) 35%, transparent); border-radius: var(--radius-sm); background: var(--success-soft); }
+.review-answers li.is-wrong { border-color: color-mix(in srgb, var(--danger) 35%, transparent); background: var(--danger-soft); }
 .review-answers .statement { color: var(--muted); font-size: .84rem; }
 .review-line { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .84rem; }
 .match-shell { display: grid; gap: 16px; }
@@ -981,13 +1026,14 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 .calendar-day.is-overdue { border-color: var(--danger); }
 .calendar-date { color: var(--muted); font-size: .8rem; font-weight: 700; }
 .calendar-day.is-today .calendar-date { color: var(--primary-dark); }
-.calendar-entry { padding: 4px 6px; border-left: 3px solid var(--primary); border-radius: 6px; background: var(--primary-soft); font-size: .72rem; line-height: 1.25; cursor: grab; }
+.calendar-entry { position: relative; padding: 4px 6px 4px 15px; border-radius: 6px; --entry-dot: var(--primary); background: var(--primary-soft); font-size: .72rem; line-height: 1.25; cursor: grab; }
+.calendar-entry::before { position: absolute; top: .62em; left: 6px; width: 5px; height: 5px; border-radius: 50%; background: var(--entry-dot); content: ""; }
 .calendar-entry a { color: inherit; }
 .calendar-entry.is-done { opacity: .55; text-decoration: line-through; cursor: default; }
-.calendar-entry.entry-practice { border-left-color: var(--primary-2); }
-.calendar-entry.entry-review { border-left-color: var(--warning); background: var(--warning-soft); }
-.calendar-entry.entry-homework { border-left-color: var(--violet); background: var(--violet-soft); }
-.calendar-entry.entry-exam { border-left-color: var(--danger); background: var(--danger-soft); font-weight: 700; }
+.calendar-entry.entry-practice { --entry-dot: var(--primary-2); }
+.calendar-entry.entry-review { --entry-dot: var(--warning); background: var(--warning-soft); }
+.calendar-entry.entry-homework { --entry-dot: var(--violet); background: var(--violet-soft); }
+.calendar-entry.entry-exam { --entry-dot: var(--danger); background: var(--danger-soft); font-weight: 700; }
 .calendar-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 14px; font-size: .76rem; }
 .calendar-legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .calendar-legend span::before { width: 12px; height: 12px; border-radius: 4px; background: var(--primary); content: ""; }
@@ -1077,7 +1123,7 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 
 /* Слой перехода: показывает, что именно принёс этап. */
 .reward-layer { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(16, 22, 42, .55); backdrop-filter: blur(3px); animation: fade-in .2s ease; }
-.reward-card { width: min(420px, 100%); padding: 26px; border-radius: 20px; background: var(--card); box-shadow: var(--shadow-lift); text-align: center; animation: reward-in .35s cubic-bezier(.2, .9, .3, 1.2); }
+.reward-card { width: min(420px, 100%); padding: 26px; border-radius: 20px; background: var(--card); box-shadow: var(--shadow-lift); text-align: center; animation: reward-in .35s cubic-bezier(.16, 1, .3, 1); }
 .reward-kicker { color: var(--success); font-size: .78rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .reward-card h3 { margin: 6px 0 16px; font-size: 1.3rem; }
 .reward-rows { display: grid; gap: 10px; margin-bottom: 18px; text-align: left; }
@@ -1101,18 +1147,34 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 }
 
 /* Аватар и рамка из магазина. */
-.avatar-badge { position: relative; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: var(--primary-soft); color: var(--primary-dark); font-weight: 700; overflow: hidden; }
+.avatar-badge { position: relative; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: var(--primary-soft); color: var(--primary-dark); font-weight: 700; }
 .avatar-badge--sm { width: 34px; height: 34px; font-size: .85rem; }
+.avatar-badge--md { width: 52px; height: 52px; font-size: 1.15rem; }
 .avatar-badge--lg { width: 74px; height: 74px; font-size: 1.6rem; }
-.avatar-art { width: 100%; height: 100%; }
-.avatar-badge.frame-coordinates { box-shadow: 0 0 0 3px var(--primary); }
-.avatar-badge.frame-flame { box-shadow: 0 0 0 3px #F0A03C; }
-.avatar-badge.frame-integral { box-shadow: 0 0 0 3px var(--sigma); }
-.avatar-badge.frame-gold { box-shadow: 0 0 0 3px #C99A17; }
-.avatar-badge.frame-coordinates::after,
-.avatar-badge.frame-flame::after,
-.avatar-badge.frame-integral::after,
-.avatar-badge.frame-gold::after { position: absolute; inset: 0; border: 2px solid var(--card); border-radius: 50%; content: ""; }
+.avatar-art { width: 100%; height: 100%; border-radius: 50%; }
+/* Рамка — кольцо снаружи аватара: градиентный обод, вырезанный маской, чтобы
+   рисунок аватара не перекрывался. У каждой рамки свой мотив, а не просто цвет. */
+.avatar-badge[class*="frame-"]::before {
+  position: absolute; inset: -4px; border-radius: 50%; padding: 3px; content: "";
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+}
+.avatar-badge.frame-coordinates::before { background: repeating-conic-gradient(var(--primary) 0 8deg, var(--primary-2) 8deg 15deg); }
+.avatar-badge.frame-flame::before { background: conic-gradient(from 200deg, #F2493A, #FF9A26, #FFD84A, #FF9A26, #F2493A); }
+.avatar-badge.frame-integral::before { background: conic-gradient(from 90deg, #6A80FF, #A78BFF, #6A80FF); }
+.avatar-badge.frame-gold::before { background: conic-gradient(from 45deg, #9A6406, #FFE58A, #E3A82A, #FFF3C4, #9A6406); }
+.avatar-badge.frame-flame::after { position: absolute; top: -9px; right: -5px; width: 16px; height: 16px; content: ""; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23FF9A26' d='M11.5 1.2c1.2 3.5-.4 5.9-2.6 8.2-2.2 2.3-3.6 4.2-3.6 6.5 0 3.8 3 6.9 6.8 6.9s6.8-3.1 6.8-6.9c0-2.7-1-4.8-2.4-6.6.4 2.2-.2 3.9-1.4 5C15.6 9.9 14.2 5 11.5 1.2z'/%3E%3C/svg%3E") center / contain no-repeat; }
+/* Превью косметики в витрине: сама вещь вместо условной иконки. */
+.shop-art { position: relative; display: grid; place-items: center; width: 54px; height: 54px; flex: 0 0 auto; }
+.shop-art--avatar svg { width: 54px; height: 54px; border-radius: 50%; box-shadow: 0 8px 18px -12px rgba(16, 22, 42, .7); }
+.shop-art--badge svg { width: 54px; height: 54px; }
+.theme-swatch { overflow: hidden; border-radius: 16px; border: 1px solid var(--line); display: grid; place-items: stretch; grid-template-columns: 38% 1fr; grid-template-rows: 1fr 32%; box-shadow: 0 8px 18px -12px rgba(16, 22, 42, .6); }
+.theme-swatch i { display: block; }
+.theme-swatch i:nth-child(1) { grid-row: 1 / 3; }
+.theme-swatch--dark i:nth-child(1) { background: #2C3763; } .theme-swatch--dark i:nth-child(2) { background: #10142A; } .theme-swatch--dark i:nth-child(3) { background: #7C90F8; }
+.theme-swatch--sunrise i:nth-child(1) { background: #3B2611; } .theme-swatch--sunrise i:nth-child(2) { background: #F9F0E3; } .theme-swatch--sunrise i:nth-child(3) { background: #DE7A1B; }
+.theme-swatch--forest i:nth-child(1) { background: #123B2B; } .theme-swatch--forest i:nth-child(2) { background: #EAF3EC; } .theme-swatch--forest i:nth-child(3) { background: #1F8A5B; }
+.theme-swatch--graphite i:nth-child(1) { background: #363C48; } .theme-swatch--graphite i:nth-child(2) { background: #15171C; } .theme-swatch--graphite i:nth-child(3) { background: #9AA3B2; }
 
 /* Расходники: заморозка стрика и ускоритель опыта. */
 .boost-chip svg { width: 15px; height: 15px; }
@@ -1141,10 +1203,10 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 .mock-history-row { display: grid; gap: 2px; }
 /* Ярлык докупки короткий по смыслу: перенос на две строки ломает карточку. */
 .addon-card .chip { white-space: nowrap; }
-.promo-strip { border-left: 3px solid var(--primary); }
+.promo-strip { border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); }
 /* Пришёл с закрытой страницы: причина отказа читается раньше цен. */
-.locked-banner { border-left: 3px solid var(--warning); }
-.subscription-state { border-left: 3px solid var(--primary); }
+.locked-banner { border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent); }
+.subscription-state { border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); }
 
 /* Таблицы данных. */
 .data-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
@@ -1162,6 +1224,14 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
   .brand { padding: 0; }
   .main-nav a { padding-inline: .65rem; }
   .account-menu { padding: 0; margin: 0 0 0 auto; border: 0; }
+  /* Низ рельса на узком экране — строка шапки: серия превращается в чип,
+     длинные подписи уходят, остаются знак, аватар и выход. */
+  .rail-foot { display: flex; flex-direction: row; align-items: center; gap: 10px; margin: 0 0 0 auto; padding: 0; border: 0; }
+  .rail-streak { gap: 6px; padding: 5px 11px 5px 8px; border-radius: 999px; }
+  .rail-streak svg { width: 18px; height: 18px; }
+  .rail-streak small { display: none; }
+  .rail-streak strong { font-size: .92rem; }
+  .account-menu { gap: 8px; }
   .graph-layout { grid-template-columns: 1fr; }
   .node-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .levers { grid-template-columns: 1fr; }
@@ -1184,6 +1254,22 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
   .desktop-label { display: none; }.mobile-label { display: inline; }
   .account-menu { margin-left: auto; }
   .account-menu > span:not(.streak-chip) { max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+  .rail-access, .account-name { display: none; }
+  /* Календарь на телефоне: семь колонок по ~45px не вмещают названия тем,
+     поэтому запись дня становится цветной меткой, а сетка не выходит за экран. */
+  .section-heading:has(.month-nav) { flex-wrap: wrap; }
+  .month-nav { display: flex; flex: 1 1 100%; gap: 6px; }
+  .month-nav .button { flex: 1 1 0; }
+  .calendar { gap: 3px; }
+  .calendar-weekday { padding: 2px; text-align: center; font-size: .64rem; letter-spacing: .04em; }
+  .calendar-day { min-width: 0; min-height: 58px; padding: 5px 4px; gap: 3px; overflow: hidden; }
+  .calendar-date { font-size: .72rem; }
+  .calendar-entry { height: 6px; padding: 0; border-left: 0; border-radius: 999px; background: var(--primary); font-size: 0; color: transparent; }
+  .calendar-entry.entry-practice { background: var(--primary-2); }
+  .calendar-entry.entry-review { background: var(--warning); }
+  .calendar-entry.entry-homework { background: var(--violet); }
+  .calendar-entry.entry-exam { background: var(--danger); }
+  .calendar-entry::before { display: none; }
   .streak-chip { display: none; }
   .page-shell { width: min(100% - 22px, 1120px); margin-top: 20px; }
   .page-heading, .compact-hero, .parent-hero { align-items: stretch; flex-direction: column; }
