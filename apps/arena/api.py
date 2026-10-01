@@ -16,6 +16,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from apps.accounts.api import get_student
 from apps.accounts.models import StudentProfile
 
+from .leagues import league_for_rating
 from .matchmaking import (
     bot_level_for,
     expire_stale,
@@ -61,6 +62,10 @@ def _participant_payload(participant, *, reveal: bool) -> dict:
         "answered": participant.answers.count(),
         "finished": participant.finished_at is not None,
     }
+    if not participant.is_bot and participant.student_id is not None:
+        payload["league_code"] = league_for_rating(
+            get_profile(participant.student).rating
+        )["code"]
     if reveal:
         payload.update({
             "score": participant.score,

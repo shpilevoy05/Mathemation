@@ -13,6 +13,7 @@ from apps.knowledge.tests import make_node, make_student
 from apps.practice.models import Attempt, MistakeBacklogItem
 
 from .bot import bot_run, clamp_level
+from .leagues import league_for_rating
 from .models import Friendship, Match, MatchParticipant
 from .services import (
     DAILY_REWARDED_MATCHES,
@@ -411,3 +412,7 @@ class ArenaApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Новая партия")
+        self.assertEqual(
+            response.context["arena_league"],
+            league_for_rating(response.context["arena_rating"]),
+        )
