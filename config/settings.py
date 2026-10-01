@@ -1,4 +1,6 @@
 import os
+from decimal import Decimal, InvalidOperation
+from email.utils import parseaddr
 from pathlib import Path
 
 
@@ -13,6 +15,23 @@ def _env_bool(name: str, default: bool) -> bool:
     if normalized_value in {"0", "false", "no", "off"}:
         return False
     return default
+
+
+def _parse_admins(value: str) -> list[tuple[str, str]]:
+    """Разобрать ``Имя <email>, ...`` из DJANGO_ADMINS."""
+    admins = []
+    for raw_admin in value.split(","):
+        name, email = parseaddr(raw_admin.strip())
+        if email and "@" in email:
+            admins.append((name or email, email))
+    return admins
+
+
+def _env_decimal(name: str, default: str = "0") -> Decimal:
+    try:
+        return Decimal(os.environ.get(name) or default)
+    except InvalidOperation:
+        return Decimal(default)
 
 
 def _load_env(path: Path) -> None:
@@ -76,6 +95,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "apps.accounts",
+    "apps.legal",
     "apps.knowledge",
     "apps.content",
     "apps.diagnostics",
@@ -104,6 +124,8 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     # Без этого middleware настройка X_FRAME_OPTIONS не действует.
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.accounts.middleware.PasswordChangeRequiredMiddleware",
+    "apps.legal.middleware.ConsentRequiredMiddleware",
     # Второй фактор проверяется перед каждым запросом сотрудника: входов в
     # систему несколько (своя форма, /admin/login/), а правило должно быть одно.
     "apps.accounts.middleware.TwoFactorMiddleware",
@@ -186,6 +208,23 @@ AUTH_PASSWORD_VALIDATORS = [
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
+# Почта берётся только из окружения. В разработке письма видны в консоли;
+# вне DEBUG отсутствие явной настройки означает обычный SMTP backend.
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND") or (
+    "django.core.mail.backends.console.EmailBackend"
+    if DEBUG else "django.core.mail.backends.smtp.EmailBackend"
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT") or 25)
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = _env_bool("EMAIL_USE_TLS", default=False)
+EMAIL_USE_SSL = _env_bool("EMAIL_USE_SSL", default=False)
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT") or 10)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "webmaster@localhost")
+SERVER_EMAIL = os.environ.get("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
+ADMINS = _parse_admins(os.environ.get("DJANGO_ADMINS", ""))
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
@@ -208,6 +247,7 @@ REST_FRAMEWORK = {
         "hint": os.environ.get("THROTTLE_HINT") or "30/hour",
         "purchase": os.environ.get("THROTTLE_PURCHASE") or "30/hour",
         "upload": os.environ.get("THROTTLE_UPLOAD") or "40/hour",
+        "feedback": os.environ.get("THROTTLE_FEEDBACK") or "10/hour",
         # Колбэк приходит без сессии: лимит держим широким (провайдер повторяет
         # доставку), но конечным — иначе это открытая точка входа.
         "webhook": os.environ.get("THROTTLE_WEBHOOK") or "600/hour",
@@ -218,6 +258,15 @@ LANGUAGE_CODE = "ru"
 TIME_ZONE = "Europe/Moscow"
 USE_I18N = True
 USE_TZ = True
+
+LEGAL_DOCUMENT_VERSIONS = {
+    "privacy": "2026-10-01",
+    "terms": "2026-10-01",
+}
+LEGAL_DOCS_DRAFT = _env_bool("LEGAL_DOCS_DRAFT", default=True)
+# Как и обязательный 2FA, принудительный шлюз включён вне DEBUG. Сами согласия
+# при регистрации записываются во всех режимах; тесты middleware включают шлюз явно.
+LEGAL_CONSENT_ENFORCED = _env_bool("LEGAL_CONSENT_ENFORCED", default=not DEBUG)
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -308,6 +357,13 @@ LOGGING = {
         "matemacia.integrations": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
     },
 }
+if not DEBUG and ADMINS:
+    LOGGING["handlers"]["mail_admins"] = {
+        "class": "django.utils.log.AdminEmailHandler",
+        "level": "ERROR",
+        "include_html": False,
+    }
+    LOGGING["loggers"]["django.request"]["handlers"].append("mail_admins")
 
 # --- Mathemation domain config ---
 # Streak period is an MVP experiment: "daily" or "weekly".
@@ -327,6 +383,11 @@ FREQUENT_MISTAKE_THRESHOLD = 3
 EXPERT_REVIEW_SLA_HOURS = 48
 # Max leading hints per assignment per student.
 AI_MENTOR_MAX_HINTS = 2
+AI_MENTOR_DAILY_HINT_LIMIT = int(
+    os.environ.get("AI_MENTOR_DAILY_HINT_LIMIT") or "20"
+)
+AI_MENTOR_COST_PER_1K_INPUT = _env_decimal("AI_MENTOR_COST_PER_1K_INPUT")
+AI_MENTOR_COST_PER_1K_OUTPUT = _env_decimal("AI_MENTOR_COST_PER_1K_OUTPUT")
 # Hint provider (dotted path); swap for an LLM-backed provider in production.
 AI_MENTOR_PROVIDER = os.environ.get(
     "AI_MENTOR_PROVIDER", "apps.ai_mentor.providers.MockHintProvider"
@@ -502,6 +563,8 @@ LOGIN_MAX_ATTEMPTS = int(os.environ.get("LOGIN_MAX_ATTEMPTS") or 10)
 LOGIN_BLOCK_SECONDS = int(os.environ.get("LOGIN_BLOCK_SECONDS") or 15 * 60)
 INVITE_MAX_ATTEMPTS = int(os.environ.get("INVITE_MAX_ATTEMPTS") or 20)
 INVITE_BLOCK_SECONDS = int(os.environ.get("INVITE_BLOCK_SECONDS") or 60 * 60)
+PASSWORD_RESET_MAX_ATTEMPTS = int(os.environ.get("PASSWORD_RESET_MAX_ATTEMPTS") or 5)
+PASSWORD_RESET_BLOCK_SECONDS = int(os.environ.get("PASSWORD_RESET_BLOCK_SECONDS") or 60 * 60)
 
 # Значения зависят от режима; логика и её тесты — в config/security.py.
 SECURE_HTTPS_BEHIND_PROXY = _env_bool("DJANGO_BEHIND_PROXY", default=True)

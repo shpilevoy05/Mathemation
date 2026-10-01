@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from config.settings import _env_bool, _load_env
+from config.settings import _env_bool, _load_env, _parse_admins
 
 
 class EnvBoolTests(SimpleTestCase):
@@ -31,6 +31,12 @@ class EnvBoolTests(SimpleTestCase):
             self.assertTrue(_env_bool("TEST_BOOL", default=True))
             self.assertFalse(_env_bool("TEST_BOOL", default=False))
 
+    def test_legal_consent_can_override_debug_based_default(self):
+        with patch.dict(os.environ, {"LEGAL_CONSENT_ENFORCED": "1"}, clear=True):
+            self.assertTrue(_env_bool("LEGAL_CONSENT_ENFORCED", default=False))
+        with patch.dict(os.environ, {"LEGAL_CONSENT_ENFORCED": "0"}, clear=True):
+            self.assertFalse(_env_bool("LEGAL_CONSENT_ENFORCED", default=True))
+
 
 class LoadEnvTests(SimpleTestCase):
     def test_loads_values_and_preserves_existing_environment(self):
@@ -50,3 +56,14 @@ class LoadEnvTests(SimpleTestCase):
                 self.assertEqual(os.environ["KEY"], "VALUE")
                 self.assertEqual(os.environ["KEY2"], "quoted")
                 self.assertEqual(os.environ["EXISTING"], "from-environment")
+
+
+class AdminsParsingTests(SimpleTestCase):
+    def test_parses_named_comma_separated_admins_and_skips_invalid_values(self):
+        self.assertEqual(
+            _parse_admins("Иван <ivan@example.ru>, Мария <maria@example.ru>, сломано"),
+            [
+                ("Иван", "ivan@example.ru"),
+                ("Мария", "maria@example.ru"),
+            ],
+        )

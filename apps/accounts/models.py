@@ -10,6 +10,7 @@ class User(AbstractUser):
         METHODIST = "methodist"
 
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.STUDENT)
+    must_change_password = models.BooleanField(default=False)
 
 
 class TwoFactorDevice(models.Model):
@@ -105,6 +106,13 @@ class Invite(models.Model):
     )
     group = models.ForeignKey(
         StudentGroup, on_delete=models.SET_NULL, null=True, blank=True, related_name="invites"
+    )
+    for_student = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="parent_invites",
     )
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_invites"

@@ -9,7 +9,7 @@ from apps.billing.gate import HasFeature
 from apps.content.models import Assignment
 from apps.practice.models import Attempt
 
-from .services import HintNotAllowed, request_hint
+from .services import DailyHintLimitExceeded, HintNotAllowed, request_hint
 
 
 class HintView(views.APIView):
@@ -31,6 +31,10 @@ class HintView(views.APIView):
             )
         except HintNotAllowed as e:
             return Response({"detail": str(e)}, status=403)
+        except DailyHintLimitExceeded as e:
+            return Response(
+                {"detail": str(e), "code": "hint_daily_limit"}, status=429
+            )
         return Response({
             "hint": result["text"],
             "hints_used": result["session"].hints_used,

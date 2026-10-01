@@ -1,4 +1,6 @@
 """Forecast (текущий балл + потолок с рычагами), snapshots, weekly reports."""
+from copy import deepcopy
+from datetime import date
 from datetime import timedelta
 
 from django.conf import settings
@@ -21,6 +23,48 @@ from .charts import forecast_chart
 from .models import ForecastObservation, ParentReport, ProgressSnapshot
 
 WEAK_TOPIC_LIMIT = 5
+
+TRAJECTORY_REASON_LABELS = {
+    "target_score": "изменена цель",
+    "poor_mock": "результат пробника",
+    "frequent_mistakes": "частые ошибки",
+    "inactivity": "перерыв в занятиях",
+    "decay": "тема подзабылась",
+    "manual": "ручная корректировка",
+}
+PLAN_ITEM_TYPE_LABELS = {
+    "lesson": "Урок",
+    "practice": "Практика",
+    "review": "Повтор",
+    "mock": "Пробник",
+    "Lesson": "Урок",
+    "Practice": "Практика",
+    "Review": "Повтор",
+    "Mock": "Пробник",
+}
+
+
+def localize_parent_report_payload(payload: dict) -> dict:
+    """Локализовать и новые, и ранее сохранённые payload отчёта."""
+    localized = deepcopy(payload)
+    trajectory = localized.get("trajectory") or {}
+    trajectory["change_reasons"] = [
+        TRAJECTORY_REASON_LABELS.get(reason, reason)
+        for reason in trajectory.get("change_reasons", [])
+    ]
+    exam_date = trajectory.get("exam_date")
+    if exam_date:
+        try:
+            trajectory["exam_date"] = date.fromisoformat(str(exam_date)).strftime("%d.%m.%Y")
+        except ValueError:
+            pass
+    localized["trajectory"] = trajectory
+
+    next_step = localized.get("next_step")
+    if isinstance(next_step, str) and ":" in next_step:
+        item_type, title = next_step.split(":", 1)
+        localized["next_step"] = f"{PLAN_ITEM_TYPE_LABELS.get(item_type, item_type)}:{title}"
+    return localized
 
 
 def active_exam_profile() -> ExamProfile | None:
@@ -485,14 +529,17 @@ def _trajectory_block(student, plan) -> dict:
         "student_weekly_hours": weekly_hours,
         # «Держит темп» — ученик заявил не меньше часов, чем требует сценарий.
         "keeps_pace": weekly_hours >= planned_hours,
-        "exam_date": student.exam_date.isoformat() if student.exam_date else None,
+        "exam_date": student.exam_date.strftime("%d.%m.%Y") if student.exam_date else None,
         "changed_at": transition.created_at.isoformat() if transition else None,
         "changed_from": (
             transition.from_trajectory.title
             if transition and transition.from_trajectory_id else ""
         ),
         "changed_to": transition.to_trajectory.title if transition else "",
-        "change_reasons": list(transition.reasons) if transition else [],
+        "change_reasons": [
+            TRAJECTORY_REASON_LABELS.get(reason, reason)
+            for reason in (transition.reasons if transition else [])
+        ],
         "recovery_actions": list(transition.recovery_actions) if transition else [],
     }
 
@@ -583,7 +630,7 @@ def build_parent_report(student, week_start=None) -> ParentReport:
         else None
     )
     next_step = (
-        f"{next_item.get_item_type_display()}: {next_item.node.title}"
+        f"{PLAN_ITEM_TYPE_LABELS.get(next_item.item_type, next_item.item_type)}: {next_item.node.title}"
         if next_item and next_item.node
         else "Пройти входную диагностику."
     )
@@ -627,6 +674,7 @@ def build_parent_report(student, week_start=None) -> ParentReport:
         "error_type_distribution": error_type_distribution,
         "next_step": next_step,
     }
+    payload = localize_parent_report_payload(payload)
     report, _ = ParentReport.objects.update_or_create(
         student=student, week_start=week_start, defaults={"payload": payload}
     )

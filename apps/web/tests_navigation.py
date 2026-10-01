@@ -64,6 +64,15 @@ class NavigationTests(TestCase):
         self.assertIn("Ребёнок", self.groups(parent))
         self.assertIn("Контент", self.groups(methodist))
         self.assertNotIn("Учёба", self.groups(methodist))
+        self.assertEqual(self.groups(parent)["Аккаунт"].items[0].label, "Настройки")
+        self.assertEqual(self.groups(methodist)["Аккаунт"].items[0].label, "Настройки")
+
+    def test_student_sees_account_settings(self):
+        student = make_student("nav-settings-student")
+        item = self.groups(student.user)["Аккаунт"].items[0]
+
+        self.assertEqual(item.url, reverse("account_settings"))
+        self.assertTrue(item.is_active("account_password"))
 
     def test_anonymous_has_no_navigation(self):
         from django.contrib.auth.models import AnonymousUser

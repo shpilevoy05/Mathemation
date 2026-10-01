@@ -38,6 +38,50 @@ Redis — управляемые сервисы облака. Своего Postg
 `BILLING_WEBHOOK_SECRET`. Проверки живут в `config/security.py` и падают на
 старте, а не в момент первой ошибки.
 
+### Почта
+
+В разработке при `DJANGO_DEBUG=1` по умолчанию используется консольный
+backend. В проде backend по умолчанию SMTP; его параметры задаются только
+окружением:
+
+| Переменная | Назначение |
+|---|---|
+| `EMAIL_BACKEND` | dotted path почтового backend; для прода — SMTP |
+| `EMAIL_HOST`, `EMAIL_PORT` | адрес и порт SMTP-сервера |
+| `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | учётные данные SMTP; пароль является секретом |
+| `EMAIL_USE_TLS`, `EMAIL_USE_SSL` | режим шифрования; одновременно включать оба нельзя |
+| `EMAIL_TIMEOUT` | тайм-аут соединения в секундах |
+| `DEFAULT_FROM_EMAIL` | отправитель пользовательских писем |
+| `SERVER_EMAIL` | отправитель системных ошибок |
+| `DJANGO_ADMINS` | получатели ошибок в формате `Имя <email>, ...` |
+
+После настройки нужно запросить восстановление пароля для тестового аккаунта
+и проверить доставку, отправителя и ссылку с боевым HTTPS-доменом. Лимит
+запросов управляется `PASSWORD_RESET_MAX_ATTEMPTS` и
+`PASSWORD_RESET_BLOCK_SECONDS`; страница всегда отвечает одинаково и не
+сообщает, зарегистрирован ли адрес.
+
+При `DJANGO_DEBUG=0` и непустом `DJANGO_ADMINS` ошибки уровня `ERROR` из
+`django.request` отправляются администраторам через тот же SMTP. Структурные
+логи в stdout при этом продолжают писаться.
+
+### Первый запуск пустой базы
+
+После готовности окружения действия выполняются строго по порядку:
+
+```sh
+python manage.py migrate
+python manage.py bootstrap_reference
+python manage.py createsuperuser
+```
+
+`bootstrap_reference` загружает разметку графа, профиль экзамена, траектории,
+витрину магазина и платёжные справочники. Команда идемпотентна и не создаёт
+демо-пользователей, попытки, проверки эксперта или домашки. До применения
+можно посмотреть результат через `python manage.py bootstrap_reference --dry-run`.
+После входа суперпользователь или методист создаёт приглашения ученикам и
+родителям в панели. `seed_demo` на реальном сервере запускать нельзя.
+
 ---
 
 ## 2. Выкладка
@@ -67,6 +111,44 @@ curl -fsS https://matemacia.ru/readyz    # база и кеш отвечают
 
 `beat` запускается в одном экземпляре. Две копии означают две ночные
 пересборки плана и двойные начисления.
+
+### ИИ-наставник и бюджет
+
+По умолчанию используется `apps.ai_mentor.providers.MockHintProvider`. Для
+боевого провайдера задайте
+`AI_MENTOR_PROVIDER=apps.ai_mentor.providers.LLMHintProvider`, дневной лимит
+`AI_MENTOR_DAILY_HINT_LIMIT` и тарифы в рублях
+`AI_MENTOR_COST_PER_1K_INPUT` / `AI_MENTOR_COST_PER_1K_OUTPUT`.
+
+YandexGPT:
+
+```text
+AI_MENTOR_LLM_FORMAT=yandexgpt
+AI_MENTOR_LLM_BASE_URL=https://llm.api.cloud.yandex.net/foundationModels/v1/completion
+AI_MENTOR_LLM_API_KEY=<секрет>
+AI_MENTOR_LLM_FOLDER_ID=<идентификатор каталога>
+AI_MENTOR_LLM_MODEL=yandexgpt-lite
+```
+
+OpenAI-совместимый DeepSeek:
+
+```text
+AI_MENTOR_LLM_FORMAT=openai
+AI_MENTOR_LLM_BASE_URL=https://api.deepseek.com/chat/completions
+AI_MENTOR_LLM_API_KEY=<секрет>
+AI_MENTOR_LLM_MODEL=deepseek-chat
+```
+
+Тайм-аут, максимум токенов и температура задаются переменными
+`AI_MENTOR_LLM_TIMEOUT_SECONDS`, `AI_MENTOR_LLM_MAX_TOKENS` и
+`AI_MENTOR_LLM_TEMPERATURE`. Расход за сегодня и семь дней виден методисту в
+панели в блоке «Наставник: расход».
+
+### Юридический шлюз
+
+`LEGAL_CONSENT_ENFORCED` можно задать явно: по умолчанию он выключен при
+`DJANGO_DEBUG=1` и включён при `DJANGO_DEBUG=0`. Изменение версии документа
+по-прежнему повторно запрашивает согласие у учеников и родителей.
 
 ---
 

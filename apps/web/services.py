@@ -555,25 +555,38 @@ MATCH_MODE_HINTS = {
 def arena_context(student) -> dict:
     """Арена: друзья, вызовы, идущие и сыгранные партии."""
     from apps.arena.leagues import league_for_rating
-    from apps.arena.models import Friendship, Match
-    from apps.arena.matchmaking import get_profile
+    from apps.arena.models import ArenaProfile, Friendship, Match
+    from apps.arena.matchmaking import profiles_by_student_id
     from apps.arena.services import friends_of, rank, rewarded_today, DAILY_REWARDED_MATCHES
 
-    matches = (
+    matches = list(
         Match.objects.filter(participants__student=student)
         .prefetch_related("participants__student__user")
         .distinct()
         .order_by("-created_at")[:12]
     )
+    participants_by_match = {
+        match.pk: list(match.participants.all()) for match in matches
+    }
+    profile_map = profiles_by_student_id(
+        participant.student
+        for participants in participants_by_match.values()
+        for participant in participants
+        if participant.student_id is not None
+    )
+    if student.pk not in profile_map:
+        profile_map.update(profiles_by_student_id([student]))
     active, invites, history = [], [], []
     for match in matches:
-        me = match.participants.filter(student=student).first()
-        other = match.participants.exclude(student=student).first()
-        results = rank(match) if match.is_finished else []
+        participants = participants_by_match[match.pk]
+        me = next((row for row in participants if row.student_id == student.pk), None)
+        other = next((row for row in participants if row.student_id != student.pk), None)
+        results = rank(match, participants) if match.is_finished else []
         for participant in results:
             if not participant.is_bot and participant.student_id is not None:
+                profile = profile_map.get(participant.student_id)
                 participant.league_code = league_for_rating(
-                    get_profile(participant.student).rating
+                    profile.rating if profile else ArenaProfile.BASE_RATING
                 )["code"]
         row = {
             "match": match,
@@ -587,7 +600,8 @@ def arena_context(student) -> dict:
             invites.append(row)
         elif match.status in (Match.Status.ACTIVE, Match.Status.INVITED):
             active.append(row)
-    arena_rating = get_profile(student).rating
+    own_profile = profile_map.get(student.pk)
+    arena_rating = own_profile.rating if own_profile else ArenaProfile.BASE_RATING
     return {
         "friends": list(friends_of(student)),
         "incoming": list(
@@ -1329,13 +1343,13 @@ def mock_result_context(student, result_id):
 
 
 def parent_context(parent):
-    from apps.progress.services import build_parent_report
+    from apps.progress.services import build_parent_report, localize_parent_report_payload
 
     child = parent.children.select_related("user").first()
     if child is None:
         return {"child": None}
     report = build_parent_report(child)
-    payload = report.payload
+    payload = localize_parent_report_payload(report.payload)
     raw_distribution = payload.get("error_type_distribution", {})
     max_error_count = max(raw_distribution.values(), default=0)
     distribution = [

@@ -22,28 +22,41 @@ class InviteTests(TestCase):
 
     def test_invite_creates_student_with_profile_and_group(self):
         invite = create_invite(self.methodist, group=self.group)
-        user = accept_invite(invite.code, username="new-student", password="s3cret-pass")
+        user = accept_invite(
+            invite.code, username="new-student", email="new@example.com",
+            password="s3cret-pass",
+        )
         self.assertEqual(user.role, User.Role.STUDENT)
         self.assertIn(user.student_profile, self.group.students.all())
 
     def test_invite_is_single_use(self):
         invite = create_invite(self.methodist)
-        accept_invite(invite.code, username="first", password="s3cret-pass")
+        accept_invite(
+            invite.code, username="first", email="first@example.com", password="s3cret-pass"
+        )
         with self.assertRaises(ValidationError):
-            accept_invite(invite.code, username="second", password="s3cret-pass")
+            accept_invite(
+                invite.code, username="second", email="second@example.com",
+                password="s3cret-pass",
+            )
 
     def test_expired_invite_rejected(self):
         invite = create_invite(self.methodist)
         invite.expires_at = timezone.now() - timedelta(hours=1)
         invite.save(update_fields=["expires_at"])
         with self.assertRaises(ValidationError):
-            accept_invite(invite.code, username="late", password="s3cret-pass")
+            accept_invite(
+                invite.code, username="late", email="late@example.com", password="s3cret-pass"
+            )
 
     def test_taken_username_rejected(self):
         User.objects.create_user("occupied")
         invite = create_invite(self.methodist)
         with self.assertRaises(ValidationError):
-            accept_invite(invite.code, username="occupied", password="s3cret-pass")
+            accept_invite(
+                invite.code, username="occupied", email="occupied@example.com",
+                password="s3cret-pass",
+            )
 
 
 class DeactivationTests(TestCase):

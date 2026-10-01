@@ -21,8 +21,13 @@ class RegisterByInviteTests(TestCase):
         payload = {
             "code": self.invite.code,
             "username": "novichok",
+            "email": "novichok@example.com",
             "password1": PASSWORD,
             "password2": PASSWORD,
+            "accept_terms": True,
+            "accept_privacy": True,
+            "age_declaration": True,
+            "parent_child_consent": True,
         }
         payload.update(overrides)
         return self.client.post(reverse("register"), payload)
@@ -46,7 +51,9 @@ class RegisterByInviteTests(TestCase):
     def test_parent_invite_lands_on_the_parent_report(self):
         invite = create_invite(self.methodist, role=User.Role.PARENT)
 
-        response = self.post(code=invite.code, username="roditel")
+        response = self.post(
+            code=invite.code, username="roditel", email="roditel@example.com"
+        )
 
         self.assertRedirects(response, reverse("parent_dashboard"))
         self.assertTrue(hasattr(User.objects.get(username="roditel"), "parent_profile"))
@@ -65,7 +72,7 @@ class RegisterByInviteTests(TestCase):
         self.post()
         self.client.logout()
 
-        response = self.post(username="vtoroy")
+        response = self.post(username="vtoroy", email="vtoroy@example.com")
 
         self.assertIn(
             "Код приглашения уже использован.", response.context["form"].errors["code"]

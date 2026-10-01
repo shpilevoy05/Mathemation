@@ -155,7 +155,8 @@ class LLMHintProviderTests(TestCase):
             captured.update(headers=headers, payload=payload)
             return {
                 "result": {
-                    "alternatives": [{"message": {"text": "Что известно из условия?"}}]
+                    "alternatives": [{"message": {"text": "Что известно из условия?"}}],
+                    "usage": {"inputTextTokens": 120, "completionTokens": 30},
                 }
             }
 
@@ -164,6 +165,8 @@ class LLMHintProviderTests(TestCase):
         )
 
         self.assertEqual(text, "Что известно из условия?")
+        self.assertEqual(text.prompt_tokens, 120)
+        self.assertEqual(text.completion_tokens, 30)
         self.assertEqual(captured["headers"]["Authorization"], "Api-Key test-key")
         self.assertEqual(captured["payload"]["modelUri"], "gpt://folder-id/yandexgpt-lite")
         self.assertEqual(
@@ -318,6 +321,82 @@ class AiMentorTests(TestCase):
         self.assertIn(UNCERTAINTY_NOTE, result["text"])
         event = Event.objects.get(event_type=Event.Type.HINT_ISSUED)
         self.assertEqual(event.payload["provider"], "mock_fallback")
+
+    @override_settings(AI_MENTOR_DAILY_HINT_LIMIT=1)
+    def test_daily_limit_returns_429_before_another_provider_call(self):
+        client = APIClient()
+        client.force_authenticate(user=self.student.user)
+        first = client.post(
+            f"/api/assignments/{self.assignment.id}/hint/",
+            {"question": "Первая", "context": Attempt.Context.LESSON},
+            format="json",
+        )
+        other_node = make_node("daily-limit-other")
+        other_assignment = make_assignment(other_node)
+
+        second = client.post(
+            f"/api/assignments/{other_assignment.id}/hint/",
+            {"question": "Ещё одна", "context": Attempt.Context.LESSON},
+            format="json",
+        )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(second.data["code"], "hint_daily_limit")
+        self.assertIn("Дневной лимит", second.data["detail"])
+        self.assertEqual(
+            AiHintMessage.objects.filter(counts_toward_daily_limit=True).count(), 1
+        )
+
+    @override_settings(
+        AI_MENTOR_LLM_FORMAT="openai",
+        AI_MENTOR_LLM_BASE_URL="https://llm.example/v1/chat/completions",
+        AI_MENTOR_LLM_API_KEY="test-key",
+        AI_MENTOR_LLM_MODEL="test-model",
+        AI_MENTOR_COST_PER_1K_INPUT="2",
+        AI_MENTOR_COST_PER_1K_OUTPUT="4",
+    )
+    def test_provider_usage_and_estimated_cost_are_recorded(self):
+        def transport(url, headers, payload):
+            return {
+                "choices": [{"message": {"content": "С чего стоит начать?"}}],
+                "usage": {"prompt_tokens": 1000, "completion_tokens": 500},
+            }
+
+        with patch(
+            "apps.ai_mentor.services.get_provider",
+            return_value=LLMHintProvider(transport=transport),
+        ):
+            request_hint(
+                self.student, self.assignment, "Подскажи", Attempt.Context.LESSON
+            )
+
+        message = AiHintMessage.objects.get(
+            role=AiHintMessage.Role.MENTOR,
+            counts_toward_daily_limit=True,
+        )
+        self.assertEqual(message.prompt_tokens, 1000)
+        self.assertEqual(message.completion_tokens, 500)
+        self.assertEqual(str(message.estimated_cost_rub), "4.000000")
+
+    def test_methodist_panel_contains_usage_summary(self):
+        request_hint(
+            self.student, self.assignment, "Подскажи", Attempt.Context.LESSON
+        )
+        methodist = User.objects.create_user(
+            username="usage-methodist",
+            password="Strong-pass-123",
+            role=User.Role.METHODIST,
+            is_staff=True,
+        )
+        self.client.force_login(methodist)
+
+        response = self.client.get("/panel/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Наставник: расход")
+        self.assertContains(response, "Сегодня: 1 подсказок")
+        self.assertContains(response, self.student.user.username)
 
     @override_settings(AI_MENTOR_PROVIDER="apps.ai_mentor.tests.FalseClaimProvider")
     def test_false_claim_is_blocked_by_api_and_audited(self):

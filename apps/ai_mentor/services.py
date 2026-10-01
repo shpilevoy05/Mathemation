@@ -1,6 +1,11 @@
 """AI mentor rules: available only inside regular lesson tasks, max 2 leading
 hints, never a final answer, everything is logged for the parent."""
+from decimal import Decimal
+
 from django.conf import settings
+from django.db import transaction
+from django.db.models import Count, Sum
+from django.utils import timezone
 
 from apps.practice.models import Attempt
 
@@ -29,11 +34,67 @@ class HintNotAllowed(Exception):
     pass
 
 
+class DailyHintLimitExceeded(Exception):
+    pass
+
+
+def redact_student_hint_messages(student) -> int:
+    """Удалить тексты диалога, сохранив обезличенную статистику сессий."""
+    return AiHintMessage.objects.filter(session__student=student).update(text="")
+
+
 def mentor_available(context: str) -> bool:
     """The mentor is an invariant of a regular lesson context only."""
     return context == Attempt.Context.LESSON
 
 
+def _provider_usage(provider_text) -> dict:
+    prompt_tokens = max(int(getattr(provider_text, "prompt_tokens", 0) or 0), 0)
+    completion_tokens = max(
+        int(getattr(provider_text, "completion_tokens", 0) or 0), 0
+    )
+    input_rate = Decimal(str(settings.AI_MENTOR_COST_PER_1K_INPUT))
+    output_rate = Decimal(str(settings.AI_MENTOR_COST_PER_1K_OUTPUT))
+    cost = (
+        Decimal(prompt_tokens) * input_rate / Decimal(1000)
+        + Decimal(completion_tokens) * output_rate / Decimal(1000)
+    ).quantize(Decimal("0.000001"))
+    return {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "estimated_cost_rub": cost,
+        "counts_toward_daily_limit": True,
+    }
+
+
+def mentor_usage_summary() -> dict:
+    """Сводка расходов для методиста за сегодня и последние семь дней."""
+    today = timezone.localdate()
+    week_start = today - timezone.timedelta(days=6)
+    hints = AiHintMessage.objects.filter(counts_toward_daily_limit=True)
+    week_hints = hints.filter(created_at__date__gte=week_start)
+    totals = week_hints.aggregate(
+        hints=Count("id"),
+        prompt_tokens=Sum("prompt_tokens"),
+        completion_tokens=Sum("completion_tokens"),
+        estimated_cost_rub=Sum("estimated_cost_rub"),
+    )
+    top_students = list(
+        week_hints.values("session__student_id", "session__student__user__username")
+        .annotate(hints=Count("id"))
+        .order_by("-hints", "session__student_id")[:5]
+    )
+    return {
+        "hints_today": hints.filter(created_at__date=today).count(),
+        "hints_7_days": totals["hints"] or 0,
+        "prompt_tokens": totals["prompt_tokens"] or 0,
+        "completion_tokens": totals["completion_tokens"] or 0,
+        "estimated_cost_rub": totals["estimated_cost_rub"] or Decimal("0"),
+        "top_students": top_students,
+    }
+
+
+@transaction.atomic
 def request_hint(student, assignment, question: str, context: str) -> dict:
     """Return {"session", "text", "escalated"} or raise HintNotAllowed."""
     if not mentor_available(context):
@@ -56,6 +117,19 @@ def request_hint(student, assignment, question: str, context: str) -> dict:
         )
         return {"session": session, "text": ESCALATION_TEXT, "escalated": True}
 
+    # Блокировка профиля не даёт двум параллельным запросам одновременно
+    # пройти проверку последнего доступного места дневного лимита.
+    type(student).objects.select_for_update().get(pk=student.pk)
+    hints_today = AiHintMessage.objects.filter(
+        session__student=student,
+        counts_toward_daily_limit=True,
+        created_at__date=timezone.localdate(),
+    ).count()
+    if hints_today >= settings.AI_MENTOR_DAILY_HINT_LIMIT:
+        raise DailyHintLimitExceeded(
+            "Дневной лимит подсказок исчерпан. Новые подсказки будут доступны завтра."
+        )
+
     session.hints_used += 1
     session.save(update_fields=["hints_used"])
     provider = get_provider()
@@ -74,6 +148,7 @@ def request_hint(student, assignment, question: str, context: str) -> dict:
         )
         if UNCERTAINTY_NOTE not in provider_text:
             provider_text = f"{provider_text}\n\n{UNCERTAINTY_NOTE}"
+    usage = _provider_usage(provider_text)
     guardrail = check_hint(provider_text)
     failed_claims = list(guardrail.failed_claims)
     if (
@@ -96,6 +171,7 @@ def request_hint(student, assignment, question: str, context: str) -> dict:
             is_blocked=True,
             failed_claims=failed_claims,
             unverified_claims=guardrail.unverified_claims,
+            **usage,
         )
         session.escalated_to_expert = True
         session.save(update_fields=["escalated_to_expert"])
@@ -125,6 +201,7 @@ def request_hint(student, assignment, question: str, context: str) -> dict:
         role=AiHintMessage.Role.MENTOR,
         text=text,
         unverified_claims=guardrail.unverified_claims,
+        **usage,
     )
     log_event(
         Event.Type.HINT_ISSUED,

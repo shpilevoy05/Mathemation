@@ -142,6 +142,14 @@ def create_match(student, *, mode: str, opponent=None, bot_level: int | None = N
                 "Играть можно с друзьями — сначала добавьте друг друга."
             )
 
+    # Профили создаются на границе создания партии, чтобы страницы списков
+    # могли только пакетно читать их и не писать в базу во время GET.
+    from .matchmaking import get_profile
+
+    get_profile(student)
+    if opponent is not None:
+        get_profile(opponent)
+
     count = QUESTION_COUNTS.get(mode, QUESTION_COUNTS[Match.Mode.SPEED])
     pool = list(question_pool(ege_task_number)[: count * 4])
     if len(pool) < count:
@@ -293,10 +301,10 @@ def finish_participant(match: Match, participant: MatchParticipant) -> MatchPart
     return participant
 
 
-def rank(match: Match) -> list[MatchParticipant]:
+def rank(match: Match, participants=None) -> list[MatchParticipant]:
     """Итог: больше очков, при равенстве — меньше времени."""
     return sorted(
-        match.participants.select_related("student__user"),
+        participants if participants is not None else match.participants.select_related("student__user"),
         key=lambda participant: (-participant.score, participant.total_time_ms),
     )
 

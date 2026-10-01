@@ -14,9 +14,14 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
-from apps.accounts.models import Invite, StudentGroup, StudentProfile
+from apps.accounts.models import Invite, ParentProfile, StudentGroup, StudentProfile
 from apps.accounts.permissions import IsPlatformAdmin
-from apps.accounts.services import create_invite, deactivate_student, reactivate_student
+from apps.accounts.services import (
+    create_invite,
+    deactivate_student,
+    issue_temporary_password,
+    reactivate_student,
+)
 from apps.billing.models import (
     AddOn,
     Payment,
@@ -51,6 +56,8 @@ from apps.exams.models import ExamProfile, ExamTask
 from apps.planning.models import PlanChangeLog, StudyPlan, StudyPlanItem
 from apps.progress.models import ForecastObservation
 from apps.planning.services import log_plan_change
+from apps.legal.models import DataDeletionRequest, Feedback
+from apps.legal.services import anonymize_user, update_feedback
 
 from . import serializers as panel
 from .audit import log_admin_action
@@ -219,6 +226,16 @@ class StudentViewSet(PanelViewSet):
                          student=student)
         return Response(self.get_serializer(student).data)
 
+    @action(detail=True, methods=["post"], url_path="temporary-password")
+    def temporary_password(self, request, pk=None):
+        student = self.get_object()
+        password = issue_temporary_password(student.user)
+        log_admin_action(
+            request.user, "account.temporary_password",
+            target=f"user:{student.user_id}", student=student,
+        )
+        return Response({"temporary_password": password})
+
     @action(detail=True, methods=["post"], url_path="grant-coins")
     def grant_coins(self, request, pk=None):
         student = self.get_object()
@@ -244,18 +261,82 @@ class StudentGroupViewSet(PanelViewSet):
     serializer_class = panel.StudentGroupSerializer
 
 
+class ParentViewSet(PanelViewSet):
+    queryset = ParentProfile.objects.select_related("user").prefetch_related("children")
+    serializer_class = panel.ParentSerializer
+    http_method_names = ["get", "post", "head", "options"]
+
+    @action(detail=True, methods=["post"], url_path="temporary-password")
+    def temporary_password(self, request, pk=None):
+        parent = self.get_object()
+        password = issue_temporary_password(parent.user)
+        log_admin_action(
+            request.user, "account.temporary_password", target=f"user:{parent.user_id}"
+        )
+        return Response({"temporary_password": password})
+
+
 class InviteViewSet(PanelViewSet):
     queryset = Invite.objects.select_related("group")
     serializer_class = panel.InviteSerializer
     http_method_names = ["get", "post", "delete", "head", "options"]
 
     def create(self, request, *args, **kwargs):
-        invite = create_invite(
+        student_id = request.data.get("for_student")
+        student = StudentProfile.objects.filter(pk=student_id).first() if student_id else None
+        if student_id and student is None:
+            raise ValidationError({"for_student": "Ученик не найден."})
+        invite = _domain_errors(
+            create_invite,
             request.user,
             role=request.data.get("role", "student"),
             group=StudentGroup.objects.filter(pk=request.data.get("group")).first(),
+            for_student=student,
+        )
+        log_admin_action(
+            request.user, "invite.create", target=f"invite:{invite.pk}",
+            role=invite.role, for_student_id=invite.for_student_id,
         )
         return Response(self.get_serializer(invite).data, status=status.HTTP_201_CREATED)
+
+
+class DataDeletionRequestViewSet(PanelViewSet):
+    queryset = DataDeletionRequest.objects.select_related("user", "processed_by")
+    serializer_class = panel.DataDeletionRequestSerializer
+    http_method_names = ["get", "post", "head", "options"]
+
+    @action(detail=True, methods=["post"], url_path="execute")
+    def execute(self, request, pk=None):
+        if request.data.get("confirm") is not True:
+            raise ValidationError({"confirm": "Подтвердите необратимое удаление."})
+        deletion_request = _domain_errors(
+            anonymize_user,
+            self.get_object(),
+            processed_by=request.user,
+            comment=request.data.get("comment", ""),
+        )
+        return Response(self.get_serializer(deletion_request).data)
+
+
+class FeedbackViewSet(PanelViewSet):
+    queryset = Feedback.objects.select_related("user")
+    serializer_class = panel.FeedbackSerializer
+    http_method_names = ["get", "patch", "head", "options"]
+
+    def perform_update(self, serializer):
+        feedback = serializer.instance
+        validated = serializer.validated_data
+        update_feedback(
+            feedback,
+            status=validated.get("status", feedback.status),
+            staff_comment=validated.get("staff_comment", feedback.staff_comment),
+        )
+        log_admin_action(
+            self.request.user,
+            "feedback.update",
+            target=f"feedback:{feedback.pk}",
+            status=feedback.status,
+        )
 
 
 class ShopCategoryViewSet(PanelViewSet):

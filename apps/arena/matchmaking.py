@@ -50,6 +50,35 @@ def get_profile(student) -> ArenaProfile:
     return ArenaProfile.objects.create(student=student, rating=_seed_rating(student))
 
 
+def profiles_by_student_id(students) -> dict[int, ArenaProfile]:
+    """Загрузить профили всех показанных участников одним SELECT-запросом."""
+    student_map = {
+        student.pk: student for student in students if student is not None
+    }
+    if not student_map:
+        return {}
+    profiles = ArenaProfile.objects.filter(student_id__in=student_map).in_bulk(
+        field_name="student_id"
+    )
+    # Новые партии создают профили заранее. Для старых строк без профиля
+    # используем базовый рейтинг пакетно: пересчёт прогноза на каждого здесь
+    # вернул бы тот же N+1 под другим именем. Единственного нового посетителя
+    # арены по-прежнему стартуем от его прогноза.
+    seed_single = len(student_map) == 1
+    missing = [
+        ArenaProfile(
+            student=student,
+            rating=_seed_rating(student) if seed_single else ArenaProfile.BASE_RATING,
+        )
+        for student_id, student in student_map.items()
+        if student_id not in profiles
+    ]
+    if missing:
+        ArenaProfile.objects.bulk_create(missing, ignore_conflicts=True)
+        profiles.update({profile.student_id: profile for profile in missing})
+    return profiles
+
+
 def window_for(ticket: MatchmakingTicket, now=None) -> int:
     """Насколько широко ищем соперника прямо сейчас."""
     now = now or timezone.now()

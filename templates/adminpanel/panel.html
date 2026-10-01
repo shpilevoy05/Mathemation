@@ -34,6 +34,19 @@
 <body>
 <nav>
   <h1>Панель администратора</h1>
+  <h2>Наставник: расход</h2>
+  <p>Сегодня: {{ mentor_usage.hints_today }} подсказок<br>
+    7 дней: {{ mentor_usage.hints_7_days }} подсказок<br>
+    Токены: {{ mentor_usage.prompt_tokens }} вход / {{ mentor_usage.completion_tokens }} выход<br>
+    Стоимость: {{ mentor_usage.estimated_cost_rub|floatformat:2 }} ₽</p>
+  {% if mentor_usage.top_students %}
+    <p>Больше всего подсказок:</p>
+    <ol>
+      {% for row in mentor_usage.top_students %}
+        <li>{{ row.session__student__user__username }} — {{ row.hints }}</li>
+      {% endfor %}
+    </ol>
+  {% endif %}
   {% for section in sections %}
     <h2>{{ section.group }}</h2>
     {% for item in section.items %}
@@ -158,11 +171,17 @@ async function runAction(row, action) {
     if (value === null) return;
     payload[action.prompt] = value;
   }
-  if (action.confirm && !window.confirm("Действие необратимо. Продолжить?")) return;
+  if (action.confirm) {
+    if (!window.confirm("Действие необратимо. Продолжить?")) return;
+    payload.confirm = true;
+  }
   try {
-    await request(`${API}${current.key}/${row.id}/${action.name}/`, {
+    const result = await request(`${API}${current.key}/${row.id}/${action.name}/`, {
       method: "POST", body: JSON.stringify(payload),
     });
+    if (result.temporary_password) {
+      window.alert(`Временный пароль (показывается один раз): ${result.temporary_password}`);
+    }
     document.querySelector(`nav button[data-key="${current.key}"]`).click();
   } catch (error) {
     document.getElementById("error").textContent = error.message;

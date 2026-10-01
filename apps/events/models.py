@@ -26,6 +26,7 @@ class Event(models.Model):
         ADMIN_ACTION = "admin_action"
         # Партия арены: по этим записям считается дневной потолок наград.
         ARENA_MATCH_FINISHED = "arena_match_finished"
+        FEEDBACK_CREATED = "feedback_created"
 
     student = models.ForeignKey(
         "accounts.StudentProfile",

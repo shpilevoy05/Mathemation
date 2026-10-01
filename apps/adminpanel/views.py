@@ -38,13 +38,21 @@ SECTIONS = [
         {"key": "students", "title": "Ученики",
          "columns": ["id", "username", "is_active", "target_score", "weekly_hours",
                      "primary_calibration", "calibration_samples", "balance"]},
+        {"key": "parents", "title": "Родители",
+         "columns": ["id", "username", "email", "is_active", "children"]},
         {"key": "groups", "title": "Группы",
          "columns": ["id", "title", "curator", "is_active"]},
         {"key": "invites", "title": "Приглашения",
-         "columns": ["id", "code", "role", "group", "expires_at", "used_by"]},
+         "columns": ["id", "code", "role", "group", "for_student", "expires_at", "used_by"]},
         {"key": "forecast-observations", "title": "Прогноз против факта",
          "columns": ["id", "student", "predicted_primary", "actual_primary", "error",
                      "created_at"]},
+    ]},
+    {"group": "Обращения", "items": [
+        {"key": "deletion-requests", "title": "Запросы на удаление",
+         "columns": ["id", "user", "created_at", "status", "processed_by", "processed_at", "comment"]},
+        {"key": "feedback", "title": "Обратная связь",
+         "columns": ["id", "user", "page_url", "message", "created_at", "status", "staff_comment"]},
     ]},
     {"group": "Граф и экзамен", "items": [
         {"key": "clusters", "title": "Темы",
@@ -105,8 +113,13 @@ ROW_ACTIONS = {
                    "hint": "ID группы"}],
     "students": [{"name": "deactivate", "title": "Отключить"},
                  {"name": "reactivate", "title": "Включить"},
+                 {"name": "temporary-password", "title": "Выдать временный пароль"},
                  {"name": "grant-coins", "title": "Начислить баллы",
                   "prompt": "amount", "hint": "Сколько баллов"}],
+    "parents": [{"name": "temporary-password", "title": "Выдать временный пароль"}],
+    "deletion-requests": [
+        {"name": "execute", "title": "Выполнить удаление", "confirm": True}
+    ],
     "tariffs": [{"name": "new-version", "title": "Новая цена",
                  "prompt": "price_rub", "hint": "Новая цена в рублях"}],
     "payments": [{"name": "refund", "title": "Вернуть деньги", "confirm": True}],
@@ -115,6 +128,7 @@ ROW_ACTIONS = {
 
 @login_required
 def panel_view(request):
+    from apps.ai_mentor.services import mentor_usage_summary
     from apps.web.permissions import is_methodist
 
     if not is_methodist(request.user):
@@ -122,5 +136,9 @@ def panel_view(request):
     return render(
         request,
         "adminpanel/panel.html",
-        {"sections": SECTIONS, "row_actions": ROW_ACTIONS},
+        {
+            "sections": SECTIONS,
+            "row_actions": ROW_ACTIONS,
+            "mentor_usage": mentor_usage_summary(),
+        },
     )

@@ -13,6 +13,7 @@ from .services import (
     ceiling_forecast,
     forecast_breakdown,
     forecast_interval,
+    localize_parent_report_payload,
     profile_coverage,
 )
 
@@ -119,5 +120,5 @@ class ParentReportView(views.APIView):
         return Response({
             "student": student.user.username,
             "week_start": report.week_start,
-            **report.payload,
+            **localize_parent_report_payload(report.payload),
         })

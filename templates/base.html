@@ -73,6 +73,10 @@
               </a>
             {% endfor %}
           {% endfor %}
+          <button class="mobile-tab" type="button" data-feedback-open>
+            <span class="nav-icon"><svg aria-hidden="true"><use href="#i-doc"></use></svg></span>
+            <span class="mobile-tab-label">Проблема</span>
+          </button>
         </nav>
         <div class="rail-foot">
           {% if access_state and not access_state.is_active %}
@@ -98,6 +102,9 @@
               </div>
             </div>
           {% endif %}
+          <button class="rail-feedback" type="button" data-feedback-open>
+            <svg aria-hidden="true"><use href="#i-chat"></use></svg><span>Сообщить о проблеме</span>
+          </button>
           <div class="account-menu">
             {% if user.student_profile %}{% include "partials/avatar.html" with size="sm" %}{% endif %}
             <span class="account-name">
@@ -119,5 +126,57 @@
     {% if messages %}{% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}{% endif %}
     {% block content %}{% endblock %}
   </main>
+  {% if user.is_authenticated and not hide_nav %}
+  <dialog id="feedback-dialog" class="app-dialog feedback-dialog" aria-labelledby="feedback-title">
+    <div class="feedback-head">
+      <h2 id="feedback-title">Сообщить о проблеме</h2>
+      <form method="dialog"><button class="icon-button" type="submit" aria-label="Закрыть">&times;</button></form>
+    </div>
+    <p class="feedback-hint">Опишите, что делали и что пошло не так. Адрес страницы приложится сам.</p>
+    <form id="feedback-form" class="feedback-form">{% csrf_token %}
+      <label class="visually-hidden" for="feedback-message">Что произошло?</label>
+      <textarea id="feedback-message" name="message" rows="5" maxlength="2000" required placeholder="Например: нажимаю «Проверить», а ответ не засчитывается"></textarea>
+      <div class="feedback-actions">
+        <p id="feedback-result" role="status"></p>
+        <button class="button button-primary" type="submit">Отправить</button>
+      </div>
+    </form>
+  </dialog>
+  <script>
+  (() => {
+    const dialog = document.getElementById("feedback-dialog");
+    const form = document.getElementById("feedback-form");
+    const result = document.getElementById("feedback-result");
+    document.querySelectorAll("[data-feedback-open]").forEach(button => {
+      button.addEventListener("click", () => { result.textContent = ""; result.className = ""; dialog.showModal(); form.message.focus(); });
+    });
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      const submit = form.querySelector("[type=submit]");
+      submit.disabled = true;
+      const response = await fetch("{% url 'feedback_create' %}", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value,
+        },
+        body: JSON.stringify({page_url: window.location.href, message: form.message.value}),
+      });
+      submit.disabled = false;
+      if (response.ok) {
+        form.reset();
+        result.className = "is-ok";
+        result.textContent = "Спасибо! Мы прочитаем";
+      } else {
+        result.className = "is-error";
+        result.textContent = response.status === 429
+          ? "Слишком много сообщений подряд. Попробуйте чуть позже."
+          : "Не удалось отправить сообщение. Попробуйте позже.";
+      }
+    });
+  })();
+  </script>
+  {% endif %}
 </body>
 </html>

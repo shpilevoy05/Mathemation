@@ -2,17 +2,37 @@
 
 import logging
 
-from django.contrib.auth import login
-from django.contrib.auth.views import LoginView
+from django.contrib import messages
+from django.contrib.auth import login, update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.views import LoginView, PasswordResetConfirmView, PasswordResetView
 from django.core.exceptions import ValidationError
 from django.shortcuts import redirect, render
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 
 from django.contrib.auth.decorators import login_required
 
-from .forms import InviteRegistrationForm, TwoFactorCodeForm
-from .services import accept_invite
-from .throttling import client_ip, invite_guard, login_guard, two_factor_guard
+from .forms import (
+    AccountSettingsForm, InviteRegistrationForm, ParentInviteAcceptanceForm,
+    TwoFactorCodeForm,
+)
+from .models import Invite
+from .services import (
+    accept_invite,
+    accept_parent_invite,
+    active_parent_invites,
+    clear_password_change_requirement,
+    create_parent_invite,
+    revoke_parent_invite,
+    update_account,
+)
+from .throttling import (
+    client_ip,
+    invite_guard,
+    login_guard,
+    password_reset_guard,
+    two_factor_guard,
+)
 from .two_factor import is_required_for, provisioning_uri
 from .two_factor_services import (
     check_code,
@@ -71,6 +91,33 @@ class ThrottledLoginView(LoginView):
     def form_invalid(self, form):
         login_guard.register_failure(getattr(self, "_current_senders", []))
         return super().form_invalid(form)
+
+
+class ThrottledPasswordResetView(PasswordResetView):
+    template_name = "registration/password_reset_form.html"
+    email_template_name = "registration/password_reset_email.txt"
+    subject_template_name = "registration/password_reset_subject.txt"
+    success_url = reverse_lazy("password_reset_done")
+
+    def post(self, request, *args, **kwargs):
+        email = (request.POST.get("email") or "").strip().lower()
+        senders = [f"ip:{client_ip(request)}"]
+        if email:
+            senders.append(f"email:{email}")
+        if password_reset_guard.is_blocked(senders):
+            logger.warning("password reset blocked: ip=%s", client_ip(request))
+            return redirect(self.success_url)
+        password_reset_guard.register_failure(senders)
+        return super().post(request, *args, **kwargs)
+
+
+class ClearingPasswordResetConfirmView(PasswordResetConfirmView):
+    """Сброс по почте тоже завершает режим временного пароля."""
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        clear_password_change_requirement(form.user)
+        return response
 
 
 @login_required
@@ -142,11 +189,38 @@ def register_by_invite(request, code: str = ""):
     вид один на оба входа.
     """
     if request.user.is_authenticated:
+        if code and hasattr(request.user, "parent_profile"):
+            invite = Invite.objects.select_related("for_student__user").filter(code=code).first()
+            error = ""
+            parent_form = ParentInviteAcceptanceForm(request.POST or None)
+            if request.method == "POST" and invite is not None and parent_form.is_valid():
+                try:
+                    accept_parent_invite(
+                        invite,
+                        request.user.parent_profile,
+                        parent_child_consent=parent_form.cleaned_data["parent_child_consent"],
+                        consent_ip=client_ip(request),
+                        consent_user_agent=request.META.get("HTTP_USER_AGENT", ""),
+                    )
+                except ValidationError as exc:
+                    error = " ".join(exc.messages)
+                else:
+                    messages.success(request, "Ребёнок добавлен в ваш аккаунт.")
+                    return redirect("parent_dashboard")
+            elif invite is None:
+                error = "Код приглашения не найден."
+            return render(request, "registration/register.html", {
+                "parent_invite": invite,
+                "parent_invite_error": error,
+                "parent_form": parent_form,
+                "hide_nav": True,
+            })
         return redirect("dashboard")
 
     if request.method == "POST":
         senders = [f"ip:{client_ip(request)}"]
-        form = InviteRegistrationForm(request.POST)
+        invite = Invite.objects.filter(code=(request.POST.get("code") or "").strip()).first()
+        form = InviteRegistrationForm(request.POST, invite=invite)
         if invite_guard.is_blocked(senders):
             # Код одноразовый и достаточно длинный, но перебирать его всё равно
             # не должно быть дёшево.
@@ -157,7 +231,11 @@ def register_by_invite(request, code: str = ""):
                 user = accept_invite(
                     form.cleaned_data["code"],
                     username=form.cleaned_data["username"],
+                    email=form.cleaned_data["email"],
                     password=form.cleaned_data["password1"],
+                    consent_ip=client_ip(request),
+                    consent_user_agent=request.META.get("HTTP_USER_AGENT", ""),
+                    parent_child_consent=form.cleaned_data.get("parent_child_consent", False),
                 )
             except ValidationError as error:
                 invite_guard.register_failure(senders)
@@ -167,10 +245,78 @@ def register_by_invite(request, code: str = ""):
                 login(request, user)
                 return redirect("parent_dashboard" if hasattr(user, "parent_profile") else "dashboard")
     else:
-        form = InviteRegistrationForm(initial={"code": code})
+        invite = Invite.objects.filter(code=code).first() if code else None
+        form = InviteRegistrationForm(initial={"code": code}, invite=invite)
 
     return render(
         request,
         "registration/register.html",
         {"form": form, "login_url": reverse("login")},
     )
+
+
+@login_required
+def account_settings(request):
+    from apps.legal.views import latest_deletion_request
+    initial = {
+        "first_name": request.user.first_name,
+        "last_name": request.user.last_name,
+        "email": request.user.email,
+    }
+    if hasattr(request.user, "student_profile"):
+        initial.update({
+            "exam_date": request.user.student_profile.exam_date,
+            "weekly_hours": request.user.student_profile.weekly_hours,
+        })
+    form = AccountSettingsForm(request.POST or None, user=request.user, initial=initial)
+    if request.method == "POST" and form.is_valid():
+        update_account(request.user, **form.cleaned_data)
+        messages.success(request, "Настройки сохранены.")
+        return redirect("account_settings")
+    return render(request, "registration/account_settings.html", {
+        "form": form,
+        "parent_invites": (
+            active_parent_invites(request.user.student_profile)
+            if hasattr(request.user, "student_profile") else []
+        ),
+        "deletion_request": latest_deletion_request(request.user),
+    })
+
+
+@login_required
+def account_password(request):
+    form = PasswordChangeForm(request.user, request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        user = form.save()
+        clear_password_change_requirement(user)
+        update_session_auth_hash(request, user)
+        messages.success(request, "Пароль изменён.")
+        return redirect("account_settings")
+    return render(request, "registration/account_password.html", {
+        "form": form,
+        "hide_nav": request.user.must_change_password,
+    })
+
+
+@login_required
+def parent_invite_create(request):
+    if request.method != "POST" or not hasattr(request.user, "student_profile"):
+        return redirect("account_settings")
+    invite = create_parent_invite(request.user.student_profile)
+    messages.success(
+        request, f"Ссылка для родителя: {request.build_absolute_uri(reverse('register_by_invite', args=[invite.code]))}"
+    )
+    return redirect("account_settings")
+
+
+@login_required
+def parent_invite_revoke(request, invite_id: int):
+    if request.method != "POST" or not hasattr(request.user, "student_profile"):
+        return redirect("account_settings")
+    try:
+        revoke_parent_invite(request.user.student_profile, invite_id)
+    except ValidationError as exc:
+        messages.error(request, " ".join(exc.messages))
+    else:
+        messages.success(request, "Приглашение отозвано.")
+    return redirect("account_settings")

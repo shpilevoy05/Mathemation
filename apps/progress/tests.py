@@ -20,6 +20,7 @@ from apps.progress.services import (
     expected_primary,
     forecast_breakdown,
     forecast_interval,
+    localize_parent_report_payload,
     predict_score,
     primary_to_scaled,
 )
@@ -127,6 +128,53 @@ class ParentReportTests(TestCase):
         report = build_parent_report(self.student)
         self.assertTrue(report.payload["next_step"])
         self.assertIn("На этой неделе не было активности.", report.payload["risks"])
+
+    def test_report_uses_russian_item_type_and_russian_exam_date(self):
+        self.student.exam_date = timezone.localdate().replace(year=2027, month=6, day=1)
+        self.student.save(update_fields=["exam_date"])
+        build_study_plan(self.student)
+
+        payload = build_parent_report(self.student).payload
+
+        self.assertTrue(payload["next_step"].startswith(("Урок:", "Практика:", "Повтор:", "Пробник:")))
+        self.assertEqual(payload["trajectory"]["exam_date"], "01.06.2027")
+
+    def test_old_stored_report_values_are_localized_for_rendering(self):
+        payload = localize_parent_report_payload({
+            "trajectory": {
+                "exam_date": "2027-06-01",
+                "change_reasons": [
+                    "target_score", "poor_mock", "frequent_mistakes",
+                    "inactivity", "decay", "manual", "custom_reason",
+                ],
+            },
+            "next_step": "Practice: Квадратные уравнения",
+        })
+
+        self.assertEqual(payload["trajectory"]["exam_date"], "01.06.2027")
+        self.assertEqual(
+            payload["trajectory"]["change_reasons"],
+            [
+                "изменена цель", "результат пробника", "частые ошибки",
+                "перерыв в занятиях", "тема подзабылась",
+                "ручная корректировка", "custom_reason",
+            ],
+        )
+        self.assertEqual(payload["next_step"], "Практика: Квадратные уравнения")
+
+    def test_new_report_localizes_trajectory_change_reasons(self):
+        from apps.planning.models import Trajectory, TrajectoryTransition
+
+        trajectory = Trajectory.objects.first()
+        TrajectoryTransition.objects.create(
+            student=self.student,
+            to_trajectory=trajectory,
+            reasons=["target_score", "poor_mock", "unknown"],
+        )
+
+        reasons = build_parent_report(self.student).payload["trajectory"]["change_reasons"]
+
+        self.assertEqual(reasons, ["изменена цель", "результат пробника", "unknown"])
 
     def test_report_idempotent_per_week(self):
         build_parent_report(self.student)

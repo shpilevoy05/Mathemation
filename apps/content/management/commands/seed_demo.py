@@ -12,27 +12,14 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from django.conf import settings
-
 from apps.accounts.models import ParentProfile, StudentProfile, User
-
-# Профиль экзамена: (номер задания, часть, максимальный балл, сложность 1..5).
-# Первая часть — 12 заданий по 1 баллу, вторая — 20 баллов; итого 32.
-EXAM_TASKS = [
-    (1, 1, 1, 2), (2, 1, 1, 2), (3, 1, 1, 2), (4, 1, 1, 2),
-    (5, 1, 1, 3), (6, 1, 1, 3), (7, 1, 1, 2), (8, 1, 1, 3),
-    (9, 1, 1, 3), (10, 1, 1, 3), (11, 1, 1, 4), (12, 1, 1, 4),
-    (13, 2, 2, 4), (14, 2, 3, 4), (15, 2, 2, 4),
-    (16, 2, 2, 4), (17, 2, 3, 5), (18, 2, 4, 5), (19, 2, 4, 5),
-]
-EXAM_YEAR = 2027
+from apps.content.reference_data import seed_demo_promotion, seed_reference_data
 from apps.content.models import Assignment, AssignmentSkillTag, Lesson, TheoryBlock
 from apps.diagnostics.models import DiagnosticTest
 from apps.expert_review.models import ExpertReviewRequest
 from apps.gamification.services import generate_weekly_quests
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.mocks.models import MockExam
-from apps.planning.models import Trajectory
 from apps.planning.services import assign_trajectory, build_study_plan, get_active_plan
 
 CLUSTERS = [
@@ -167,12 +154,6 @@ PART2_TASKS = [
      4),
 ]
 
-TRAJECTORIES = [
-    ("score78", "78+", 78, 83, 6),
-    ("score84", "84+", 84, 89, 8),
-    ("score90", "90+", 90, 100, 10),
-]
-
 # Видео на Kinescope: в поле кладётся идентификатор ролика, embed-ссылку
 # собирает модель.
 DEMO_VIDEOS = {
@@ -191,18 +172,6 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
-        for slug, title, target_min, target_max, weekly_load in TRAJECTORIES:
-            Trajectory.objects.update_or_create(
-                slug=slug,
-                defaults={
-                    "title": title,
-                    "target_min": target_min,
-                    "target_max": target_max,
-                    "weekly_load_hours": weekly_load,
-                    "config": {},
-                },
-            )
-
         clusters = []
         for order, (title, weight, color) in enumerate(CLUSTERS):
             cluster, _ = TopicCluster.objects.update_or_create(
@@ -294,6 +263,9 @@ class Command(BaseCommand):
         )
         mock.assignments.set(part1 + part2)
 
+        profile, _reference_report = seed_reference_data(nodes=nodes)
+        seed_demo_promotion()
+
         student_user, created = User.objects.get_or_create(
             username="student", defaults={"role": User.Role.STUDENT}
         )
@@ -355,9 +327,7 @@ class Command(BaseCommand):
             },
         )
 
-        profile = self._seed_exam_profile(nodes)
         self._seed_engagement(nodes, part1, student)
-        self._seed_pricing()
 
         if options.get("verbosity", 1) < 1:
             return
@@ -369,15 +339,13 @@ class Command(BaseCommand):
         ))
 
     def _seed_engagement(self, nodes, part1, student):
-        """Домашка, задание дня и витрина магазина.
+        """Демонстрационные домашка и задание дня.
 
         Без них кабинет ученика выглядит пустым, и пройти сценарии роли
         (в том числе по docs/test_launch.md) нельзя.
         """
         from apps.content.models import DailyChallenge, Homework
         from apps.content.services import assign_homework
-        from apps.economy.models import ShopCategory, ShopItem
-
         homework, _ = Homework.objects.get_or_create(
             title="Домашка: вычисления и уравнения",
             defaults={
@@ -400,158 +368,3 @@ class Command(BaseCommand):
                 "is_active": True,
             },
         )
-
-        cosmetics, _ = ShopCategory.objects.update_or_create(
-            title="Косметика", defaults={"order": 0}
-        )
-        boosters, _ = ShopCategory.objects.update_or_create(
-            title="Ускорители", defaults={"order": 1}
-        )
-        # Косметика: код нужен интерфейсу, чтобы знать, что рисовать.
-        for title, slot, code, price, description in [
-            ("Аватар «Сова»", ShopItem.Slot.AVATAR, "owl", 40, ""),
-            ("Аватар «Лис»", ShopItem.Slot.AVATAR, "fox", 60, ""),
-            ("Аватар «Ракета»", ShopItem.Slot.AVATAR, "rocket", 90, ""),
-            ("Аватар «Сигма»", ShopItem.Slot.AVATAR, "sigma", 70, ""),
-            ("Рамка «Координаты»", ShopItem.Slot.FRAME, "coordinates", 80, ""),
-            ("Рамка «Пламя»", ShopItem.Slot.FRAME, "flame", 110, "Открывается стриком от 7 дней."),
-            ("Рамка «Интеграл»", ShopItem.Slot.FRAME, "integral", 140, ""),
-            ("Тема «Ночь»", ShopItem.Slot.THEME, "dark", 120, "Тёмная тема кабинета."),
-            ("Тема «Рассвет»", ShopItem.Slot.THEME, "sunrise", 150, "Тёплая охра вместо индиго."),
-            ("Тема «Лес»", ShopItem.Slot.THEME, "forest", 150, "Зелёная палитра, спокойный фон."),
-            ("Тема «Графит»", ShopItem.Slot.THEME, "graphite", 180, "Тёмно-серая, без синевы."),
-            ("Значок «Стрик 7»", ShopItem.Slot.BADGE, "streak7", 30, ""),
-        ]:
-            ShopItem.objects.update_or_create(
-                title=title,
-                defaults={
-                    "category": cosmetics, "slot": slot, "code": code,
-                    "description": description,
-                    "price_coins": price, "is_active": True,
-                    "effect": ShopItem.Effect.NONE,
-                },
-            )
-        # Расходники: покупаются повторно и срабатывают сразу.
-        for title, effect, value, hours, price, description in [
-            ("Заморозка стрика", ShopItem.Effect.STREAK_FREEZE, 1, 0, 100,
-             "Один пропущенный день не сбрасывает серию."),
-            ("Заморозка стрика ×3", ShopItem.Effect.STREAK_FREEZE, 3, 0, 260,
-             "Три пропуска про запас: болезнь, поездка, форс-мажор."),
-            ("Ускоритель опыта +50 % на сутки", ShopItem.Effect.XP_BOOST, 50, 24, 150,
-             "XP за занятия начисляется в полтора раза быстрее."),
-            ("Ускоритель опыта +100 % на 3 часа", ShopItem.Effect.XP_BOOST, 100, 3, 120,
-             "Двойной опыт на один плотный подход."),
-        ]:
-            ShopItem.objects.update_or_create(
-                title=title,
-                defaults={
-                    "category": boosters, "slot": ShopItem.Slot.BOOST,
-                    "description": description, "price_coins": price,
-                    "is_active": True, "effect": effect,
-                    "effect_value": value, "duration_hours": hours,
-                },
-            )
-
-    def _seed_pricing(self):
-        """Тарифы, способы оплаты и одна акция — чтобы страница оплаты не была пустой.
-
-        Эквайринг не подключён: у способов оплаты пустой `provider_key`, и
-        витрина честно показывает, что оплата пока идёт через куратора.
-        """
-        from apps.billing.models import AddOn, PaymentMethod, Promotion, Tariff
-
-        for code, title, price, days, description, features in [
-            ("solo", "Самостоятельно", 2900, 30,
-             "Полный доступ к платформе без экспертной проверки второй части.",
-             {"Занятия и план": "без ограничений", "Наставник": "до 30 подсказок в месяц"}),
-            ("expert", "С проверкой эксперта", 5900, 30,
-             "Всё из «Самостоятельно» плюс проверка второй части живым экспертом.",
-             {"Проверка второй части": "до 20 работ в месяц", "Срок проверки": "24 часа"}),
-            ("intensive", "Интенсив перед экзаменом", 9900, 30,
-             "Плотный режим: пробники каждую неделю и разбор с куратором.",
-             {"Пробники": "еженедельно", "Разбор с куратором": "2 раза в месяц"}),
-        ]:
-            Tariff.objects.get_or_create(
-                code=code, version=1,
-                defaults={
-                    "title": title, "description": description, "price_rub": price,
-                    "period_days": days, "features": features, "is_active": True,
-                },
-            )
-
-        for order, (code, title, description, instructions) in enumerate([
-            ("card", "Банковская карта", "Оплата картой российского банка.",
-             "Эквайринг подключается: пока куратор выставляет счёт вручную."),
-            ("sbp", "СБП по QR-коду", "Перевод по системе быстрых платежей.",
-             "Куратор пришлёт QR-код и подтвердит зачисление в течение дня."),
-            ("invoice", "Счёт для организации", "Оплата от юридического лица.",
-             "Напишите куратору реквизиты — счёт придёт на почту."),
-        ]):
-            PaymentMethod.objects.update_or_create(
-                code=code,
-                defaults={
-                    "title": title, "description": description,
-                    "instructions": instructions, "provider_key": "",
-                    "is_active": True, "order": order,
-                },
-            )
-
-        for order, (code, kind, title, price, quantity, unit, description) in enumerate([
-            ("extra-expert-check", AddOn.Kind.EXPERT_REVIEW,
-             "Дополнительная проверка пробника экспертом", 1200, 1, "работа",
-             "Разбор второй части живым экспертом сверх лимита тарифа, срок — 24 часа."),
-            ("extra-hints", AddOn.Kind.MENTOR_HINTS,
-             "Пакет подсказок наставника", 490, 50, "подсказок",
-             "50 наводящих подсказок сверх месячного лимита. Готовых решений наставник не выдаёт."),
-        ]):
-            AddOn.objects.update_or_create(
-                code=code,
-                defaults={
-                    "kind": kind, "title": title, "price_rub": price,
-                    "quantity": quantity, "unit_label": unit,
-                    "description": description, "is_active": True, "order": order,
-                },
-            )
-
-        Promotion.objects.update_or_create(
-            code="START10",
-            defaults={
-                "title": "Первый месяц −10%",
-                "description": "Для тех, кто начинает подготовку.",
-                "kind": Promotion.Kind.PERCENT, "value": 10,
-                "tariff_codes": [], "max_uses": 0, "is_active": True,
-                "ends_at": timezone.now() + timedelta(days=60),
-            },
-        )
-
-    def _seed_exam_profile(self, nodes: dict[str, KnowledgeNode]):
-        """Профиль экзамена: по нему считается прогноз.
-
-        Без профиля прогноз считался бы по банку задач и зависел от того, что
-        загрузил методист.
-        """
-        from apps.exams.models import ExamProfile, ExamTask, ExamTaskSkill
-
-        max_primary = sum(max_score for _n, _p, max_score, _d in EXAM_TASKS)
-        profile, _ = ExamProfile.objects.update_or_create(
-            year=EXAM_YEAR,
-            defaults={
-                "title": "ЕГЭ, профильная математика",
-                "max_primary_score": max_primary,
-                "primary_to_scaled": settings.PRIMARY_TO_SCALED[: max_primary + 1],
-                "is_active": True,
-            },
-        )
-        ExamProfile.objects.exclude(pk=profile.pk).update(is_active=False)
-
-        for number, part, max_score, difficulty in EXAM_TASKS:
-            task, _ = ExamTask.objects.update_or_create(
-                profile=profile, number=number,
-                defaults={
-                    "exam_part": part, "max_score": max_score, "difficulty": difficulty
-                },
-            )
-            for node in nodes.values():
-                if number in (node.ege_task_numbers or []):
-                    ExamTaskSkill.objects.get_or_create(task=task, node=node)
-        return profile

@@ -84,6 +84,7 @@ def _student_groups() -> list[NavGroup]:
             NavItem("Магазин", reverse("shop"), "i-sigma", ("shop",)),
             NavItem("Тарифы", reverse("pricing"), "i-ruble", ("pricing",)),
         ]),
+        _account_group(),
     ]
 
 
@@ -95,6 +96,7 @@ def _parent_groups() -> list[NavGroup]:
         NavGroup("Оплата", "i-ruble", [
             NavItem("Тарифы и оплата", reverse("pricing"), "i-ruble", ("pricing",)),
         ]),
+        _account_group(),
     ]
 
 
@@ -116,7 +118,18 @@ def _staff_groups(user) -> list[NavGroup]:
         groups.append(NavGroup("Деньги", "i-ruble", [
             NavItem("Тарифы", reverse("pricing"), "i-ruble", ("pricing",)),
         ]))
+    if groups:
+        groups.append(_account_group())
     return groups
+
+
+def _account_group() -> NavGroup:
+    return NavGroup("Аккаунт", "i-target", [
+        NavItem(
+            "Настройки", reverse("account_settings"), "i-target",
+            ("account_settings", "account_password"),
+        ),
+    ])
 
 
 def nav_groups(user) -> list[NavGroup]:
@@ -130,4 +143,4 @@ def nav_groups(user) -> list[NavGroup]:
         return _student_groups()
     if getattr(user, "parent_profile", None):
         return _parent_groups()
-    return []
+    return [_account_group()]

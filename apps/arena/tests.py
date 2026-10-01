@@ -1,8 +1,11 @@
 """Арена: дружба, партии, бот и правила подсчёта."""
 
 from django.core.exceptions import ValidationError
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.content.models import Assignment
 from apps.economy.services import get_wallet
@@ -41,6 +44,57 @@ def make_pool(count: int = 12, ege_number: int | None = None):
         assignment.skill_tags.create(node=node, weight=1.0)
         made.append(assignment)
     return made
+
+
+class ArenaProfileBatchTests(TestCase):
+    def test_arena_context_loads_all_participant_profiles_in_one_query(self):
+        from apps.web.services import arena_context
+
+        student = make_student("arena-batch-owner")
+        rivals = [make_student(f"arena-batch-{index}") for index in range(3)]
+        for rival in rivals:
+            match = Match.objects.create(
+                created_by=student,
+                status=Match.Status.FINISHED,
+                finished_at=timezone.now(),
+            )
+            MatchParticipant.objects.create(match=match, student=student, score=100)
+            MatchParticipant.objects.create(match=match, student=rival, score=50)
+
+        with CaptureQueriesContext(connection) as captured:
+            context = arena_context(student)
+
+        profile_queries = [
+            query["sql"] for query in captured.captured_queries
+            if "arena_arenaprofile" in query["sql"].lower()
+            and query["sql"].lstrip().upper().startswith("SELECT")
+        ]
+        self.assertEqual(len(profile_queries), 1, profile_queries)
+        self.assertEqual(len(context["match_history"]), 3)
+        self.assertTrue(
+            all(row["results"][0].league_code for row in context["match_history"])
+        )
+
+    def test_match_payload_loads_both_profiles_in_one_query(self):
+        from apps.arena.api import match_payload
+
+        student = make_student("arena-payload-owner")
+        rival = make_student("arena-payload-rival")
+        match = Match.objects.create(created_by=student)
+        MatchParticipant.objects.create(match=match, student=student)
+        MatchParticipant.objects.create(match=match, student=rival)
+
+        with CaptureQueriesContext(connection) as captured:
+            payload = match_payload(match, student)
+
+        profile_queries = [
+            query["sql"] for query in captured.captured_queries
+            if "arena_arenaprofile" in query["sql"].lower()
+            and query["sql"].lstrip().upper().startswith("SELECT")
+        ]
+        self.assertEqual(len(profile_queries), 1, profile_queries)
+        self.assertTrue(payload["me"]["league_code"])
+        self.assertTrue(payload["opponent"]["league_code"])
 
 
 class FriendshipTests(TestCase):

@@ -24,8 +24,9 @@ from .matchmaking import (
     get_profile,
     join_queue,
     leave_queue,
+    profiles_by_student_id,
 )
-from .models import Friendship, Match, MatchmakingTicket, MatchQuestion
+from .models import ArenaProfile, Friendship, Match, MatchmakingTicket, MatchQuestion
 from .services import (
     accept_friend_request,
     accept_match,
@@ -50,7 +51,7 @@ def _student_payload(student: StudentProfile) -> dict:
     }
 
 
-def _participant_payload(participant, *, reveal: bool) -> dict:
+def _participant_payload(participant, *, reveal: bool, profile_map=None) -> dict:
     """Состояние стороны партии.
 
     Пока партия идёт, чужие ответы не показываются: видно только, сколько
@@ -63,8 +64,9 @@ def _participant_payload(participant, *, reveal: bool) -> dict:
         "finished": participant.finished_at is not None,
     }
     if not participant.is_bot and participant.student_id is not None:
+        profile = (profile_map or {}).get(participant.student_id)
         payload["league_code"] = league_for_rating(
-            get_profile(participant.student).rating
+            profile.rating if profile else ArenaProfile.BASE_RATING
         )["code"]
     if reveal:
         payload.update({
@@ -101,13 +103,19 @@ def match_review(match: Match, participant) -> list[dict]:
 
 
 def match_payload(match: Match, student) -> dict:
-    me = participant_for(match, student)
-    other = opponent_of(match, student)
+    participants = list(
+        match.participants.select_related("student__user").prefetch_related("answers")
+    )
+    me = next((row for row in participants if row.student_id == student.pk), None)
+    other = next((row for row in participants if row.student_id != student.pk), None)
+    profile_map = profiles_by_student_id(
+        row.student for row in participants if row.student_id is not None
+    )
     reveal = match.is_finished
     question = next_question(match, me) if me and not match.is_finished else None
     table = [
-        {**_participant_payload(participant, reveal=True), "is_me": participant.student_id == student.pk}
-        for participant in rank(match)
+        {**_participant_payload(participant, reveal=True, profile_map=profile_map), "is_me": participant.student_id == student.pk}
+        for participant in rank(match, participants)
     ] if reveal else []
     return {
         "id": match.pk,
@@ -118,8 +126,8 @@ def match_payload(match: Match, student) -> dict:
         "bot_level": match.bot_level,
         "seconds_per_question": match.seconds_per_question,
         "questions_total": match.questions.count(),
-        "me": _participant_payload(me, reveal=True) if me else None,
-        "opponent": _participant_payload(other, reveal=reveal) if other else None,
+        "me": _participant_payload(me, reveal=True, profile_map=profile_map) if me else None,
+        "opponent": _participant_payload(other, reveal=reveal, profile_map=profile_map) if other else None,
         "results": table,
         "is_ranked": match.is_ranked,
         # Разбор появляется только после конца партии: до этого он был бы

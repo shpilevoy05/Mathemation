@@ -9,7 +9,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from apps.accounts.models import Invite, StudentGroup, StudentProfile
+from apps.accounts.models import Invite, ParentProfile, StudentGroup, StudentProfile
 from apps.billing.models import (
     AddOn,
     Payment,
@@ -35,6 +35,7 @@ from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicClust
 from apps.exams.models import ExamProfile, ExamTask
 from apps.planning.models import PlanChangeLog, StudyPlan, StudyPlanItem
 from apps.progress.models import ForecastObservation
+from apps.legal.models import DataDeletionRequest, Feedback
 
 
 class LessonSerializer(serializers.ModelSerializer):
@@ -157,6 +158,17 @@ class StudentSerializer(serializers.ModelSerializer):
         return wallet.balance if wallet else 0
 
 
+class ParentSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
+    email = serializers.EmailField(source="user.email", read_only=True)
+    is_active = serializers.BooleanField(source="user.is_active", read_only=True)
+
+    class Meta:
+        model = ParentProfile
+        fields = ["id", "username", "email", "is_active", "children"]
+        read_only_fields = fields
+
+
 class StudentGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentGroup
@@ -166,8 +178,34 @@ class StudentGroupSerializer(serializers.ModelSerializer):
 class InviteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invite
-        fields = ["id", "code", "role", "group", "expires_at", "used_by", "used_at"]
+        fields = [
+            "id", "code", "role", "group", "for_student", "expires_at",
+            "used_by", "used_at",
+        ]
         read_only_fields = ["code", "used_by", "used_at"]
+
+
+class DataDeletionRequestSerializer(serializers.ModelSerializer):
+    user = serializers.CharField(source="user.username", read_only=True)
+    processed_by = serializers.CharField(source="processed_by.username", read_only=True)
+
+    class Meta:
+        model = DataDeletionRequest
+        fields = [
+            "id", "user", "created_at", "status", "processed_by", "processed_at", "comment",
+        ]
+        read_only_fields = fields
+
+
+class FeedbackSerializer(serializers.ModelSerializer):
+    user = serializers.CharField(source="user.username", read_only=True)
+
+    class Meta:
+        model = Feedback
+        fields = [
+            "id", "user", "page_url", "message", "created_at", "status", "staff_comment",
+        ]
+        read_only_fields = ["id", "user", "page_url", "message", "created_at"]
 
 
 class ShopCategorySerializer(serializers.ModelSerializer):

@@ -23,8 +23,14 @@ class UserAdmin(DjangoUserAdmin):
     inlines = (StudentProfileInline, ParentProfileInline)
     list_display = (*DjangoUserAdmin.list_display, "role_display")
     list_filter = (*DjangoUserAdmin.list_filter, "role")
-    fieldsets = (*DjangoUserAdmin.fieldsets, ("Роль", {"fields": ("role",)}))
-    add_fieldsets = (*DjangoUserAdmin.add_fieldsets, ("Роль", {"fields": ("role",)}))
+    fieldsets = (
+        *DjangoUserAdmin.fieldsets,
+        ("Роль и доступ", {"fields": ("role", "must_change_password")}),
+    )
+    add_fieldsets = (
+        *DjangoUserAdmin.add_fieldsets,
+        ("Роль и доступ", {"fields": ("role", "must_change_password")}),
+    )
 
     @admin.display(description="Роль", ordering="role")
     def role_display(self, obj):

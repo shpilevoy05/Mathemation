@@ -250,7 +250,9 @@ def _node_hours(node) -> float:
 
 
 @transaction.atomic
-def reprioritize_plan(student) -> StudyPlan | None:
+def reprioritize_plan(
+    student, *, event_reason: str = "reprioritized", force_event: bool = False
+) -> StudyPlan | None:
     """Пересобрать очередь активного плана под текущее освоение.
 
     План строится один раз по событию, но ученик растёт каждый день: закрытая
@@ -294,7 +296,7 @@ def reprioritize_plan(student) -> StudyPlan | None:
         .order_by("order")
         .values_list("node_id", "item_type")
     )
-    if before != after:
+    if force_event or before != after:
         from apps.events.models import Event
         from apps.events.services import log_event
 
@@ -302,10 +304,29 @@ def reprioritize_plan(student) -> StudyPlan | None:
             Event.Type.PLAN_REBUILT,
             student=student,
             plan_id=plan.id,
-            reason="reprioritized",
+            reason=event_reason,
             is_major=False,
             items=len(after),
         )
+    return plan
+
+
+@transaction.atomic
+def rebuild_unfinished_plan(
+    student, *, reason: str, description: str, is_major: bool = False
+) -> StudyPlan | None:
+    """Пересобрать только незавершённую очередь и записать причину изменения."""
+    if get_active_plan(student) is None:
+        return None
+    plan = reprioritize_plan(
+        student, event_reason=reason, force_event=True
+    )
+    log_plan_change(
+        student,
+        reason=reason,
+        description=description,
+        is_major=is_major,
+    )
     return plan
 
 

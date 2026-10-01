@@ -13,10 +13,32 @@
 from __future__ import annotations
 
 from django.shortcuts import redirect
+from django.http import JsonResponse
 from django.urls import reverse
 
 from .two_factor import is_required_for
 from .two_factor_services import get_device, session_passed
+
+
+class PasswordChangeRequiredMiddleware:
+    """Не даёт работать с выданным сотрудником временным паролем."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated and user.must_change_password:
+            if request.path.startswith("/api/"):
+                return JsonResponse(
+                    {"detail": "Необходимо изменить временный пароль.",
+                     "code": "password_change_required"},
+                    status=403,
+                )
+            allowed = (reverse("account_password"), reverse("logout"), "/static/")
+            if not any(request.path.startswith(prefix) for prefix in allowed):
+                return redirect("account_password")
+        return self.get_response(request)
 
 
 class TwoFactorMiddleware:

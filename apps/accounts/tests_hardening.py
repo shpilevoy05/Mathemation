@@ -138,8 +138,10 @@ class InviteBruteForceTests(TestCase):
 
         url = reverse("register")
         payload = {
-            "code": "НЕВЕРНЫЙ", "username": "guest",
+            "code": "НЕВЕРНЫЙ", "username": "guest", "email": "guest@example.com",
             "password1": "korova-9-luna", "password2": "korova-9-luna",
+            "accept_terms": True, "accept_privacy": True,
+            "age_declaration": True, "parent_child_consent": True,
         }
         for index in range(invite_guard.max_attempts):
             self.client.post(url, {**payload, "username": f"guest{index}"})
@@ -153,8 +155,10 @@ class InviteBruteForceTests(TestCase):
         invite = create_invite(self.methodist, group=self.group)
 
         response = self.client.post(reverse("register"), {
-            "code": invite.code, "username": "novichok",
+            "code": invite.code, "username": "novichok", "email": "novichok@example.com",
             "password1": "korova-9-luna", "password2": "korova-9-luna",
+            "accept_terms": True, "accept_privacy": True,
+            "age_declaration": True, "parent_child_consent": True,
         })
 
         self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)

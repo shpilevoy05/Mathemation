@@ -32,6 +32,10 @@ class AiHintMessage(models.Model):
     is_blocked = models.BooleanField(default=False)
     failed_claims = models.JSONField(default=list, blank=True)
     unverified_claims = models.JSONField(default=list, blank=True)
+    prompt_tokens = models.PositiveIntegerField(default=0)
+    completion_tokens = models.PositiveIntegerField(default=0)
+    estimated_cost_rub = models.DecimalField(max_digits=12, decimal_places=6, default=0)
+    counts_toward_daily_limit = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

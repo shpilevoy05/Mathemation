@@ -26,6 +26,8 @@ AUDITED_ACTIONS = {
     "promotion.save", "payment_method.save", "addon.save",
     # Снятие второго фактора возвращает сотрудника к одному паролю.
     "two_factor.reset",
+    "account.temporary_password",
+    "data_deletion.complete", "feedback.update",
 }
 
 

@@ -21,8 +21,14 @@ router.register("homeworks", api.HomeworkViewSet, basename="panel-homework")
 router.register("homework-tasks", api.HomeworkTaskViewSet, basename="panel-homework-task")
 router.register("daily-challenges", api.DailyChallengeViewSet, basename="panel-daily")
 router.register("students", api.StudentViewSet, basename="panel-student")
+router.register("parents", api.ParentViewSet, basename="panel-parent")
 router.register("groups", api.StudentGroupViewSet, basename="panel-group")
 router.register("invites", api.InviteViewSet, basename="panel-invite")
+router.register(
+    "deletion-requests", api.DataDeletionRequestViewSet,
+    basename="panel-deletion-request",
+)
+router.register("feedback", api.FeedbackViewSet, basename="panel-feedback")
 router.register("shop-categories", api.ShopCategoryViewSet, basename="panel-shop-category")
 router.register("shop-items", api.ShopItemViewSet, basename="panel-shop-item")
 router.register("wallets", api.WalletViewSet, basename="panel-wallet")

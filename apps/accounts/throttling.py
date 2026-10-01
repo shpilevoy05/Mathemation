@@ -28,6 +28,8 @@ DEFAULTS = {
     # Код второго фактора — шесть цифр: попыток должно быть мало.
     "TWO_FACTOR_MAX_ATTEMPTS": 5,
     "TWO_FACTOR_BLOCK_SECONDS": 15 * 60,
+    "PASSWORD_RESET_MAX_ATTEMPTS": 5,
+    "PASSWORD_RESET_BLOCK_SECONDS": 60 * 60,
 }
 
 
@@ -85,4 +87,7 @@ login_guard = BruteForceGuard("login", "LOGIN_MAX_ATTEMPTS", "LOGIN_BLOCK_SECOND
 invite_guard = BruteForceGuard("invite", "INVITE_MAX_ATTEMPTS", "INVITE_BLOCK_SECONDS")
 two_factor_guard = BruteForceGuard(
     "two_factor", "TWO_FACTOR_MAX_ATTEMPTS", "TWO_FACTOR_BLOCK_SECONDS"
+)
+password_reset_guard = BruteForceGuard(
+    "password_reset", "PASSWORD_RESET_MAX_ATTEMPTS", "PASSWORD_RESET_BLOCK_SECONDS"
 )

@@ -8,6 +8,20 @@ from .evidence import apply_step_marks
 from .models import ExpertReviewRequest, SolutionStepMark
 
 
+def delete_student_solution_files(student) -> int:
+    """Удалить приватные файлы ученика, сохранив метаданные проверок."""
+    deleted = 0
+    for review in ExpertReviewRequest.objects.filter(student=student).only(
+        "id", "solution_file"
+    ):
+        if review.solution_file.name:
+            review.solution_file.delete(save=False)
+            review.solution_file = ""
+            review.save(update_fields=["solution_file"])
+            deleted += 1
+    return deleted
+
+
 def submit_solution(student, assignment, solution_file, attempt=None, mock_result=None):
     return ExpertReviewRequest.objects.create(
         student=student, assignment=assignment, solution_file=solution_file,

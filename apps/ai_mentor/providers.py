@@ -28,6 +28,16 @@ UNCERTAINTY_NOTE = (
 )
 
 
+class HintResult(str):
+    """Текст подсказки с необязательной статистикой провайдера."""
+
+    def __new__(cls, text: str, *, prompt_tokens: int = 0, completion_tokens: int = 0):
+        value = super().__new__(cls, text)
+        value.prompt_tokens = max(int(prompt_tokens or 0), 0)
+        value.completion_tokens = max(int(completion_tokens or 0), 0)
+        return value
+
+
 class HintProvider(ABC):
     @abstractmethod
     def generate_hint(
@@ -100,7 +110,12 @@ class LLMHintProvider(HintProvider):
             text = self._parse_response(response)
             if not text:
                 raise ValueError("empty LLM response")
-            return text
+            prompt_tokens, completion_tokens = self._parse_usage(response)
+            return HintResult(
+                text,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+            )
         except Exception as exc:
             logger.warning(
                 "AI mentor LLM request failed (%s)", type(exc).__name__
@@ -216,6 +231,19 @@ class LLMHintProvider(HintProvider):
         if settings.AI_MENTOR_LLM_FORMAT == "openai":
             return response["choices"][0]["message"]["content"].strip()
         return response["result"]["alternatives"][0]["message"]["text"].strip()
+
+    def _parse_usage(self, response: dict) -> tuple[int, int]:
+        if settings.AI_MENTOR_LLM_FORMAT == "openai":
+            usage = response.get("usage") or {}
+            return (
+                usage.get("prompt_tokens", usage.get("input_tokens", 0)),
+                usage.get("completion_tokens", usage.get("output_tokens", 0)),
+            )
+        usage = (response.get("result") or {}).get("usage") or {}
+        return (
+            usage.get("inputTextTokens", usage.get("input_tokens", 0)),
+            usage.get("completionTokens", usage.get("output_tokens", 0)),
+        )
 
 
 def get_provider() -> HintProvider:
