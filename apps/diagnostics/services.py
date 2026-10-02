@@ -1,4 +1,5 @@
 """Diagnostic completion → mastery map seed → study plan."""
+from django.db import transaction
 from django.utils import timezone
 
 from apps.knowledge.models import KnowledgeNode
@@ -7,6 +8,21 @@ from apps.planning.services import assign_trajectory, build_study_plan
 from apps.progress.services import create_snapshot, predict_score
 
 from .models import DiagnosticResult, DiagnosticTest
+
+
+@transaction.atomic
+def save_diagnostic_test(test: DiagnosticTest, *, title, is_active, add_assignments=()):
+    test.title = title
+    test.is_active = is_active
+    test.full_clean()
+    test.save()
+    if add_assignments:
+        test.assignments.add(*add_assignments)
+    return test
+
+
+def remove_diagnostic_assignment(test: DiagnosticTest, assignment) -> None:
+    test.assignments.remove(assignment)
 
 
 def start_diagnostic(student, test: DiagnosticTest) -> DiagnosticResult:

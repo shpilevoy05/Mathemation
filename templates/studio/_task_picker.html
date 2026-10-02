@@ -1,0 +1,21 @@
+{% if picker_standalone %}
+<div class="studio-page">
+  <header class="page-heading"><div><h1>Выбор задачи</h1></div></header>
+  <form class="studio-filters" method="get">
+    <input type="hidden" name="mode" value="{{ picker_mode }}">
+    {% include "studio/_field.html" with field=picker_filter_form.q %}
+    {% include "studio/_field.html" with field=picker_filter_form.node %}
+    {% include "studio/_field.html" with field=picker_filter_form.ege %}
+    {% include "studio/_field.html" with field=picker_filter_form.part %}
+    <button class="button" type="submit">Показать</button>
+  </form>
+{% endif %}
+<div class="formset">
+  {% if picker_field %}
+    {% for choice in picker_field %}<div class="formset-row">{{ choice.tag }} <label for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label></div>{% empty %}<p class="empty-copy">Задачи не найдены.</p>{% endfor %}
+    {% for error in picker_field.errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+  {% else %}
+    {% for assignment in picker_assignments %}<div class="formset-row"><label><input type="{% if picker_mode == 'single' %}radio{% else %}checkbox{% endif %}" name="selected" value="{{ assignment.pk }}"> {{ assignment.title }} · часть {{ assignment.exam_part }} · сложность {{ assignment.difficulty }}</label></div>{% empty %}<p class="empty-copy">Задачи не найдены.</p>{% endfor %}
+  {% endif %}
+</div>
+{% if picker_standalone %}</div>{% endif %}

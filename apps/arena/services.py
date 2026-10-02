@@ -98,9 +98,10 @@ def decline_friend_request(link: Friendship, student) -> Friendship:
 
 def question_pool(ege_task_number: int | None = None):
     """Задачи для партии: короткий ответ, который платформа умеет проверить."""
-    pool = Assignment.objects.filter(exam_part=Assignment.Part.PART1).exclude(
-        correct_answer=""
-    )
+    pool = Assignment.objects.filter(
+        exam_part=Assignment.Part.PART1,
+        arena_enabled=True,
+    ).exclude(correct_answer="")
     if ege_task_number:
         # Номера лежат списком в JSON, а `contains` по JSON есть не во всех
         # базах (в SQLite нет). Отбираем узлы в Python: их сотни, не миллионы.

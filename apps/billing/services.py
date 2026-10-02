@@ -43,6 +43,90 @@ def new_tariff_version(tariff: Tariff, *, price_rub, **changes) -> Tariff:
     return updated
 
 
+def update_tariff_details(tariff: Tariff, *, title, description, features, is_active) -> Tariff:
+    """Изменить описание продажи, не затрагивая цену и номер версии."""
+    tariff.title = title
+    tariff.description = description
+    tariff.features = features
+    tariff.is_active = is_active
+    tariff.full_clean(exclude=["price_rub"])
+    tariff.save(update_fields=[
+        "title", "description", "features", "is_active"
+    ])
+    return tariff
+
+
+def update_addon(addon: AddOn, *, title, description, price_rub, quantity,
+                 unit_label, is_active) -> AddOn:
+    """Докупки разовые и не версионируются: модель разрешает правку на месте."""
+    addon.title = title
+    addon.description = description
+    addon.price_rub = price_rub
+    addon.quantity = quantity
+    addon.unit_label = unit_label
+    addon.is_active = is_active
+    addon.full_clean()
+    addon.save(update_fields=[
+        "title", "description", "price_rub", "quantity", "unit_label", "is_active"
+    ])
+    return addon
+
+
+def promotion_status(promotion: Promotion, now=None) -> str:
+    """Стабильный статус акции для бэкофиса."""
+    now = now or timezone.now()
+    if not promotion.is_active:
+        return "disabled"
+    if promotion.max_uses and promotion.used_count >= promotion.max_uses:
+        return "exhausted"
+    if promotion.starts_at and promotion.starts_at > now:
+        return "scheduled"
+    if promotion.ends_at and promotion.ends_at <= now:
+        return "ended"
+    return "live"
+
+
+def save_promotion(promotion: Promotion | None = None, **changes) -> Promotion:
+    """Нормализовать и проверить акцию до записи."""
+    promotion = promotion or Promotion()
+    code = (changes.get("code") or "").strip().upper()
+    kind = changes["kind"]
+    value = Decimal(str(changes["value"]))
+    starts_at = changes.get("starts_at")
+    ends_at = changes.get("ends_at")
+    is_active = bool(changes.get("is_active"))
+    errors = {}
+    if value <= 0:
+        errors["value"] = "Скидка должна быть больше нуля."
+    elif kind == Promotion.Kind.PERCENT and value > 100:
+        errors["value"] = "Процентная скидка должна быть от 1 до 100."
+    if starts_at and ends_at and ends_at <= starts_at:
+        errors["ends_at"] = "Дата окончания должна быть позже даты начала."
+    duplicate = Promotion.objects.filter(code__iexact=code, is_active=True)
+    if promotion.pk:
+        duplicate = duplicate.exclude(pk=promotion.pk)
+    if is_active and code and duplicate.exists():
+        errors["code"] = "Активная акция с таким промокодом уже существует."
+    if errors:
+        raise ValidationError(errors)
+    for name, value_to_set in changes.items():
+        setattr(promotion, name, value_to_set)
+    promotion.code = code
+    promotion.full_clean(validate_unique=False, validate_constraints=False)
+    promotion.save()
+    return promotion
+
+
+def promotion_preview(promotion: Promotion, tariff: Tariff) -> dict:
+    """Показать цену по конкретной акции, не выбирая другие акции витрины."""
+    discount = promotion.discount_for(tariff.price_rub) if promotion.applies_to(tariff) else Decimal("0")
+    return {
+        "tariff": tariff,
+        "base_rub": tariff.price_rub,
+        "total_rub": (tariff.price_rub - discount).quantize(Decimal("0.01")),
+    }
+
+
 def active_payment_methods():
     """Способы оплаты для витрины, в порядке, заданном администратором."""
     return list(PaymentMethod.objects.filter(is_active=True))

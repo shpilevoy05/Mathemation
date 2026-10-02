@@ -1,4 +1,5 @@
 """Mock exam completion: score, snapshot, calibration, plan adaptation."""
+from django.db import transaction
 from django.utils import timezone
 
 from apps.content.models import Assignment
@@ -13,6 +14,23 @@ from apps.progress.services import (
 )
 
 from .models import MockExam, MockExamResult
+
+
+@transaction.atomic
+def save_mock_exam(exam: MockExam, *, title, is_active, duration_minutes,
+                   add_assignments=()):
+    exam.title = title
+    exam.is_active = is_active
+    exam.duration_minutes = duration_minutes
+    exam.full_clean()
+    exam.save()
+    if add_assignments:
+        exam.assignments.add(*add_assignments)
+    return exam
+
+
+def remove_mock_assignment(exam: MockExam, assignment) -> None:
+    exam.assignments.remove(assignment)
 
 # Predicted-vs-mock gap (scaled points) that triggers a plan adjustment.
 POOR_MOCK_GAP = 10

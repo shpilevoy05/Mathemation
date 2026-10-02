@@ -1266,4 +1266,51 @@
   document.addEventListener("input", event => {
     if (event.target.matches?.("input[type=range]")) paintRange(event.target);
   });
+
+  // Небольшие серверные formset-формы Studio: Django по-прежнему валидирует
+  // и сохраняет строки, JavaScript лишь добавляет и помечает их на удаление.
+  document.querySelectorAll("form[data-formset]").forEach(form => {
+    const prefix = form.dataset.formset;
+    const total = form.querySelector(`#id_${prefix}-TOTAL_FORMS`);
+    const rows = form.querySelector("[data-formset-rows]");
+    const template = form.querySelector("[data-formset-template]");
+    const add = form.querySelector("[data-formset-add]");
+    if (!total || !rows || !template || !add) return;
+    add.addEventListener("click", () => {
+      const index = Number(total.value);
+      const fragment = template.content.cloneNode(true);
+      fragment.querySelectorAll("*").forEach(element => {
+        [...element.attributes].forEach(attribute => {
+          if (attribute.value.includes("__prefix__")) {
+            element.setAttribute(attribute.name, attribute.value.replaceAll("__prefix__", index));
+          }
+        });
+      });
+      rows.append(fragment);
+      total.value = String(index + 1);
+    });
+    form.addEventListener("click", event => {
+      const remove = event.target.closest("[data-formset-remove]");
+      if (!remove) return;
+      const row = remove.closest("[data-formset-row]");
+      const deletion = row?.querySelector('input[name$="-DELETE"]');
+      const objectId = row?.querySelector('input[name$="-id"]');
+      if (objectId?.value && deletion) {
+        deletion.value = "on";
+        row.hidden = true;
+      } else {
+        row?.remove();
+      }
+    });
+  });
+
+  const answerType = document.querySelector("[data-answer-type]");
+  const answerSpecField = document.querySelector("[data-answer-spec-field]");
+  if (answerType && answerSpecField) {
+    const updateAnswerSpec = () => {
+      answerSpecField.hidden = !["root_set", "root_families"].includes(answerType.value);
+    };
+    answerType.addEventListener("change", updateAnswerSpec);
+    updateAnswerSpec();
+  }
 })();

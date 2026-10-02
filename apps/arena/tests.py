@@ -29,6 +29,7 @@ from .services import (
     send_friend_request,
     submit_answer,
     winner_of,
+    question_pool,
 )
 
 
@@ -44,6 +45,18 @@ def make_pool(count: int = 12, ege_number: int | None = None):
         assignment.skill_tags.create(node=node, weight=1.0)
         made.append(assignment)
     return made
+
+
+class ArenaQuestionPoolTests(TestCase):
+    def test_disabled_assignment_is_excluded(self):
+        enabled, disabled = make_pool(2)
+        disabled.arena_enabled = False
+        disabled.save(update_fields=["arena_enabled"])
+
+        pool_ids = set(question_pool().values_list("pk", flat=True))
+
+        self.assertIn(enabled.pk, pool_ids)
+        self.assertNotIn(disabled.pk, pool_ids)
 
 
 class ArenaProfileBatchTests(TestCase):

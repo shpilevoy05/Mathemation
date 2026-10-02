@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ tariff.title }} · Матемация{% endblock %}
+{% block content %}
+<div class="studio-page"><header class="page-heading"><div><p>Цены и акции</p><h1>{{ tariff.title }}</h1><p>Текущая цена: {{ tariff.price_rub }} ₽ · версия {{ tariff.version }}</p></div><div class="studio-actions"><a class="button" href="{% url 'studio_pricing' %}">К списку</a><a class="button button-primary" href="{% url 'studio_tariff_price' tariff.pk %}">Изменить цену</a></div></header>
+  <form class="studio-form" method="post" data-formset="features">{% csrf_token %}
+    {% for error in form.non_field_errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    <section class="form-section"><h2>Описание</h2><p class="field-hint">Период: {{ tariff.period_days }} дней. Цена и период этой версии здесь не меняются.</p><div class="form-grid">{% include "studio/_field.html" with field=form.title %}{% include "studio/_field.html" with field=form.description wide=True %}{% include "studio/_field.html" with field=form.is_active %}</div></section>
+    <section class="form-section"><h2>Возможности тарифа</h2>{{ feature_formset.management_form }}{% for error in feature_formset.non_form_errors %}<p class="form-error">{{ error }}</p>{% endfor %}<div class="formset" data-formset-rows>{% for feature_form in feature_formset %}<div class="formset-row" data-formset-row><div class="form-grid">{% for hidden in feature_form.hidden_fields %}{{ hidden }}{% endfor %}{% include "studio/_field.html" with field=feature_form.key %}{% include "studio/_field.html" with field=feature_form.value %}{{ feature_form.DELETE.as_hidden }}<button class="button button-small" type="button" data-formset-remove>Убрать</button></div></div>{% endfor %}</div>
+      <template data-formset-template><div class="formset-row" data-formset-row><div class="form-grid">{% with feature_form=feature_formset.empty_form %}{% include "studio/_field.html" with field=feature_form.key %}{% include "studio/_field.html" with field=feature_form.value %}{{ feature_form.DELETE.as_hidden }}<button class="button button-small" type="button" data-formset-remove>Убрать</button>{% endwith %}</div></div></template><button class="button button-small" type="button" data-formset-add>Добавить возможность</button>
+    </section><div class="studio-actions"><button class="button button-primary" type="submit">Сохранить</button></div>
+  </form>
+</div>
+{% endblock %}

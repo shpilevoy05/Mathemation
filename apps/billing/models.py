@@ -145,7 +145,9 @@ class Promotion(models.Model):
         ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(
-                fields=["code"], condition=~models.Q(code=""), name="uniq_promotion_code"
+                fields=["code"],
+                condition=models.Q(is_active=True) & ~models.Q(code=""),
+                name="uniq_promotion_code",
             ),
             models.CheckConstraint(
                 condition=models.Q(value__gt=Decimal("0")), name="promotion_value_positive"
@@ -155,6 +157,10 @@ class Promotion(models.Model):
     def __str__(self):
         suffix = f" ({self.code})" if self.code else ""
         return f"{self.title}{suffix}"
+
+    def save(self, *args, **kwargs):
+        self.code = (self.code or "").strip().upper()
+        return super().save(*args, **kwargs)
 
     def is_running(self, now=None) -> bool:
         now = now or timezone.now()

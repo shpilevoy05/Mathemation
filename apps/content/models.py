@@ -104,6 +104,10 @@ class Assignment(models.Model):
     exam_part = models.PositiveSmallIntegerField(choices=Part.choices, default=Part.PART1)
     difficulty = models.PositiveSmallIntegerField(default=1)  # 1..5
     max_score = models.PositiveSmallIntegerField(default=1)
+    arena_enabled = models.BooleanField(
+        default=True,
+        verbose_name="Использовать в арене",
+    )
     skills = models.ManyToManyField(
         "knowledge.KnowledgeNode", through="AssignmentSkillTag", related_name="assignments"
     )

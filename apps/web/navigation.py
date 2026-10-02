@@ -112,6 +112,32 @@ def _staff_groups(user) -> list[NavGroup]:
     if is_methodist(user):
         groups.append(NavGroup("Контент", "i-book", [
             NavItem("Обзор", reverse("methodist_dashboard"), "i-book", ("methodist_dashboard",)),
+            NavItem(
+                "Уроки", reverse("studio_lessons"), "i-book",
+                ("studio_lessons", "studio_lesson_new", "studio_lesson_edit"),
+            ),
+            NavItem(
+                "Задачи", reverse("studio_tasks"), "i-doc",
+                ("studio_tasks", "studio_task_new", "studio_task_edit", "studio_task_picker"),
+            ),
+            NavItem(
+                "Граф знаний", reverse("studio_graph"), "i-map",
+                ("studio_graph", "studio_node_new", "studio_node_edit"),
+            ),
+            NavItem(
+                "Задания дня", reverse("studio_daily"), "i-star",
+                ("studio_daily", "studio_daily_edit"),
+            ),
+            NavItem(
+                "Диагностики и пробники", reverse("studio_tests"), "i-target",
+                ("studio_tests", "studio_diagnostic_new", "studio_diagnostic_edit",
+                 "studio_mock_new", "studio_mock_edit"),
+            ),
+            NavItem(
+                "Цены и акции", reverse("studio_pricing"), "i-ruble",
+                ("studio_pricing", "studio_tariff_edit", "studio_tariff_price",
+                 "studio_addon_edit", "studio_promotion_new", "studio_promotion_edit"),
+            ),
             NavItem("Панель", reverse("admin-panel"), "i-map", ("admin-panel",)),
             NavItem("Django-админка", reverse("admin:index"), "i-target", ()),
         ]))

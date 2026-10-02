@@ -17,7 +17,10 @@ logger = logging.getLogger("matemacia.security")
 # контента. Обычная правка описания в журнал не идёт — он должен читаться.
 AUDITED_ACTIONS = {
     "lesson.publish", "lesson.unpublish",
-    "assignment.new_version",
+    "lesson.save", "assignment.save", "assignment.new_version",
+    "knowledge_node.save", "knowledge_dependency.add", "knowledge_dependency.delete",
+    "daily_challenge.save", "daily_challenge.delete",
+    "tariff.details", "addon.save", "diagnostic.save", "mock.save",
     "homework.assign",
     "student.deactivate", "student.reactivate", "student.grant_coins",
     "tariff.new_version",

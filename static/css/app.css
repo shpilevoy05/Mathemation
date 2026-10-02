@@ -467,6 +467,73 @@ label:has(> input[type=checkbox]), label:has(> input[type=radio]) { display: fle
 .legal-links { margin: 14px 0 0; color: var(--muted); font-size: .8rem; text-align: center; }
 .legal-links a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
 .legal-links a:hover { color: var(--primary-dark); }
+
+/* ===== Рабочее место методиста =====
+   Одна система на все разделы: фильтры строкой, таблица в карточке, форма —
+   стопка секций-карточек с сеткой полей. Плотнее кабинета ученика: методист
+   работает со списками, а не читает. */
+.studio-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.studio-page > *, .studio-form > *, .form-section { min-width: 0; }
+.studio-page > .page-heading { margin-bottom: 0; }
+.studio-page > .page-heading > div > p:first-child { margin: 0 0 2px; color: var(--muted); font-size: .76rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.studio-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.studio-page > .page-heading .studio-actions { flex: 0 0 auto; }
+.studio-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+/* Подпись остаётся для экранного диктора, место занимает подсказка в поле. */
+.studio-filters > label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.studio-filters > input, .studio-filters > select { flex: 1 1 180px; width: auto; min-width: 0; max-width: 100%; min-height: 40px; }
+.studio-filters > input:first-of-type { flex: 2 1 240px; }
+.studio-filters .field { flex: 1 1 170px; gap: 4px; }
+.studio-filters .field:first-of-type { flex: 2 1 240px; }
+.studio-filters .field input, .studio-filters .field select { min-height: 40px; }
+.studio-filters .button { min-height: 40px; }
+.studio-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.studio-table-wrap .data-table { min-width: 640px; margin: 0; }
+.studio-table-wrap .data-table th { position: sticky; top: 0; background: var(--card); }
+.studio-table-wrap .data-table td, .studio-table-wrap .data-table th { padding: 11px 14px; }
+.studio-table-wrap .data-table tbody tr:hover td { background: color-mix(in srgb, var(--primary) 4%, transparent); }
+.studio-table-wrap .data-table td a:not(.button) { font-weight: 600; }
+.studio-table-wrap .data-table td:last-child { text-align: right; white-space: nowrap; }
+.studio-table-wrap .data-table .group-row th { padding-top: 16px; color: var(--ink-2); font-size: .82rem; letter-spacing: 0; text-transform: none; background: var(--gray-soft); }
+.chip-draft { color: var(--muted); background: var(--gray-soft); }
+.chip-live { color: var(--success); background: var(--success-soft); }
+.chip-warn { color: var(--warm-ink); background: var(--warm-tint); }
+.studio-form { display: grid; gap: 18px; }
+.form-section { padding: 22px 24px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); }
+.form-section > h2 { margin: 0 0 16px; font-size: 1.05rem; }
+.form-section > h3 { margin: 18px 0 8px; font-size: .92rem; color: var(--ink-2); }
+.form-section > .studio-table-wrap { border-radius: var(--radius-sm); box-shadow: none; }
+.form-section > .studio-actions { margin-top: 16px; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+.field { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.field-wide { grid-column: 1 / -1; }
+.field > label { color: var(--muted); font-size: .8rem; font-weight: 700; }
+.field textarea { min-height: 120px; line-height: 1.5; }
+.field-hint { margin: 0; color: var(--muted); font-size: .78rem; line-height: 1.4; }
+.field .form-error { margin: 0; }
+.field-check { align-self: end; min-height: 43px; align-items: center; }
+.formset { display: grid; gap: 10px; margin-bottom: 12px; }
+.formset-row { position: relative; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--gray-soft); }
+.formset-row > .form-grid { align-items: end; }
+.formset-row [data-formset-remove] { justify-self: start; }
+.formset-row.is-removed { display: none; }
+/* Строка «тема + вес» короткая — в одну линию с кнопкой удаления. */
+[data-formset="skills"] .formset-row > .form-grid { grid-template-columns: minmax(0, 1fr) 120px auto; }
+.studio-form > .studio-actions { position: sticky; bottom: 0; z-index: 5; padding: 12px 0; background: linear-gradient(transparent, var(--bg) 35%); }
+.pager { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pager .is-current, .pager [aria-current] { color: #fff; background: var(--primary); border-color: transparent; }
+/* Выбор задачи: список карточек-строк с радио или галочкой. */
+.form-section .formset > .formset-row:has(input[type=radio]), .form-section .formset > .formset-row:has(input[type=checkbox]) { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; background: var(--card); cursor: pointer; }
+/* Список выбора задач — окно с прокруткой: банк задач длиннее экрана. */
+.form-section .formset:has(> .formset-row > input), .form-section .formset:has(> .formset-row > label > input) { max-height: 440px; overflow-y: auto; padding: 2px; }
+.data-table .button-danger.button-small { color: var(--danger); background: var(--card); border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--line)); box-shadow: none; }
+.data-table .button-danger.button-small:hover { color: #fff; background: var(--danger); }
+.price-cell { white-space: nowrap; font-family: var(--data); font-variant-numeric: tabular-nums; }
+.formset-row:has(input:checked) { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 6%, var(--card)); }
+.formset-row > label { flex: 1; cursor: pointer; }
+.studio-page .calendar-entry a { color: inherit; font-weight: 600; }
+.studio-page .calendar-entry a[href]:only-child { display: block; }
+details > summary { color: var(--primary-dark); }
 select {
   width: 100%; min-height: 43px; padding: 9px 40px 9px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
   color: var(--ink); background-color: var(--card); cursor: pointer; appearance: none; -webkit-appearance: none;
@@ -1316,6 +1383,9 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
   .account-menu { margin-left: auto; }
   .account-menu > span:not(.streak-chip) { max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
   .rail-access, .account-name, .rail-feedback { display: none; }
+  .form-grid, [data-formset="skills"] .formset-row > .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .form-section { padding: 18px 16px; }
+  .studio-page > .page-heading { align-items: stretch; flex-direction: column; }
   /* Календарь на телефоне: семь колонок по ~45px не вмещают названия тем,
      поэтому запись дня становится цветной меткой, а сетка не выходит за экран. */
   .section-heading:has(.month-nav) { flex-wrap: wrap; }

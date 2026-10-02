@@ -154,6 +154,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/admin/", include(panel_api_urls)),
     path("panel/", include(panel_page_urls)),
+    path("studio/", include("apps.studio.urls")),
     path("api/", include(api_urls)),
     path("api/feedback/", FeedbackView.as_view(), name="feedback_create"),
     path("api-auth/", include("rest_framework.urls")),

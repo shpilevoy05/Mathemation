@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Задания дня · Матемация{% endblock %}
+{% block content %}
+<div class="studio-page">
+  <header class="page-heading"><div><p>Рабочее место методиста</p><h1>Задания дня</h1><p>{{ first|date:"F Y"|capfirst }}</p></div>
+    <div class="studio-actions"><a class="button button-small" href="?year={{ previous.year }}&amp;month={{ previous.month }}">← Раньше</a><a class="button button-small" href="{% url 'studio_daily' %}">Сегодня</a><a class="button button-small" href="?year={{ next_month.year }}&amp;month={{ next_month.month }}">Позже →</a></div>
+  </header>
+  <div class="calendar">
+    {% for label in weekday_labels %}<div class="calendar-weekday">{{ label }}</div>{% endfor %}
+    {% for week in weeks %}{% for day in week %}<div class="calendar-day">
+      {% if day.in_month %}<span class="calendar-date">{{ day.date.day }}</span>
+        {% if day.challenge %}<div class="calendar-entry"><a href="{% url 'studio_daily_edit' day.date|date:'Y-m-d' %}">{{ day.challenge.title|default:day.challenge.assignment.title }}</a></div>
+        {% elif not day.is_past %}<div class="calendar-entry"><a href="{% url 'studio_daily_edit' day.date|date:'Y-m-d' %}">+ Назначить</a></div>{% endif %}
+      {% endif %}
+    </div>{% endfor %}{% endfor %}
+  </div>
+</div>
+{% endblock %}

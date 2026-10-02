@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils import timezone
 
 from apps.practice.models import Attempt
@@ -175,6 +176,38 @@ def challenge_for(date=None) -> DailyChallenge | None:
     return DailyChallenge.objects.filter(
         date=date or timezone.localdate(), is_active=True
     ).first()
+
+
+@transaction.atomic
+def save_daily_challenge(*, date, assignment, title="", description="", reward_xp=20,
+                         is_active=True, created_by=None, instance=None) -> DailyChallenge:
+    """Создать или изменить задание дня, не переписывая прошлые даты."""
+    if date < timezone.localdate():
+        raise ValidationError("Прошедшее задание дня нельзя изменять.")
+    duplicate = DailyChallenge.objects.filter(date=date)
+    if instance is not None and instance.pk:
+        duplicate = duplicate.exclude(pk=instance.pk)
+    if duplicate.exists():
+        raise ValidationError({"date": "На эту дату задание дня уже назначено."})
+    challenge = instance or DailyChallenge(date=date, created_by=created_by)
+    challenge.date = date
+    challenge.assignment = assignment
+    challenge.title = title
+    challenge.description = description
+    challenge.reward_xp = reward_xp
+    challenge.is_active = is_active
+    if challenge.created_by_id is None:
+        challenge.created_by = created_by
+    challenge.full_clean()
+    challenge.save()
+    return challenge
+
+
+def delete_daily_challenge(challenge: DailyChallenge) -> None:
+    """Удалять можно только будущие назначения; сегодня уже могло быть показано."""
+    if challenge.date <= timezone.localdate():
+        raise ValidationError("Удалить можно только будущее задание дня.")
+    challenge.delete()
 
 
 def challenge_state(student, date=None) -> dict:

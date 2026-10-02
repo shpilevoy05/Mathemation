@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}Новая цена · {{ tariff.title }} · Матемация{% endblock %}
+{% block content %}<div class="studio-page"><header class="page-heading"><div><p>Тариф {{ tariff.title }}</p><h1>Изменить цену</h1></div><div class="studio-actions"><a class="button" href="{% url 'studio_tariff_edit' tariff.pk %}">Назад</a></div></header>
+  <form class="studio-form" method="post">{% csrf_token %}<section class="form-section"><h2>Новая версия тарифа</h2><p class="field-hint">Будет создана новая версия. Текущая версия уйдёт в архив, а действующие подписки останутся привязаны к прежней цене {{ tariff.price_rub }} ₽.</p><div class="form-grid">{% include "studio/_field.html" with field=form.price_rub %}</div><div class="studio-actions"><button class="button button-primary" type="submit">Создать новую версию</button></div></section></form>
+</div>{% endblock %}

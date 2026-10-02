@@ -74,6 +74,25 @@ class NavigationTests(TestCase):
         self.assertEqual(item.url, reverse("account_settings"))
         self.assertTrue(item.is_active("account_password"))
 
+    def test_methodist_content_navigation_contains_studio_before_admin_tools(self):
+        methodist = User.objects.create_user(
+            "nav-studio-methodist", role=User.Role.METHODIST
+        )
+        content = self.groups(methodist)["Контент"]
+
+        self.assertEqual(
+            [item.label for item in content.items],
+            [
+                "Обзор", "Уроки", "Задачи", "Граф знаний", "Задания дня",
+                "Диагностики и пробники", "Цены и акции", "Панель", "Django-админка",
+            ],
+        )
+        self.assertTrue(
+            next(item for item in content.items if item.label == "Уроки").is_active(
+                "studio_lesson_edit"
+            )
+        )
+
     def test_anonymous_has_no_navigation(self):
         from django.contrib.auth.models import AnonymousUser
 
