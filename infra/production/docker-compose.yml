@@ -29,6 +29,12 @@ services:
     <<: *app
     command: ["/app/infra/production/entrypoint.sh", "release"]
     restart: "no"
+    healthcheck:
+      disable: true
+    volumes:
+      - private-media:/app/private-media
+      - media:/app/media
+      - static:/app/staticfiles
 
   web:
     <<: *app
@@ -42,10 +48,14 @@ services:
   worker:
     <<: *app
     command: ["/app/infra/production/entrypoint.sh", "worker"]
+    healthcheck:
+      disable: true
 
   beat:
     <<: *app
     command: ["/app/infra/production/entrypoint.sh", "beat"]
+    healthcheck:
+      disable: true
 
   nginx:
     image: nginx:1.27-alpine

@@ -88,6 +88,9 @@ def _lock_entries(lock: dict) -> list[dict]:
 
 
 def main(argv: list[str]) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     skip_install = "--skip-install-checks" in argv
     report = Report()
     lock = skilllib.load_lock()

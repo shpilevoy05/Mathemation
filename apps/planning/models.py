@@ -34,6 +34,9 @@ class StudyPlan(models.Model):
         related_name="study_plans",
     )
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
+    # Темы, которые не помещаются до экзамена при текущей нагрузке. План их не
+    # планирует: расписание должно быть выполнимым, а не бодрым.
+    unplanned_nodes = models.PositiveSmallIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
 

@@ -36,9 +36,13 @@ class ForecastTests(TestCase):
         set_mastery(self.student, self.n1, 100)
         set_mastery(self.student, self.n2, 0)
         predicted, avg = predict_score(self.student)
-        # 50% mastery → 16 первичных → тестовый балл по таблице ФИПИ.
+        # Половина освоения — половина ожидаемых первичных, дальше таблица
+        # перевода. Само число первичных зависит от структуры экзамена, поэтому
+        # берём его из того же расчёта, а не прописываем цифрой.
+        from apps.progress.services import calibrated_primary
+
         self.assertEqual(avg, 50)
-        self.assertEqual(predicted, primary_to_scaled(16))
+        self.assertEqual(predicted, primary_to_scaled(calibrated_primary(self.student)))
 
     def test_snapshot_contains_weak_topics(self):
         set_mastery(self.student, self.n1, 90)
@@ -401,3 +405,139 @@ class NodeHoursTests(TestCase):
             if previous is not None:
                 self.assertGreaterEqual(count, previous)
             previous = count
+
+
+class ForecastLeverTests(TestCase):
+    """Рычаги: показать предел честно и дать применить сценарий."""
+
+    def setUp(self):
+        from apps.knowledge.tests import make_node, make_student, set_mastery
+
+        self.student = make_student(target_score=80)
+        self.node = make_node("lever-node")
+        set_mastery(self.student, self.node, 20)
+        self.client.force_login(self.student.user)
+
+    def test_forecast_says_what_limits_the_ceiling(self):
+        data = self.client.get("/api/forecast/?weekly_hours=24").json()
+
+        # «scope» — времени хватает на весь материал, «time» — не хватает.
+        self.assertIn(data["limited_by"], ("scope", "time"))
+        self.assertIn("unreachable_count", data)
+
+    def test_scale_follows_the_levers(self):
+        slow = self.client.get("/api/forecast/?weekly_hours=1").json()
+        fast = self.client.get("/api/forecast/?weekly_hours=24").json()
+
+        # Шкала считается по выбранному сценарию: иначе плитка двигается,
+        # а линейка под ней остаётся прежней.
+        self.assertGreaterEqual(
+            fast["gauge"]["ceiling_primary"], slow["gauge"]["ceiling_primary"]
+        )
+
+    def test_applying_the_scenario_saves_it(self):
+        from datetime import date, timedelta
+
+        exam = date.today() + timedelta(days=200)
+
+        response = self.client.post(
+            "/api/forecast/apply/",
+            {"weekly_hours": 12, "exam_date": exam.isoformat()},
+            content_type="application/json",
+        )
+
+        self.student.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.student.weekly_hours, 12)
+        self.assertEqual(self.student.exam_date, exam)
+
+    def test_applying_rebuilds_the_plan(self):
+        from apps.planning.services import get_active_plan
+
+        response = self.client.post(
+            "/api/forecast/apply/", {"weekly_hours": 9},
+            content_type="application/json",
+        )
+
+        # Расписание строится по плану: без пересборки оно осталось бы старым.
+        self.assertEqual(response.json()["plan_items"], response.json()["plan_items"])
+        self.assertIsNotNone(get_active_plan(self.student))
+
+    def test_levers_alone_change_nothing(self):
+        before = self.student.weekly_hours
+
+        self.client.get("/api/forecast/?weekly_hours=24")
+
+        self.student.refresh_from_db()
+        # Рычаги — это «а что если»: без применения они ничего не сохраняют.
+        self.assertEqual(self.student.weekly_hours, before)
+
+    def test_bad_load_is_refused(self):
+        response = self.client.post(
+            "/api/forecast/apply/", {"weekly_hours": 0},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+
+class RecommendedLoadTests(TestCase):
+    """Совет по нагрузке: сколько часов нужно, чтобы успеть весь план."""
+
+    def setUp(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.knowledge.tests import make_node, make_student, set_mastery
+
+        self.student = make_student(target_score=80)
+        self.student.weekly_hours = 2
+        self.student.exam_date = timezone.localdate() + timedelta(days=28)
+        self.student.save(update_fields=["weekly_hours", "exam_date"])
+        cluster = None
+        for index in range(8):
+            node = make_node(f"load-{index}", cluster=cluster, hours_estimate=4)
+            cluster = node.cluster
+            set_mastery(self.student, node, 10)
+        self.client.force_login(self.student.user)
+
+    def test_advice_counts_the_whole_plan(self):
+        from apps.planning.services import recommended_weekly_hours
+
+        # Восемь тем по четыре часа за четыре недели — восемь часов в неделю.
+        self.assertEqual(recommended_weekly_hours(self.student), 8)
+
+    def test_advice_follows_the_exam_date(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.planning.services import recommended_weekly_hours
+
+        later = timezone.localdate() + timedelta(days=112)
+
+        self.assertLess(
+            recommended_weekly_hours(self.student, later),
+            recommended_weekly_hours(self.student),
+        )
+
+    def test_without_an_exam_date_there_is_no_advice(self):
+        from apps.planning.services import recommended_weekly_hours
+
+        self.student.exam_date = None
+        self.student.save(update_fields=["exam_date"])
+
+        # Успевать не к чему — и советовать нечего.
+        self.assertIsNone(recommended_weekly_hours(self.student))
+
+    def test_forecast_carries_the_advice(self):
+        data = self.client.get("/api/forecast/?weekly_hours=2").json()
+
+        self.assertEqual(data["recommended_hours"], 8)
+
+    def test_page_marks_the_advice_on_the_slider(self):
+        body = self.client.get("/forecast/").content.decode()
+
+        self.assertIn("data-lever-mark", body)
+        self.assertIn("нужно 8 ч", body)

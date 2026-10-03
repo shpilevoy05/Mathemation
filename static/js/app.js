@@ -328,6 +328,17 @@
   const preview = { theme: null, badge: null };
   const badgeNode = () => document.querySelector(".rail-foot .avatar-badge");
 
+  // Аватар и рамка — два слоя значка. На примерке они берутся из спрайта:
+  // анимация в этот момент не запускается, зато вещь видно сразу и без
+  // запроса к серверу.
+  function previewLayer(kind, code) {
+    const sprite = document.documentElement.dataset.cosmeticsSprite || "";
+    const box = kind === "frame" ? "0 0 160 160" : "0 0 128 128";
+    return `<span class="${kind === "frame" ? "frame-art" : "avatar-art"}">`
+      + `<svg class="${kind}-${code}" viewBox="${box}" aria-hidden="true">`
+      + `<use href="${sprite}#${kind}-${code}"></use></svg></span>`;
+  }
+
   function applyPreview(slot, code, title) {
     const badge = badgeNode();
     if (preview.theme === null) preview.theme = document.documentElement.dataset.theme || "";
@@ -336,9 +347,12 @@
     if (slot === "theme") {
       document.documentElement.dataset.theme = code;
     } else if (badge && slot === "frame") {
-      badge.className = `${badge.className.replace(/frame-[\w-]+/g, "").trim()} frame-${code}`;
+      badge.querySelector(".frame-art")?.remove();
+      badge.insertAdjacentHTML("beforeend", previewLayer("frame", code));
     } else if (badge && slot === "avatar") {
-      badge.innerHTML = `<svg class="avatar-art" viewBox="0 0 60 60" aria-hidden="true"><use href="#avatar-${code}"></use></svg>`;
+      const shown = badge.querySelector(".avatar-art, .avatar-letter");
+      if (shown) shown.outerHTML = previewLayer("avatar", code);
+      else badge.insertAdjacentHTML("afterbegin", previewLayer("avatar", code));
     }
     const bar = document.querySelector("[data-preview-bar]");
     if (!bar) return;
@@ -397,22 +411,69 @@
   // Ответ, время и очки считает сервер; здесь только показ состояния и таймер,
   // который подсказывает, сколько осталось на вопрос.
   const matchForm = document.querySelector("[data-match-form]");
+  // Один сборщик параметров на форму и на очередь подбора: правило партии
+  // должно совпадать, иначе в очереди встретятся разные игры.
+  const matchPayload = () => {
+    const body = {
+      mode: matchForm.elements.mode.value,
+      seconds_per_question: 90,
+      limit_kind: matchForm.elements.limit_kind.value,
+      // Сложность бота нужна и очереди: если живого соперника не нашлось,
+      // запасной бот должен быть того уровня, который выбрал игрок.
+      bot_level: Number(matchForm.elements.bot_level.value),
+    };
+    if (body.mode !== "speed") {
+      body.limit_kind = "questions";
+      return body;
+    }
+    const task = matchForm.elements.ege_task_number.value;
+    if (task) body.ege_task_number = Number(task);
+    if (body.limit_kind === "time") {
+      body.time_limit_seconds = Number(matchForm.elements.time_limit_seconds.value);
+    } else {
+      body.question_count = Number(matchForm.elements.question_count.value);
+    }
+    return body;
+  };
   if (matchForm) {
     const hints = {
-      speed: "Восемь задач подряд. Побеждает тот, кто решил больше; при равенстве — кто быстрее.",
-      quiz: "Пять задач с ценой в 100 очков. Короткая партия на перемене.",
-      board: "Шесть клеток разной цены: чем сложнее задача, тем дороже.",
+      speed: "Задачи из тренировки. Правило выбираете сами: кто быстрее решит восемь или кто больше решит за отведённое время.",
+      quiz: "Вопросы по теории с четырьмя вариантами. Кто первым нажал верный — тот и забрал очки.",
+      board: "Пять тем, цены от 100 до 500. Ход по очереди, промах списывает цену клетки. Тридцать секунд на ответ.",
     };
     const opponent = matchForm.elements.opponent;
     const level = matchForm.elements.bot_level;
     const botBlock = matchForm.querySelector("[data-bot-level]");
+    const speedBlock = matchForm.querySelector("[data-speed-rules]");
+    const timeBlock = matchForm.querySelector("[data-time-limit]");
     const syncOpponent = () => { botBlock.hidden = opponent.value !== "bot"; };
-    matchForm.elements.mode.addEventListener("change", event => {
-      matchForm.querySelector("[data-mode-hint]").textContent = hints[event.target.value] || "";
-    });
+    // Правило партии и прототип — только у нарешивания: теория спрашивается
+    // не по номеру задания и не на общее время.
+    const countBlock = matchForm.querySelector("[data-question-count]");
+    const syncMode = () => {
+      const speed = matchForm.elements.mode.value === "speed";
+      const onTime = matchForm.elements.limit_kind.value === "time";
+      speedBlock.hidden = !speed;
+      matchForm.querySelector("[data-task-block]").hidden = !speed;
+      timeBlock.hidden = !speed || !onTime;
+      countBlock.hidden = !speed || onTime;
+      matchForm.querySelector("[data-mode-hint]").textContent = hints[matchForm.elements.mode.value] || "";
+    };
+    matchForm.elements.mode.addEventListener("change", syncMode);
+    matchForm.elements.limit_kind.addEventListener("change", syncMode);
+    syncMode();
     opponent.addEventListener("change", syncOpponent);
+    const levelNotes = {
+      1: "почти не решает — для первой партии",
+      2: "ошибается часто",
+      3: "решает уверенно, но ошибается",
+      4: "сильный соперник",
+      5: "как отличник: ошибается редко",
+    };
     level.addEventListener("input", () => {
       matchForm.querySelector("[data-level-output]").textContent = level.value;
+      const note = matchForm.querySelector("[data-level-note]");
+      if (note) note.textContent = levelNotes[level.value] || "";
     });
     syncOpponent();
 
@@ -421,14 +482,9 @@
       const error = matchForm.querySelector("[data-match-error]");
       const button = matchForm.querySelector("[type=submit]");
       button.disabled = true; error.hidden = true;
-      const payload = {
-        mode: matchForm.elements.mode.value,
-        seconds_per_question: 90,
-      };
+      const payload = matchPayload();
       if (opponent.value === "bot") payload.bot_level = Number(level.value);
       else payload.opponent_id = Number(opponent.value);
-      const task = matchForm.elements.ege_task_number.value;
-      if (task) payload.ege_task_number = Number(task);
       try {
         const data = await apiFetch("/api/arena/matches/", { method: "POST", body: JSON.stringify(payload) });
         window.location.assign(`/arena/match/${data.id}/`);
@@ -449,12 +505,7 @@
     let poll = null;
     let waited = 0;
 
-    const payload = () => {
-      const task = matchForm.elements.ege_task_number.value;
-      const body = { mode: matchForm.elements.mode.value };
-      if (task) body.ege_task_number = Number(task);
-      return body;
-    };
+    const payload = () => matchPayload();
 
     const stop = () => { clearInterval(poll); poll = null; };
 
@@ -499,6 +550,27 @@
     });
   }
 
+  // — Лига: включение и выход —
+  // Участие добровольное, поэтому обе кнопки ведут себя одинаково просто:
+  // нажали — страница перерисовалась с новым состоянием.
+  const leagueSwitch = async (method) => {
+    const error = document.querySelector("[data-league-error]");
+    if (error) error.hidden = true;
+    try {
+      await apiFetch("/api/leagues/participation/", { method, body: "{}" });
+      window.location.reload();
+    } catch (exception) {
+      if (error) { error.hidden = false; error.textContent = exception.message; }
+    }
+  };
+
+  document.querySelector("[data-league-join]")?.addEventListener("click", () => leagueSwitch("POST"));
+  document.querySelector("[data-league-leave]")?.addEventListener("click", () => {
+    if (window.confirm("Выйти из лиги? Место займёт бот, набранный опыт останется при вас.")) {
+      leagueSwitch("DELETE");
+    }
+  });
+
   const friendForm = document.querySelector("[data-friend-form]");
   if (friendForm) {
     friendForm.addEventListener("submit", async event => {
@@ -534,32 +606,223 @@
     }
   });
 
+  // — Экран партии —
+  // Всё состояние приходит одним объектом с сервера: он один знает, чей ход,
+  // сколько осталось времени и кто уже забрал вопрос. Клиент только рисует.
   const matchShell = document.querySelector("[data-match]");
   if (matchShell) {
+    const matchId = matchShell.dataset.match;
+    const mode = matchShell.dataset.mode;
+    const stateUrl = `/api/arena/matches/${matchId}/`;
+    const totalSeconds = Number(matchShell.dataset.seconds) || 30;
+
     const questionBlock = matchShell.querySelector("[data-match-question]");
+    const quizBlock = matchShell.querySelector("[data-quiz]");
+    const boardBlock = matchShell.querySelector("[data-board]");
     const resultBlock = matchShell.querySelector("[data-match-result]");
     const waitingBlock = matchShell.querySelector("[data-match-waiting]");
-    const form = matchShell.querySelector("[data-match-answer-form]");
-    const verdict = matchShell.querySelector("[data-match-verdict]");
-    const error = matchShell.querySelector("[data-match-error]");
-    const timerBar = matchShell.querySelector("[data-match-timer-bar]");
-    const limit = Number(matchShell.dataset.seconds) * 1000;
-    let questionId = null;
-    let startedAt = 0;
-    let timer = null;
+    const runClock = matchShell.querySelector("[data-run-clock]");
 
-    // Время считается от момента показа вопроса и всё равно проверяется на
-    // сервере: здесь оно нужно только чтобы человек видел, сколько осталось.
-    const runTimer = () => {
-      clearInterval(timer);
-      startedAt = performance.now();
+    const lobbyBlock = matchShell.querySelector("[data-lobby]");
+
+    let questionId = Number(questionBlock?.dataset.questionId) || null;
+    let askedAt = performance.now();
+    let quizId = null;
+    let openCellId = null;
+    let poll = null;
+    let lastTag = null;
+    let interval = 0;
+    let lobbyTimer = null;
+    const bars = new Map();
+
+    // Полоска таймера идёт от значения, присланного сервером: местные часы
+    // могут отставать, но правило партии считает всё равно сервер.
+    const countdown = (bar, secondsLeft) => {
+      if (!bar) return;
+      const previous = bars.get(bar);
+      if (previous) clearInterval(previous);
+      const startedAt = performance.now();
+      const left = Math.max(0, Number(secondsLeft) || 0);
       const tick = () => {
-        const left = Math.max(0, 1 - (performance.now() - startedAt) / limit);
-        timerBar.style.width = `${(left * 100).toFixed(1)}%`;
-        if (left <= 0) clearInterval(timer);
+        const spent = (performance.now() - startedAt) / 1000;
+        const share = Math.max(0, (left - spent) / totalSeconds);
+        bar.style.width = `${(Math.min(1, share) * 100).toFixed(1)}%`;
+        if (share <= 0) clearInterval(bars.get(bar));
       };
       tick();
-      timer = setInterval(tick, 200);
+      bars.set(bar, setInterval(tick, 200));
+    };
+
+    const renderSide = (key, side) => {
+      const root = matchShell.querySelector(`[data-side="${key}"]`);
+      if (!root || !side) return;
+      root.querySelector("[data-side-score]").textContent = side.score ?? 0;
+      const note = root.querySelector("[data-side-note]");
+      if (note) note.textContent = side.finished ? "закончил" : `ответов: ${side.answered}`;
+    };
+
+    const renderSpeed = state => {
+      if (!questionBlock) return;
+      const verdictBox = matchShell.querySelector("[data-match-verdict]");
+      if (state.question) {
+        questionId = state.question.id;
+        questionBlock.hidden = false;
+        matchShell.querySelector("[data-question-title]").textContent = state.question.title;
+        matchShell.querySelector("[data-question-statement]").textContent = state.question.statement;
+        matchShell.querySelector("[data-question-points]").textContent = `${state.question.points} очков`;
+        askedAt = performance.now();
+        countdown(matchShell.querySelector("[data-match-timer-bar]"), totalSeconds);
+      } else {
+        questionBlock.hidden = true;
+        if (verdictBox) verdictBox.hidden = true;
+      }
+      if (runClock && state.limit_kind === "time") {
+        runClock.hidden = false;
+        matchShell.querySelector("[data-run-left]").textContent = state.seconds_left ?? 0;
+      }
+    };
+
+    const renderQuiz = state => {
+      const quiz = state.quiz;
+      if (!quizBlock || !quiz) return;
+      quizBlock.hidden = state.status === "finished";
+      matchShell.querySelector("[data-quiz-progress]").textContent = `${quiz.played} из ${quiz.total}`;
+      const options = matchShell.querySelector("[data-quiz-options]");
+      const prompt = matchShell.querySelector("[data-quiz-prompt]");
+      const note = matchShell.querySelector("[data-quiz-note]");
+
+      if (!quiz.question) {
+        options.replaceChildren();
+        prompt.textContent = "Вопрос разыгран. Открываем следующий…";
+        return;
+      }
+      matchShell.querySelector("[data-quiz-topic]").textContent = quiz.question.topic;
+      prompt.textContent = quiz.question.prompt;
+      if (quizId !== quiz.question.id) {
+        quizId = quiz.question.id;
+        options.replaceChildren(...quiz.question.options.map((text, index) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "quiz-option";
+          button.dataset.quizOption = String(index);
+          button.textContent = text;
+          return button;
+        }));
+      }
+      options.querySelectorAll("[data-quiz-option]").forEach(button => {
+        const index = Number(button.dataset.quizOption);
+        button.disabled = quiz.locked;
+        button.classList.toggle("is-mine", quiz.my_choice === index);
+      });
+      if (note) {
+        note.textContent = quiz.locked
+          ? "Вы уже ответили на этот вопрос — ждём соперника или таймер."
+          : "Кто первым нажмёт верный вариант, тот и забрал очки.";
+      }
+      countdown(matchShell.querySelector("[data-quiz-timer]"), quiz.question.seconds_left);
+    };
+
+    // Журнал доски: что разыграно и что отвечал соперник. В «своей игре»
+    // ответы не секретны — вопрос общий и уже сыгран.
+    const renderBoardLog = rows => {
+      const list = matchShell.querySelector("[data-board-log]");
+      if (!list) return;
+      if (!rows.length) {
+        const empty = document.createElement("li");
+        empty.innerHTML = '<small class="muted">Пока ничего не разыграно.</small>';
+        list.replaceChildren(empty);
+        return;
+      }
+      list.replaceChildren(...rows.map(row => {
+        const item = document.createElement("li");
+        const price = document.createElement("b");
+        price.className = "num";
+        price.textContent = row.points;
+        const topic = document.createElement("span");
+        topic.className = "board-log-topic";
+        topic.textContent = row.topic;
+        const answers = document.createElement("span");
+        answers.className = "board-log-answers";
+        if (row.answers.length) {
+          row.answers.forEach(answer => {
+            const chip = document.createElement("span");
+            chip.className = answer.is_correct ? "is-correct" : "is-wrong";
+            chip.textContent = `${answer.title}: ${answer.answer || "—"}`;
+            answers.append(chip);
+          });
+        } else {
+          const chip = document.createElement("span");
+          chip.className = "muted";
+          chip.textContent = "никто не ответил";
+          answers.append(chip);
+        }
+        const right = document.createElement("small");
+        right.className = "muted";
+        right.textContent = `верно: ${row.correct_answer}`;
+        item.append(price, topic, answers, right);
+        return item;
+      }));
+    };
+
+    const renderBoard = state => {
+      const board = state.board;
+      if (!boardBlock || !board) return;
+      boardBlock.hidden = false;
+      const turnChip = matchShell.querySelector("[data-board-turn]");
+      if (turnChip) {
+        turnChip.textContent = state.status === "finished"
+          ? "Партия окончена"
+          : board.turn === "me" ? "Ваш ход" : board.turn ? `Ход: ${board.turn_title}` : "";
+      }
+
+      const grid = matchShell.querySelector("[data-board-grid]");
+      grid.style.setProperty("--board-columns", board.columns.length);
+      grid.replaceChildren(...board.columns.map(column => {
+        const box = document.createElement("div");
+        box.className = "board-column";
+        const title = document.createElement("h3");
+        title.className = "board-topic";
+        title.textContent = column.title;
+        box.append(title);
+        column.cells.forEach(cell => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `board-cell is-${cell.state}`;
+          button.dataset.cell = String(cell.id);
+          button.textContent = cell.points;
+          button.disabled = cell.state !== "free" || board.turn !== "me" || Boolean(board.open);
+          box.append(button);
+        });
+        return box;
+      }));
+
+      renderBoardLog(board.log || []);
+      const openBox = matchShell.querySelector("[data-board-open]");
+      const form = matchShell.querySelector("[data-board-form]");
+      const wait = matchShell.querySelector("[data-board-wait]");
+      if (!board.open) {
+        openBox.hidden = true;
+        openCellId = null;
+        return;
+      }
+      openBox.hidden = false;
+      openCellId = board.open.id;
+      matchShell.querySelector("[data-board-topic]").textContent = board.open.topic;
+      matchShell.querySelector("[data-board-points]").textContent = `${board.open.points} очков`;
+      matchShell.querySelector("[data-board-prompt]").textContent = board.open.prompt;
+      matchShell.querySelector("[data-board-hint]").textContent = board.open.hint;
+      // Перехват: показываем, кто и чем ошибся — соперник получает клетку
+      // вместе с чужим ответом.
+      const rebound = matchShell.querySelector("[data-board-rebound]");
+      if (rebound) {
+        rebound.hidden = !board.open.rebound;
+        rebound.textContent = board.open.rebound_note || "";
+      }
+      form.hidden = !board.open.mine;
+      wait.hidden = board.open.mine;
+      wait.textContent = `Отвечает ${board.open.answering}.`;
+      if (board.open.mine) form.elements.answer.focus();
+      countdown(matchShell.querySelector("[data-board-timer]"), board.open.seconds_left);
     };
 
     // Разбор: что спрашивали, что ответил игрок и как было правильно.
@@ -589,81 +852,281 @@
       }));
     };
 
-    const render = state => {
-      matchShell.querySelector("[data-my-score]").textContent = state.me ? state.me.score : 0;
-      const rival = matchShell.querySelector("[data-rival-progress]");
-      if (state.opponent) rival.textContent = `${state.opponent.answered}/${state.questions_total}`;
+    const renderLobby = state => {
+      if (!lobbyBlock) return;
+      const lobby = state.lobby;
+      lobbyBlock.hidden = !lobby;
+      if (!lobby) return;
+      lobbyBlock.querySelector("[data-lobby-title]").textContent = lobby.invited
+        ? "Ждём согласия соперника"
+        : "Ждём соперника за столом";
+      const note = lobbyBlock.querySelector("[data-lobby-note]");
+      note.textContent = lobby.waiting_for.length
+        ? `Не подошли: ${lobby.waiting_for.join(", ")}. Партия начнётся, когда её откроют оба.`
+        : "Партия вот-вот начнётся.";
+      // Обратный отсчёт тикает на клиенте: сервер молчит, пока в партии нет
+      // новостей, и цифра иначе замерла бы.
+      const left = lobbyBlock.querySelector("[data-lobby-left]");
+      clearInterval(lobbyTimer);
+      const until = Date.now() + lobby.seconds_left * 1000;
+      const tick = () => {
+        const seconds = Math.max(0, Math.round((until - Date.now()) / 1000));
+        left.textContent = seconds;
+        if (seconds <= 0) clearInterval(lobbyTimer);
+      };
+      tick();
+      lobbyTimer = setInterval(tick, 1000);
+      lobbyBlock.querySelector("[data-lobby-cancel]").hidden = !lobby.can_cancel;
+      lobbyBlock.querySelector("[data-lobby-accept]").hidden = !lobby.invited || lobby.can_cancel;
+    };
 
-      if (state.question) {
-        questionId = state.question.id;
-        questionBlock.hidden = false;
-        waitingBlock.hidden = true;
-        matchShell.querySelector("[data-question-title]").textContent = state.question.title;
-        matchShell.querySelector("[data-question-statement]").textContent = state.question.statement;
-        matchShell.querySelector("[data-question-points]").textContent = `${state.question.points} очков`;
-        form.elements.answer.value = "";
-        form.elements.answer.focus();
-        runTimer();
-      } else {
-        clearInterval(timer);
-        questionBlock.hidden = true;
-        waitingBlock.hidden = state.status === "finished";
+    const render = state => {
+      renderLobby(state);
+      if (state.lobby) {
+        // До старта показывать нечего: доска и вопросы закрыты, чтобы никто
+        // не начал думать раньше соперника.
+        [questionBlock, quizBlock, boardBlock, waitingBlock].forEach(box => {
+          if (box) box.hidden = true;
+        });
+        renderSide("me", state.me);
+        renderSide("rival", state.opponent);
+        return;
+      }
+      renderSide("me", state.me);
+      renderSide("rival", state.opponent);
+      if (mode === "quiz") renderQuiz(state);
+      else if (mode === "board") renderBoard(state);
+      else renderSpeed(state);
+
+      const playing = Boolean(state.question || state.quiz?.question || state.board?.open);
+      if (waitingBlock) {
+        waitingBlock.hidden = state.status === "finished"
+          || playing
+          || mode === "board";
       }
 
-      if (state.status === "finished") {
-        resultBlock.hidden = false;
-        waitingBlock.hidden = true;
-        renderReview(state.review || []);
-        const rows = matchShell.querySelector("[data-result-rows]");
-        rows.replaceChildren(...state.results.map(row => {
-          const tr = document.createElement("tr");
-          if (row.is_me) tr.className = "is-me";
-          [row.title, row.score, row.correct, `${row.seconds} с`].forEach((value, index) => {
-            const cell = document.createElement("td");
-            if (index) cell.className = "num";
-            cell.textContent = value;
-            tr.append(cell);
-          });
-          return tr;
-        }));
+      const exitBox = matchShell.querySelector("[data-match-exit]");
+      if (exitBox) exitBox.hidden = state.status !== "active";
+
+      if (state.status !== "finished") return;
+      clearInterval(poll);
+      bars.forEach(timer => clearInterval(timer));
+      if (questionBlock) questionBlock.hidden = true;
+      if (quizBlock) quizBlock.hidden = true;
+      resultBlock.hidden = false;
+      renderReview(state.review || []);
+      const rows = matchShell.querySelector("[data-result-rows]");
+      rows.replaceChildren(...state.results.map(row => {
+        const tr = document.createElement("tr");
+        if (row.is_me) tr.className = "is-me";
+        [row.title, row.score, row.correct, `${row.seconds} с`].forEach((value, index) => {
+          const cell = document.createElement("td");
+          if (index) cell.className = "num";
+          cell.textContent = value;
+          tr.append(cell);
+        });
+        return tr;
+      }));
+    };
+
+    // Состояние забирается с ETag: пока номер состояния не изменился, сервер
+    // отвечает «304 без новостей» и не собирает ответ целиком. На живой партии
+    // так проходит подавляющее большинство опросов.
+    const fetchState = async () => {
+      const headers = { Accept: "application/json" };
+      if (lastTag) headers["If-None-Match"] = lastTag;
+      const response = await fetch(stateUrl, {
+        credentials: "same-origin", cache: "no-store", headers,
+      });
+      if (response.status === 304) return null;
+      if (!response.ok) return null;
+      lastTag = response.headers.get("ETag") || lastTag;
+      return response.json();
+    };
+
+    // Как часто спрашивать. Реже там, где новостей ждать неоткуда: пока идёт
+    // сбор игроков или пока ход соперника, секунда роли не играет.
+    const paceFor = state => {
+      if (!state) return interval || 2500;
+      if (["finished", "declined", "cancelled"].includes(state.status)) return 0;
+      if (state.lobby) return 3000;
+      return 2500;
+    };
+
+    const stopPolling = () => { clearInterval(poll); poll = null; };
+
+    const startPolling = pace => {
+      if (interval === pace && poll) return;
+      stopPolling();
+      interval = pace;
+      if (pace > 0) poll = setInterval(refresh, pace);
+    };
+
+    async function refresh() {
+      try {
+        const state = await fetchState();
+        if (state) render(state);
+        startPolling(paceFor(state));
+      } catch (_) { /* сеть подождёт до следующего тика */ }
+    }
+
+    // Вкладка в фоне не играет: опрашивать её — чистые потери и на клиенте,
+    // и на сервере.
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) { stopPolling(); interval = 0; }
+      else refresh();
+    });
+
+    const show = (box, text, wrong) => {
+      if (!box) return;
+      box.hidden = false;
+      box.textContent = text;
+      if (box.classList.contains("verdict")) {
+        box.className = `verdict ${wrong ? "is-wrong" : "is-correct"}`;
       }
     };
 
-    if (questionBlock && !questionBlock.hidden) runTimer();
-    questionId = Number(questionBlock?.dataset.questionId) || null;
-
-    form?.addEventListener("submit", async event => {
+    // — Нарешивание —
+    const speedForm = matchShell.querySelector("[data-match-answer-form]");
+    speedForm?.addEventListener("submit", async event => {
       event.preventDefault();
-      const button = form.querySelector("[type=submit]");
+      const button = speedForm.querySelector("[type=submit]");
+      const error = matchShell.querySelector("[data-match-error]");
+      const verdict = matchShell.querySelector("[data-match-verdict]");
       button.disabled = true; error.hidden = true;
       try {
-        const state = await apiFetch(`/api/arena/matches/${matchShell.dataset.match}/answer/`, {
+        const state = await apiFetch(`/api/arena/matches/${matchId}/answer/`, {
           method: "POST",
           body: JSON.stringify({
             question_id: questionId,
-            answer: form.elements.answer.value,
-            elapsed_ms: Math.round(performance.now() - startedAt),
+            answer: speedForm.elements.answer.value,
+            elapsed_ms: Math.round(performance.now() - askedAt),
           }),
         });
-        verdict.hidden = false;
-        verdict.className = `verdict ${state.last_answer.is_correct ? "is-correct" : "is-wrong"}`;
-        verdict.textContent = state.last_answer.is_correct ? "Верно!" : "Мимо.";
+        show(verdict, state.last_answer.is_correct ? "Верно!" : "Мимо.", !state.last_answer.is_correct);
+        speedForm.elements.answer.value = "";
         render(state);
+        speedForm.elements.answer.focus();
       } catch (exception) {
         error.hidden = false; error.textContent = exception.message;
       } finally { button.disabled = false; }
     });
 
-    // Соперник-человек отвечает в своём темпе: подтягиваем состояние,
-    // чтобы итог появился без перезагрузки страницы.
-    if (matchShell.dataset.match) {
-      setInterval(async () => {
-        try {
-          const state = await apiFetch(`/api/arena/matches/${matchShell.dataset.match}/`);
-          if (state.status === "finished" || !state.question) render(state);
-        } catch (_) { /* сеть подождёт до следующего тика */ }
-      }, 15000);
+    // — Квиз —
+    matchShell.querySelector("[data-quiz-options]")?.addEventListener("click", async event => {
+      const button = event.target.closest("[data-quiz-option]");
+      if (!button || button.disabled) return;
+      const error = matchShell.querySelector("[data-quiz-error]");
+      matchShell.querySelectorAll("[data-quiz-option]").forEach(item => { item.disabled = true; });
+      error.hidden = true;
+      try {
+        const state = await apiFetch(`/api/arena/matches/${matchId}/quiz/`, {
+          method: "POST",
+          body: JSON.stringify({ question_id: quizId, option: Number(button.dataset.quizOption) }),
+        });
+        button.classList.add(state.last_answer.is_correct ? "is-correct" : "is-wrong");
+        render(state);
+      } catch (exception) {
+        // Отказ — обычный ход игры: вопрос мог забрать соперник, пока летел
+        // запрос. Показываем причину и берём свежее состояние.
+        error.hidden = false; error.textContent = exception.message;
+        await refresh();
+      }
+    });
+
+    // — Своя игра —
+    matchShell.querySelector("[data-board-grid]")?.addEventListener("click", async event => {
+      const cell = event.target.closest("[data-cell]");
+      if (!cell || cell.disabled) return;
+      cell.disabled = true;
+      try {
+        render(await apiFetch(`/api/arena/matches/${matchId}/pick/`, {
+          method: "POST",
+          body: JSON.stringify({ question_id: Number(cell.dataset.cell) }),
+        }));
+      } catch (exception) {
+        show(matchShell.querySelector("[data-board-error]"), exception.message, true);
+        await refresh();
+      }
+    });
+
+    const boardForm = matchShell.querySelector("[data-board-form]");
+    boardForm?.addEventListener("submit", async event => {
+      event.preventDefault();
+      const button = boardForm.querySelector("[type=submit]");
+      const error = matchShell.querySelector("[data-board-error]");
+      const verdict = matchShell.querySelector("[data-board-verdict]");
+      button.disabled = true; error.hidden = true;
+      try {
+        const state = await apiFetch(`/api/arena/matches/${matchId}/board/`, {
+          method: "POST",
+          body: JSON.stringify({
+            question_id: openCellId,
+            answer: boardForm.elements.answer.value,
+          }),
+        });
+        const delta = state.last_answer.points_delta;
+        show(verdict, delta >= 0 ? `Верно, +${delta}` : `Мимо, ${delta}`, delta < 0);
+        boardForm.elements.answer.value = "";
+        render(state);
+      } catch (exception) {
+        error.hidden = false; error.textContent = exception.message;
+        await refresh();
+      } finally { button.disabled = false; }
+    });
+
+    // Выход из партии. Спрашиваем подтверждение: это поражение, а не пауза.
+    matchShell.querySelector("[data-leave-match]")?.addEventListener("click", async event => {
+      const button = event.currentTarget;
+      if (!window.confirm("Выйти из партии? Победа достанется сопернику.")) return;
+      button.disabled = true;
+      try {
+        const state = await apiFetch(`/api/arena/matches/${matchId}/leave/`, {
+          method: "POST", body: "{}",
+        });
+        lastTag = null;
+        render(state);
+      } catch (exception) {
+        button.disabled = false;
+        alert(exception.message);
+      }
+    });
+
+    // Отмена и принятие вызова прямо с экрана ожидания: игрок пришёл сюда,
+    // а не в список партий.
+    lobbyBlock?.querySelector("[data-lobby-cancel]")?.addEventListener("click", async () => {
+      try {
+        render(await apiFetch(`/api/arena/matches/${matchId}/cancel/`, { method: "POST", body: "{}" }));
+        window.location.assign("/arena/");
+      } catch (exception) {
+        show(matchShell.querySelector("[data-lobby-error]"), exception.message, true);
+      }
+    });
+
+    lobbyBlock?.querySelector("[data-lobby-accept]")?.addEventListener("click", async () => {
+      try {
+        await apiFetch(`/api/arena/matches/${matchId}/accept/`, { method: "POST", body: "{}" });
+        await enter();
+      } catch (exception) {
+        show(matchShell.querySelector("[data-lobby-error]"), exception.message, true);
+      }
+    });
+
+    // Вход в партию: пока не зашли оба, она не начинается — ни таймер, ни
+    // общий вопрос, ни очередь хода.
+    async function enter() {
+      try {
+        const state = await apiFetch(`/api/arena/matches/${matchId}/join/`, {
+          method: "POST", body: "{}",
+        });
+        lastTag = null;
+        render(state);
+        startPolling(paceFor(state));
+      } catch (_) {
+        refresh();
+      }
     }
+    enter();
   }
 
   const viewSwitch = document.querySelector("[data-view-switch]");
@@ -684,6 +1147,23 @@
 
   // Повторная загрузка решения после «вернули на доработку».
   document.addEventListener("submit", async event => {
+    const reviewForm = event.target.closest("[data-review-form]");
+    if (reviewForm) {
+      event.preventDefault();
+      const item = reviewForm.closest("[data-review-item]");
+      const button = reviewForm.querySelector("[data-review-complete]");
+      button.disabled = true;
+      try {
+        const data = await apiFetch(button.dataset.reviewComplete, {
+          method: "POST", body: JSON.stringify({ answer: new FormData(reviewForm).get("answer") })
+        });
+        const result = item.querySelector("[data-review-result]");
+        result.hidden = false; result.className = `verdict ${data.is_correct ? "is-correct" : "is-wrong"}`;
+        result.textContent = data.message || (data.is_correct ? "Верно. Повтор зачтён." : "Пока неверно. Ошибка вернётся по новому расписанию.");
+        window.lessonFlow?.applyRewards(data.rewards);
+      } catch (error) { button.disabled = false; alert(error.message); }
+      return;
+    }
     const form = event.target.closest("[data-resubmit-form]");
     if (!form) return;
     event.preventDefault();
@@ -765,17 +1245,6 @@
       catch (error) { planButton.disabled = false; alert(error.message); }
     }
 
-    const reviewButton = event.target.closest("[data-review-complete]");
-    if (reviewButton) {
-      const item = reviewButton.closest("[data-review-item]");
-      item.querySelectorAll("button").forEach(button => button.disabled = true);
-      try {
-        const data = await apiFetch(reviewButton.dataset.reviewComplete, { method: "POST", body: JSON.stringify({ success: reviewButton.dataset.success === "true" }) });
-        const result = item.querySelector("[data-review-result]"); result.hidden = false; result.classList.add(reviewButton.dataset.success === "true" ? "is-correct" : "is-wrong"); result.textContent = data.message || (reviewButton.dataset.success === "true" ? "Повтор зачтён." : "Ошибка вернётся по новому расписанию.");
-        window.lessonFlow?.applyRewards(data.rewards);
-      } catch (error) { item.querySelectorAll("button").forEach(button => button.disabled = false); alert(error.message); }
-    }
-
     // Кнопки магазина и домашек — обычные button, поэтому живут в обработчике
     // клика: в submit они не попадают и раньше молча ничего не делали.
     const submitHomework = event.target.closest("[data-submit-homework]");
@@ -821,6 +1290,15 @@
           shopButton.dataset.shopUrl = shopButton.dataset.shopUrl.replace("/buy/", "/equip/");
           shopButton.textContent = "Надеть";
           shopButton.disabled = false;
+          // Цена ушла вместе с покупкой: платить второй раз не за что.
+          const price = row.querySelector("[data-shop-price]");
+          if (price) {
+            const owned = document.createElement("span");
+            owned.className = "price-owned";
+            owned.dataset.shopPrice = "";
+            owned.textContent = "в инвентаре";
+            price.replaceWith(owned);
+          }
         } else if (shopButton.dataset.shopAction === "unequip") {
           window.location.reload();
         } else {
@@ -1145,11 +1623,8 @@
       const button = mockForm.querySelector("[type=submit]"), errorOutput = mockForm.querySelector("[data-mock-error]");
       button.disabled = true;
       try {
-        for (const task of mockForm.querySelectorAll("[data-part2-assignment]")) {
-          const file = task.querySelector("input[type=file]").files[0];
-          if (!file) continue;
-          const payload = new FormData(); payload.append("assignment", task.dataset.part2Assignment); payload.append("mock_result", mockForm.dataset.resultId); payload.append("file", file);
-          await apiFetch("/api/expert-reviews/submit/", { method: "POST", body: payload });
+        if (Date.now() < new Date(document.querySelector("[data-mock-timer]").dataset.deadline).getTime()) {
+          await mockForm.waitForUploads?.();
         }
         const answers = {};
         mockForm.querySelectorAll("input[name^=answer_]").forEach(input => { answers[input.name.slice(7)] = input.value; });
@@ -1235,11 +1710,126 @@
           countTo(document.querySelector("[data-current-score]"), data.current_score);
           countTo(document.querySelector("[data-ceiling-score]"), data.ceiling_score);
           moveGauge(data.gauge);
+          // Почему число перестало расти: время уже не узкое место.
+          const limit = document.querySelector("[data-forecast-limit]");
+          if (limit) {
+            limit.textContent = data.limited_by === "scope"
+              ? "При такой нагрузке успеваешь весь материал плана: дальше потолок "
+                + "держит не время, а объём программы и текущее освоение тем."
+              : `Не успеваешь ${data.unreachable_count} тем — потолок держит время. `
+                + "Больше часов в неделю или более поздняя дата поднимут его.";
+          }
+          // Сколько часов нужно, чтобы успеть всё к выбранной дате: совет
+          // зависит от даты, а не от положения ползунка.
+          const advice = document.querySelector("[data-forecast-advice]");
+          const mark = document.querySelector("[data-lever-mark]");
+          const need = data.recommended_hours;
+          if (advice) {
+            advice.hidden = !need;
+            if (need) {
+              advice.textContent = need > Number(hours.value)
+                ? `Чтобы пройти весь план до экзамена, нужно ${need} ч в неделю. `
+                  + `Сейчас выбрано ${hours.value} — часть тем не поместится.`
+                : `Чтобы пройти весь план до экзамена, нужно ${need} ч в неделю. `
+                  + "Текущей нагрузки хватает.";
+            }
+          }
+          if (mark) {
+            mark.hidden = !need;
+            if (need) {
+              const span = Number(hours.max) - Number(hours.min);
+              const place = (Math.min(Math.max(need, Number(hours.min)), Number(hours.max))
+                - Number(hours.min)) / span * 100;
+              mark.style.left = `${place.toFixed(1)}%`;
+              mark.textContent = `нужно ${need} ч`;
+            }
+          }
+          document.querySelector("[data-forecast-applied]")?.setAttribute("hidden", "");
           error.hidden = true;
         } catch (exception) { error.hidden = false; error.textContent = exception.message; }
       }, 250);
     };
     hours.addEventListener("input", refresh); date.addEventListener("change", refresh);
+
+    // Применение сценария: рычаги сами по себе ничего не меняют, но решение
+    // «буду заниматься столько» должно доезжать до плана и расписания.
+    document.querySelector("[data-forecast-apply]")?.addEventListener("click", async event => {
+      const button = event.currentTarget;
+      const error = document.querySelector("[data-forecast-error]");
+      const applied = document.querySelector("[data-forecast-applied]");
+      button.disabled = true; error.hidden = true;
+      try {
+        const body = { weekly_hours: Number(hours.value) };
+        if (date.value) body.exam_date = date.value;
+        const data = await apiFetch("/api/forecast/apply/", {
+          method: "POST", body: JSON.stringify(body),
+        });
+        countTo(document.querySelector("[data-current-score]"), data.current_score);
+        countTo(document.querySelector("[data-ceiling-score]"), data.ceiling_score);
+        if (applied) {
+          applied.textContent = `План перестроен: ${data.plan_items} пунктов. `
+            + "Расписание уже показывает новый порядок.";
+          applied.hidden = false;
+        }
+      } catch (exception) {
+        error.hidden = false; error.textContent = exception.message;
+      } finally { button.disabled = false; }
+    });
+  }
+
+  const draftForm = document.querySelector("[data-mock-form]");
+  if (draftForm) {
+    const state = JSON.parse(document.getElementById("mock-draft-state").textContent);
+    const status = draftForm.querySelector("[data-draft-status]");
+    const inputs = [...draftForm.querySelectorAll("input[name^=answer_]")];
+    inputs.forEach(input => { input.value = state.answers[input.name.slice(7)] || ""; });
+    let revision = state.revision, dirty = false, saving = false, conflicted = false;
+    const expired = () => Date.now() >= new Date(document.querySelector("[data-mock-timer]").dataset.deadline).getTime();
+    async function saveDraft() {
+      if (!dirty || saving || conflicted || expired() || draftForm.dataset.submitting === "true") return;
+      saving = true; dirty = false;
+      const answers = Object.fromEntries(inputs.map(input => [input.name.slice(7), input.value]));
+      status.textContent = "Сохраняем ответы…";
+      try {
+        const data = await apiFetch(`/api/mocks/results/${draftForm.dataset.resultId}/draft/`, {
+          method: "POST", body: JSON.stringify({ answers, revision })
+        });
+        revision = data.revision;
+        status.textContent = "Ответы сохранены";
+      } catch (error) {
+        dirty = true;
+        if (error.message.includes("другой вкладке")) conflicted = true;
+        status.textContent = `Ответы не сохранены: ${error.message}`;
+      } finally { saving = false; }
+      if (dirty && !conflicted) setTimeout(saveDraft, 0);
+    }
+    inputs.forEach(input => input.addEventListener("input", () => { dirty = true; saveDraft(); }));
+    window.addEventListener("online", saveDraft);
+    window.addEventListener("beforeunload", event => {
+      if (dirty || saving) { event.preventDefault(); event.returnValue = ""; }
+    });
+    const uploads = new Map(), uploadErrors = new Map();
+    draftForm.querySelectorAll("[data-part2-assignment]").forEach(task => {
+      const input = task.querySelector("input[type=file]");
+      const note = document.createElement("p"); note.setAttribute("role", "status"); task.append(note);
+      if (state.uploaded.includes(Number(task.dataset.part2Assignment))) note.textContent = "Решение уже загружено. Можно заменить до завершения пробника.";
+      input.addEventListener("change", () => {
+        const file = input.files[0]; if (!file) return;
+        input.disabled = true; note.textContent = "Загружаем решение…";
+        uploadErrors.delete(input);
+        const payload = new FormData(); payload.append("assignment", task.dataset.part2Assignment);
+        payload.append("mock_result", draftForm.dataset.resultId); payload.append("file", file);
+        const pending = apiFetch("/api/expert-reviews/submit/", { method: "POST", body: payload })
+          .then(() => { note.textContent = "Решение загружено"; })
+          .catch(error => { uploadErrors.set(input, error); note.textContent = `Не загружено: ${error.message}. Выберите файл повторно.`; input.value = ""; })
+          .finally(() => { input.disabled = false; uploads.delete(input); });
+        uploads.set(input, pending);
+      });
+    });
+    draftForm.waitForUploads = async () => {
+      await Promise.all(uploads.values());
+      if (uploadErrors.size) throw new Error("Есть незагруженные решения. Повторите выбор файла до завершения пробника.");
+    };
   }
 
   const mockTimer = document.querySelector("[data-mock-timer]");

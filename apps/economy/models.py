@@ -94,11 +94,23 @@ class ShopItem(models.Model):
     """
 
     class Slot(models.TextChoices):
-        AVATAR = "avatar"
-        FRAME = "frame"
-        THEME = "theme"
-        BADGE = "badge"
-        BOOST = "boost"
+        AVATAR = "avatar", "Аватар"
+        FRAME = "frame", "Рамка"
+        THEME = "theme", "Тема"
+        BADGE = "badge", "Значок"
+        BOOST = "boost", "Ускоритель"
+
+    class Tier(models.TextChoices):
+        """Уровень косметики.
+
+        Базовое выдаётся при регистрации, покупное продаётся за сигмы,
+        анимированное стоит дороже и намеренно редкое: чем реже движение
+        встречается в списке, тем дороже оно читается.
+        """
+
+        BASE = "base", "Базовый"
+        PAID = "paid", "Покупной"
+        ANIMATED = "animated", "Анимированный"
 
     class Effect(models.TextChoices):
         NONE = "none", "Только внешний вид"
@@ -114,6 +126,7 @@ class ShopItem(models.Model):
     # Машинный код предмета: по нему интерфейс знает, какой аватар, какую
     # рамку или тему рисовать. Пустой код — предмет без визуального эффекта.
     code = models.SlugField(max_length=64, blank=True)
+    tier = models.CharField(max_length=16, choices=Tier.choices, default=Tier.PAID)
     effect = models.CharField(max_length=16, choices=Effect.choices, default=Effect.NONE)
     # Для заморозки — сколько дней, для ускорителя — прибавка в процентах.
     effect_value = models.PositiveSmallIntegerField(default=0)

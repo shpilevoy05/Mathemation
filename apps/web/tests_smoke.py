@@ -25,8 +25,11 @@ INVALID_MARKER = ""
 # Атрибуты, где значение обязано быть числом: стили, координаты SVG и данные
 # для скрипта. Шаблон намеренно широкий — он ловит и `data-mastery="0,0"`,
 # из-за которого `Number()` в браузере возвращает NaN.
+# `points` и `d` сюда не входят намеренно: там запятая — законный разделитель
+# координат («22,22 106,22»), и отличить её от русской десятичной невозможно.
+# Локальная запятая ломает атрибуты, где число одно, — их и проверяем.
 NUMERIC_WITH_COMMA = re.compile(
-    r'(?:style|x|y|x1|y1|x2|y2|cx|cy|r|rx|ry|width|height|points|d|offset|viewBox)'
+    r'(?:style|x|y|x1|y1|x2|y2|cx|cy|r|rx|ry|width|height|offset|viewBox)'
     r'="[^"]*\d,\d[^"]*"'
 )
 
@@ -87,7 +90,7 @@ class PageSmokeTests(TestCase):
         for name in (
             "dashboard", "knowledge_map", "track", "diagnostics",
             "practice_backlog", "shop", "homework", "daily_challenge",
-            "forecast", "mocks", "pricing",
+            "forecast", "mocks", "pricing", "leagues",
         ):
             with self.subTest(page=name):
                 self.open(reverse(name), username="student")
@@ -95,6 +98,43 @@ class PageSmokeTests(TestCase):
             self.open(reverse("knowledge_node", args=[node.id]), username="student")
         with self.subTest(page="lesson"):
             self.open(reverse("lesson", args=[node.id]), username="student")
+
+    def test_league_page_opens_in_both_states(self):
+        """Экран лиги живёт в двух видах: приглашение и таблица."""
+        from apps.gamification.leagues import enable_leagues
+
+        student = User.objects.get(username="student").student_profile
+        self.open(reverse("leagues"), username="student")
+
+        enable_leagues(student)
+
+        self.open(reverse("leagues"), username="student")
+
+    def test_arena_pages_open_in_every_mode(self):
+        """Экран партии рисуется по-разному в трёх режимах — и все три живые."""
+        from apps.arena.models import Match
+        from apps.arena.services import create_match
+
+        student = User.objects.get(username="student").student_profile
+        self.open(reverse("arena"), username="student")
+        for mode in (Match.Mode.SPEED, Match.Mode.QUIZ, Match.Mode.BOARD):
+            with self.subTest(mode=mode):
+                match = create_match(student, mode=mode, bot_level=2)
+                self.open(
+                    reverse("arena_match", args=[match.id]), username="student"
+                )
+
+    def test_arena_speed_on_time_opens(self):
+        from apps.arena.models import Match
+        from apps.arena.services import create_match
+
+        student = User.objects.get(username="student").student_profile
+        match = create_match(
+            student, mode=Match.Mode.SPEED, bot_level=2,
+            limit_kind=Match.Limit.TIME, time_limit_seconds=180,
+        )
+
+        self.open(reverse("arena_match", args=[match.id]), username="student")
 
     def test_map_with_ceiling_overlay(self):
         self.open(reverse("knowledge_map") + "?overlay=ceiling", username="student")

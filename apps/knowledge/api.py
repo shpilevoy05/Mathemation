@@ -80,12 +80,16 @@ class NodeDetailView(views.APIView):
         )
         s = node_states(student).get(node.id, {})
 
+        from apps.content.services import published_lessons
+        from apps.billing.access import Feature, feature_access
+        accessible = feature_access(request.user, Feature.LESSONS).allowed
+        published = published_lessons(node) if accessible else node.lessons.none()
         lessons = [
             {"id": lesson.id, "title": lesson.title}
-            for lesson in node.lessons.all()
+            for lesson in published
         ]
         theory = []
-        for lesson in node.lessons.prefetch_related("theory_blocks"):
+        for lesson in published.prefetch_related("theory_blocks"):
             for block in lesson.theory_blocks.all():
                 theory.append({"title": block.title, "body": block.body})
 

@@ -153,7 +153,8 @@ class MarkupLoadTests(TestCase):
 
         self.assertTrue(borrowed.is_cross_domain)
         self.assertEqual(borrowed.ege_task_numbers, [])
-        self.assertEqual(own.ege_task_numbers, [13])
+        # Прототип получил номер 14 в структуре 2027 года.
+        self.assertEqual(own.ege_task_numbers, [14])
 
     def test_folder_carries_no_task_number(self):
         self.assertEqual(KnowledgeNode.objects.get(code="SK-MA-0014").ege_task_numbers, [])

@@ -444,3 +444,73 @@ class PlanAutocompleteTests(TestCase):
         self.assertEqual(autocomplete_items_for_node(self.student, self.node), [])
         first.refresh_from_db()
         self.assertEqual(first.status, completed_at_first)
+
+
+class WeeklyCapacityTests(TestCase):
+    """Неделя вмещает столько занятий, сколько человек успевает."""
+
+    def setUp(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.knowledge.tests import make_node, make_student, set_mastery
+
+        self.student = make_student(target_score=80)
+        self.student.weekly_hours = 4
+        self.student.exam_date = timezone.localdate() + timedelta(days=14)
+        self.student.save(update_fields=["weekly_hours", "exam_date"])
+        cluster = None
+        for index in range(6):
+            node = make_node(f"cap-{index}", cluster=cluster, hours_estimate=4)
+            cluster = node.cluster
+            set_mastery(self.student, node, 10)
+
+    def test_week_holds_only_what_fits(self):
+        from apps.planning.services import build_study_plan
+
+        plan = build_study_plan(self.student)
+
+        # Четыре часа в неделю и темы по четыре часа: одна тема в неделю.
+        by_week = {}
+        for item in plan.items.all():
+            by_week.setdefault(item.week_index, set()).add(item.node_id)
+        self.assertTrue(all(len(nodes) == 1 for nodes in by_week.values()))
+
+    def test_plan_stops_at_the_exam(self):
+        from apps.planning.services import build_study_plan
+
+        plan = build_study_plan(self.student)
+
+        # Две недели до экзамена — дальше план не заходит.
+        self.assertLessEqual(max(item.week_index for item in plan.items.all()), 1)
+        self.assertTrue(all(item.due_date <= self.student.exam_date for item in plan.items.all()))
+
+    def test_what_does_not_fit_is_counted(self):
+        from apps.planning.services import build_study_plan
+
+        plan = build_study_plan(self.student)
+
+        # Шесть тем, помещается две: остальное честно не запланировано.
+        self.assertEqual(plan.unplanned_nodes, 4)
+
+    def test_more_hours_fit_more_topics(self):
+        from apps.planning.services import build_study_plan
+
+        self.student.weekly_hours = 12
+        self.student.save(update_fields=["weekly_hours"])
+
+        plan = build_study_plan(self.student)
+
+        self.assertLess(plan.unplanned_nodes, 4)
+
+    def test_without_an_exam_date_everything_is_planned(self):
+        from apps.planning.services import build_study_plan
+
+        self.student.exam_date = None
+        self.student.save(update_fields=["exam_date"])
+
+        plan = build_study_plan(self.student)
+
+        # Горизонта нет — откладывать нечего.
+        self.assertEqual(plan.unplanned_nodes, 0)

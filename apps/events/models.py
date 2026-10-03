@@ -27,6 +27,7 @@ class Event(models.Model):
         # Партия арены: по этим записям считается дневной потолок наград.
         ARENA_MATCH_FINISHED = "arena_match_finished"
         FEEDBACK_CREATED = "feedback_created"
+        LEAGUE_FINISHED = "league_finished"
 
     student = models.ForeignKey(
         "accounts.StudentProfile",

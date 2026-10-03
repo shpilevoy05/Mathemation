@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="aowlb" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#A9BAFF" stop-opacity="1"/><stop offset="0.52" stop-color="#5C74E8" stop-opacity="1"/><stop offset="1" stop-color="#25358F" stop-opacity="1"/></radialGradient>
+<radialGradient id="aowls" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#25358F" stop-opacity="0"/><stop offset="0.88" stop-color="#25358F" stop-opacity="0.18"/><stop offset="1" stop-color="#25358F" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="aowlg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="aowlr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<circle cx="64" cy="64" r="60" fill="url(#aowlb)"/>
+<g>
+<path d="M38 40 L34 22 L52 32 Z" fill="#FFFFFF" fill-opacity=".9"/>
+<path d="M90 40 L94 22 L76 32 Z" fill="#FFFFFF" fill-opacity=".9"/>
+<path d="M64 30 C87 30 101 48 101 70 C101 91 85 106 64 106 C43 106 27 91 27 70 C27 48 41 30 64 30 Z" fill="#FFFFFF" fill-opacity=".95"/>
+<circle cx="50" cy="63" r="14" fill="#25358F" fill-opacity=".14"/>
+<circle cx="78" cy="63" r="14" fill="#25358F" fill-opacity=".14"/>
+<circle cx="50" cy="63" r="6.5" fill="#25358F" fill-opacity=".85"/>
+<circle cx="78" cy="63" r="6.5" fill="#25358F" fill-opacity=".85"/>
+<circle cx="52.5" cy="60.5" r="2.2" fill="#FFFFFF"/>
+<circle cx="80.5" cy="60.5" r="2.2" fill="#FFFFFF"/>
+<path d="M64 74 L57 82 L64 90 L71 82 Z" fill="#25358F" fill-opacity=".7"/>
+<path d="M40 88 C48 98 56 103 64 105 C72 103 80 98 88 88" stroke="#25358F" stroke-opacity=".12" stroke-width="5" stroke-linecap="round"/>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#aowls)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#aowlg)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#aowlr)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#25358F" stroke-opacity="0.14" stroke-width="3"/>
+</svg>

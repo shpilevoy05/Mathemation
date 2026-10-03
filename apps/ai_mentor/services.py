@@ -3,6 +3,7 @@ hints, never a final answer, everything is logged for the parent."""
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, Sum
 from django.utils import timezone
@@ -92,13 +93,18 @@ def mentor_usage_summary() -> dict:
         "estimated_cost_rub": totals["estimated_cost_rub"] or Decimal("0"),
         "top_students": top_students,
     }
-
-
 @transaction.atomic
 def request_hint(student, assignment, question: str, context: str) -> dict:
     """Return {"session", "text", "escalated"} or raise HintNotAllowed."""
     if not mentor_available(context):
         raise HintNotAllowed("Наставник недоступен на пробниках, диагностике и отработке.")
+    from apps.accounts.models import StudentProfile
+    from apps.practice.access import ensure_practice_allowed
+    StudentProfile.objects.select_for_update().get(pk=student.pk)
+    try:
+        ensure_practice_allowed(student, assignment)
+    except PermissionDenied as exc:
+        raise HintNotAllowed(str(exc)) from exc
 
     first_tag = assignment.skill_tags.select_related("node").first()
     session, _ = AiHintSession.objects.get_or_create(

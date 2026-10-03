@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="awhaleb" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#8ADCF6" stop-opacity="1"/><stop offset="0.52" stop-color="#2FA5D8" stop-opacity="1"/><stop offset="1" stop-color="#0F5E86" stop-opacity="1"/></radialGradient>
+<radialGradient id="awhales" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#0F5E86" stop-opacity="0"/><stop offset="0.88" stop-color="#0F5E86" stop-opacity="0.18"/><stop offset="1" stop-color="#0F5E86" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="awhaleg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="awhaler" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<circle cx="64" cy="64" r="60" fill="url(#awhaleb)"/>
+<g>
+<path d="M94 55 C102 45 116 35 126 36 C122 47 112 55 103 60 C112 65 122 73 126 84 C116 85 102 75 94 65 Z" fill="#FFFFFF" fill-opacity=".84"/>
+<path d="M12 62 C12 40 32 26 58 26 C80 26 94 36 100 50 C103 56 103 66 100 72 C93 88 76 98 52 98 C27 98 12 84 12 62 Z" fill="#FFFFFF" fill-opacity=".96"/>
+<path d="M14 74 C26 88 46 95 68 92 C82 90 92 84 99 74 C93 89 76 98 52 98 C29 98 16 88 14 74 Z" fill="#0F5E86" fill-opacity=".14"/>
+<path d="M12 64 C28 76 54 82 82 78" stroke="#0F5E86" stroke-opacity=".34" stroke-width="3.4" fill="none"/>
+<path d="M18 74 C30 84 48 89 68 87 M22 82 C33 89 48 92 64 91 M28 89 C37 93 48 95 60 95" stroke="#0F5E86" stroke-opacity=".2" stroke-width="2.4" fill="none"/>
+<path d="M16 44 C26 38 40 35 56 35" stroke="#FFFFFF" stroke-opacity=".5" stroke-width="3" fill="none"/>
+<ellipse cx="32" cy="56" rx="5.2" ry="5.8" fill="#0F5E86" fill-opacity=".82"/><circle cx="34.2" cy="54.0" r="1.7" fill="#FFFFFF" fill-opacity=".9"/>
+<path d="M40 28 C40 18 46 14 46 6 M54 27 C56 19 62 16 64 9" stroke="#FFFFFF" stroke-opacity=".8" stroke-width="5" stroke-linecap="round"/>
+<circle cx="46" cy="5" r="3.4" fill="#FFFFFF" fill-opacity=".8"/>
+<circle cx="65" cy="7" r="2.6" fill="#FFFFFF" fill-opacity=".8"/>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#awhales)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#awhaleg)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#awhaler)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#0F5E86" stroke-opacity="0.14" stroke-width="3"/>
+</svg>

@@ -2,18 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from django.conf import settings
 from django.utils import timezone
-
-
-EXAM_YEAR = 2027
-EXAM_TASKS = [
-    (1, 1, 1, 2), (2, 1, 1, 2), (3, 1, 1, 2), (4, 1, 1, 2),
-    (5, 1, 1, 3), (6, 1, 1, 3), (7, 1, 1, 2), (8, 1, 1, 3),
-    (9, 1, 1, 3), (10, 1, 1, 3), (11, 1, 1, 4), (12, 1, 1, 4),
-    (13, 2, 2, 4), (14, 2, 3, 4), (15, 2, 2, 4),
-    (16, 2, 2, 4), (17, 2, 3, 5), (18, 2, 4, 5), (19, 2, 4, 5),
-]
 
 TRAJECTORIES = [
     ("score78", "78+", 78, 83, 6),
@@ -86,75 +75,13 @@ def seed_demo_promotion() -> None:
 
 
 def _seed_shop(report: ReferenceSeedReport) -> None:
-    from apps.economy.models import ShopCategory, ShopItem
+    """Load the canonical cosmetics catalog instead of a demo-only subset."""
+    from apps.economy.catalog import load_cosmetics
 
-    cosmetics, created = ShopCategory.objects.update_or_create(
-        title="Косметика", defaults={"order": 0}
+    catalog_report = load_cosmetics()
+    report.created.extend(
+        ["товар каталога косметики"] * catalog_report.get("created", 0)
     )
-    report.add(created, "категория магазина «Косметика»")
-    boosters, created = ShopCategory.objects.update_or_create(
-        title="Ускорители", defaults={"order": 1}
-    )
-    report.add(created, "категория магазина «Ускорители»")
-
-    cosmetics_items = [
-        ("Аватар «Сова»", ShopItem.Slot.AVATAR, "owl", 40, ""),
-        ("Аватар «Лис»", ShopItem.Slot.AVATAR, "fox", 60, ""),
-        ("Аватар «Ракета»", ShopItem.Slot.AVATAR, "rocket", 90, ""),
-        ("Аватар «Сигма»", ShopItem.Slot.AVATAR, "sigma", 70, ""),
-        ("Рамка «Координаты»", ShopItem.Slot.FRAME, "coordinates", 80, ""),
-        ("Рамка «Пламя»", ShopItem.Slot.FRAME, "flame", 110,
-         "Открывается стриком от 7 дней."),
-        ("Рамка «Интеграл»", ShopItem.Slot.FRAME, "integral", 140, ""),
-        ("Тема «Ночь»", ShopItem.Slot.THEME, "dark", 120, "Тёмная тема кабинета."),
-        ("Тема «Рассвет»", ShopItem.Slot.THEME, "sunrise", 150,
-         "Тёплая охра вместо индиго."),
-        ("Тема «Лес»", ShopItem.Slot.THEME, "forest", 150,
-         "Зелёная палитра, спокойный фон."),
-        ("Тема «Графит»", ShopItem.Slot.THEME, "graphite", 180,
-         "Тёмно-серая, без синевы."),
-        ("Значок «Стрик 7»", ShopItem.Slot.BADGE, "streak7", 30, ""),
-    ]
-    for title, slot, code, price, description in cosmetics_items:
-        _, created = ShopItem.objects.update_or_create(
-            title=title,
-            defaults={
-                "category": cosmetics,
-                "slot": slot,
-                "code": code,
-                "description": description,
-                "price_coins": price,
-                "is_active": True,
-                "effect": ShopItem.Effect.NONE,
-            },
-        )
-        report.add(created, f"товар «{title}»")
-
-    boost_items = [
-        ("Заморозка стрика", ShopItem.Effect.STREAK_FREEZE, 1, 0, 100,
-         "Один пропущенный день не сбрасывает серию."),
-        ("Заморозка стрика ×3", ShopItem.Effect.STREAK_FREEZE, 3, 0, 260,
-         "Три пропуска про запас: болезнь, поездка, форс-мажор."),
-        ("Ускоритель опыта +50 % на сутки", ShopItem.Effect.XP_BOOST, 50, 24, 150,
-         "XP за занятия начисляется в полтора раза быстрее."),
-        ("Ускоритель опыта +100 % на 3 часа", ShopItem.Effect.XP_BOOST, 100, 3, 120,
-         "Двойной опыт на один плотный подход."),
-    ]
-    for title, effect, value, hours, price, description in boost_items:
-        _, created = ShopItem.objects.update_or_create(
-            title=title,
-            defaults={
-                "category": boosters,
-                "slot": ShopItem.Slot.BOOST,
-                "description": description,
-                "price_coins": price,
-                "is_active": True,
-                "effect": effect,
-                "effect_value": value,
-                "duration_hours": hours,
-            },
-        )
-        report.add(created, f"товар «{title}»")
 
 
 def _seed_pricing(report: ReferenceSeedReport) -> None:
@@ -234,33 +161,9 @@ def _seed_pricing(report: ReferenceSeedReport) -> None:
 
 
 def _seed_exam_profile(nodes, report: ReferenceSeedReport):
-    from apps.exams.models import ExamProfile, ExamTask, ExamTaskSkill
+    from apps.exams.blueprint import load_blueprint
+    from apps.exams.models import ExamProfile
 
-    max_primary = sum(max_score for _n, _p, max_score, _d in EXAM_TASKS)
-    profile, created = ExamProfile.objects.update_or_create(
-        year=EXAM_YEAR,
-        defaults={
-            "title": "ЕГЭ, профильная математика",
-            "max_primary_score": max_primary,
-            "primary_to_scaled": settings.PRIMARY_TO_SCALED[: max_primary + 1],
-            "is_active": True,
-        },
-    )
-    report.add(created, f"профиль экзамена {EXAM_YEAR}")
-    ExamProfile.objects.exclude(pk=profile.pk).update(is_active=False)
-    for number, part, max_score, difficulty in EXAM_TASKS:
-        task, created = ExamTask.objects.update_or_create(
-            profile=profile,
-            number=number,
-            defaults={
-                "exam_part": part,
-                "max_score": max_score,
-                "difficulty": difficulty,
-            },
-        )
-        report.add(created, f"задание профиля №{number}")
-        for node in nodes:
-            if number in (node.ege_task_numbers or []):
-                _, link_created = ExamTaskSkill.objects.get_or_create(task=task, node=node)
-                report.add(link_created, f"связь задания №{number} с темой {node.code}")
-    return profile
+    blueprint_report = load_blueprint()
+    report.add(blueprint_report["created"], f"профиль экзамена {blueprint_report['year']}")
+    return ExamProfile.active()

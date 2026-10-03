@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from urllib.error import HTTPError, URLError
@@ -17,6 +18,8 @@ from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.utils.module_loading import import_string
+
+from .privacy import defend_payload, merge_counts, pseudonym_for, scrub
 
 logger = logging.getLogger(__name__)
 
@@ -102,15 +105,38 @@ class LLMHintProvider(HintProvider):
         if not settings.AI_MENTOR_LLM_API_KEY:
             logger.warning("AI mentor LLM request skipped: API key is not configured")
             return None
+        if session is None:
+            logger.warning("AI mentor LLM request skipped: student session is required")
+            return None
 
         try:
-            messages = self._build_messages(assignment, question, hint_number, session)
-            headers, payload = self._build_request(messages)
+            student = session.student
+            messages, redaction_counts = self._build_messages(
+                assignment, question, hint_number, session, student
+            )
+            pseudonym = pseudonym_for(student)
+            headers, payload = self._build_request(messages, pseudonym=pseudonym)
+            payload, defense_counts = defend_payload(payload, student)
+            redaction_counts = merge_counts(redaction_counts, defense_counts)
+
+            from .models import AiOutboundRequest
+
+            audit = AiOutboundRequest.objects.create(
+                student=student,
+                pseudonym=pseudonym,
+                purpose=AiOutboundRequest.Purpose.HINT,
+                provider=settings.AI_MENTOR_LLM_FORMAT,
+                model=settings.AI_MENTOR_LLM_MODEL,
+                redaction_counts=redaction_counts,
+            )
             response = self._send_with_retry(headers, payload)
             text = self._parse_response(response)
             if not text:
                 raise ValueError("empty LLM response")
             prompt_tokens, completion_tokens = self._parse_usage(response)
+            audit.prompt_tokens = max(int(prompt_tokens or 0), 0)
+            audit.completion_tokens = max(int(completion_tokens or 0), 0)
+            audit.save(update_fields=["prompt_tokens", "completion_tokens"])
             return HintResult(
                 text,
                 prompt_tokens=prompt_tokens,
@@ -122,22 +148,31 @@ class LLMHintProvider(HintProvider):
             )
             return None
 
-    def _build_messages(self, assignment, question, hint_number: int, session) -> list[dict]:
+    def _build_messages(
+        self, assignment, question, hint_number: int, session, student
+    ) -> tuple[list[dict], dict[str, int]]:
+        redactions = []
+
+        def clean(text: str) -> str:
+            result = scrub(text, student)
+            redactions.append(result.counts)
+            return self._redact_answer(result.text, assignment)
+
         history = []
         if session is not None:
             recent = list(
                 session.messages.filter(is_blocked=False).order_by("-created_at", "-id")[:6]
             )
             history = [
-                {"role": message.role, "text": self._redact_answer(message.text, assignment)}
+                {"role": message.role, "text": clean(message.text)}
                 for message in reversed(recent)
             ]
 
-        reference_solution = self._redact_answer(
-            assignment.reference_solution or "[эталонный разбор отсутствует]", assignment
+        reference_solution = clean(
+            assignment.reference_solution or "[эталонный разбор отсутствует]"
         )
-        statement = self._redact_answer(assignment.statement, assignment)
-        student_question = self._redact_answer(question, assignment)
+        statement = clean(assignment.statement)
+        student_question = clean(question)
         hint_instruction = (
             "Первая подсказка должна быть мягче."
             if hint_number == 1
@@ -153,19 +188,30 @@ class LLMHintProvider(HintProvider):
             f"Вопрос ученика:\n{student_question}\n\n"
             f"Последние сообщения сессии:\n{history_text}"
         )
-        return [
-            {"role": "system", "content": self.SYSTEM_PROMPT},
-            {"role": "user", "content": user_context},
-        ]
+        return (
+            [
+                {"role": "system", "content": self.SYSTEM_PROMPT},
+                {"role": "user", "content": user_context},
+            ],
+            merge_counts(*redactions),
+        )
 
     @staticmethod
     def _redact_answer(text: str, assignment) -> str:
         answer = assignment.correct_answer
         if not answer:
             return text
-        return text.replace(answer, "[финальный ответ скрыт]")
+        # Hide the answer as a standalone token, not as a digit inside x^2,
+        # 2027, a decimal, or another mathematical atom.
+        pattern = re.compile(
+            rf"(?<![\w^.,]){re.escape(answer)}(?!\w|[.,]\d)",
+            re.I,
+        )
+        return pattern.sub("[финальный ответ скрыт]", text)
 
-    def _build_request(self, messages: list[dict]) -> tuple[dict[str, str], dict]:
+    def _build_request(
+        self, messages: list[dict], *, pseudonym: str
+    ) -> tuple[dict[str, str], dict]:
         headers = {
             "Content-Type": "application/json",
             "Authorization": self._authorization_header(),
@@ -176,6 +222,7 @@ class LLMHintProvider(HintProvider):
                 "messages": messages,
                 "max_tokens": settings.AI_MENTOR_LLM_MAX_TOKENS,
                 "temperature": settings.AI_MENTOR_LLM_TEMPERATURE,
+                "user": pseudonym,
             }
         if settings.AI_MENTOR_LLM_FORMAT == "yandexgpt":
             model = settings.AI_MENTOR_LLM_MODEL

@@ -117,6 +117,7 @@ def export_user_data(user: User) -> dict:
         "mistakes": [],
         "hint_sessions": [],
         "hint_messages": [],
+        "ai_outbound_requests": [],
         "mock_results": [],
         "expert_reviews": [],
         "wallet_ledger": [],
@@ -137,7 +138,7 @@ def export_user_data(user: User) -> dict:
         "start_score": student.start_score,
         "weekly_hours": student.weekly_hours,
     }
-    from apps.ai_mentor.models import AiHintMessage, AiHintSession
+    from apps.ai_mentor.models import AiHintMessage, AiHintSession, AiOutboundRequest
     from apps.economy.models import LedgerEntry
     from apps.events.models import Event
     from apps.expert_review.models import ExpertReviewRequest
@@ -169,6 +170,11 @@ def export_user_data(user: User) -> dict:
     data["hint_messages"] = _limited_values(
         AiHintMessage.objects.filter(session__student=student),
         "id", "session_id", "role", "text", "is_blocked", "created_at",
+    )
+    data["ai_outbound_requests"] = _limited_values(
+        AiOutboundRequest.objects.filter(student=student),
+        "id", "pseudonym", "request_id", "purpose", "provider", "model",
+        "redaction_counts", "prompt_tokens", "completion_tokens", "created_at",
     )
     data["mock_results"] = _limited_values(
         MockExamResult.objects.filter(student=student),
@@ -211,11 +217,15 @@ def anonymize_user(
     user = deletion_request.user
     student = getattr(user, "student_profile", None)
     if student is not None:
+        from apps.ai_mentor.models import AiOutboundRequest
         from apps.ai_mentor.services import redact_student_hint_messages
         from apps.expert_review.services import delete_student_solution_files
 
         delete_student_solution_files(student)
         redact_student_hint_messages(student)
+        AiOutboundRequest.objects.filter(student=student).update(
+            student=None, pseudonym="anonymized"
+        )
     from apps.accounts.services import anonymize_account
 
     anonymize_account(user)

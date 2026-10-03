@@ -8,7 +8,7 @@ from apps.content.models import Assignment
 from apps.expert_review.services import finish_review, submit_solution
 from apps.knowledge.tests import make_node, make_student
 from apps.mocks.models import MockExam, MockExamResult
-from apps.mocks.services import MockDeadlineExpired, complete_mock_part1, submit_mock
+from apps.mocks.services import complete_mock_part1, submit_mock
 from apps.practice.models import Attempt
 from apps.practice.services import submit_attempt
 from apps.practice.tests import make_assignment
@@ -50,6 +50,18 @@ class MockLifecycleTests(TestCase):
         # Калибровка не трогается, пока вторая часть у эксперта.
         self.student.refresh_from_db()
         self.assertEqual(self.student.calibration_samples, 0)
+
+    def test_part2_upload_reaches_expert_only_after_submission(self):
+        result = MockExamResult.objects.create(student=self.student, exam=self.exam)
+        review = submit_solution(
+            self.student, self.a2, _solution_file(), mock_result=result
+        )
+        self.assertEqual(review.status, review.Status.DRAFT)
+
+        complete_mock_part1(result)
+
+        review.refresh_from_db()
+        self.assertEqual(review.status, review.Status.SUBMITTED)
 
     def test_expert_verdict_completes_mock_and_calibrates(self):
         result = self._run_part1()
@@ -94,15 +106,14 @@ class MockLifecycleTests(TestCase):
         delta = result.deadline - result.started_at
         self.assertEqual(delta.total_seconds(), 235 * 60)
 
-    def test_submit_after_deadline_is_rejected_by_service(self):
+    def test_submit_after_deadline_finalizes_saved_state(self):
         result = MockExamResult.objects.create(student=self.student, exam=self.exam)
         MockExamResult.objects.filter(pk=result.pk).update(
             started_at=timezone.now() - timedelta(minutes=236)
         )
         result.refresh_from_db()
-        with self.assertRaises(MockDeadlineExpired):
-            submit_mock(result, {str(self.a1.id): "7"})
+        submit_mock(result, {str(self.a1.id): "7"})
         result.refresh_from_db()
         self.assertTrue(result.time_expired)
-        self.assertEqual(result.status, MockExamResult.Status.IN_PROGRESS)
-        self.assertFalse(result.attempts.exists())
+        self.assertEqual(result.status, MockExamResult.Status.COMPLETED)
+        self.assertEqual(result.attempts.count(), 1)

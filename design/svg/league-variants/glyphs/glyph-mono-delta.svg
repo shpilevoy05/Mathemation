@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<linearGradient id="Ldeltatrianglemono0p" x1="12%" y1="0%" x2="88%" y2="100%"><stop offset="0" stop-color="#E7C9A6" stop-opacity="1"/><stop offset="0.35" stop-color="#B8865C" stop-opacity="1"/><stop offset="0.72" stop-color="#6B4520" stop-opacity="1"/><stop offset="1" stop-color="#6B4520" stop-opacity="1"/></linearGradient>
+<linearGradient id="Ldeltatrianglemono0i" x1="0%" y1="0%" x2="60%" y2="100%"><stop offset="0" stop-color="#B8865C" stop-opacity="1"/><stop offset="0.55" stop-color="#6B4520" stop-opacity="1"/><stop offset="1" stop-color="#6B4520" stop-opacity="1"/></linearGradient>
+<linearGradient id="Ldeltatrianglemono0g" x1="0%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.1"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<radialGradient id="Ldeltatrianglemono0c" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#E7C9A6" stop-opacity="1"/><stop offset="1" stop-color="#B8865C" stop-opacity="1"/></radialGradient>
+</defs>
+<path d="M58 14 C61 8 67 8 70 14 L116 104 C119 110 116 117 109 117 H19 C12 117 9 110 12 104 Z" fill="url(#Ldeltatrianglemono0p)"/>
+<g transform="translate(64,64) scale(.86) translate(-64,-64)"><path d="M58 14 C61 8 67 8 70 14 L116 104 C119 110 116 117 109 117 H19 C12 117 9 110 12 104 Z" fill="url(#Ldeltatrianglemono0i)" opacity=".55"/></g>
+<g transform="translate(64,64) scale(.74) translate(-64,-64)"><path d="M58 14 C61 8 67 8 70 14 L116 104 C119 110 116 117 109 117 H19 C12 117 9 110 12 104 Z" fill="url(#Ldeltatrianglemono0c)"/></g>
+<g transform="translate(64.00 76.00) scale(0.5287) translate(-64 -64)"><path d="M64 58 C82 58 96 72 96 88 C96 104 82 116 64 116 C46 116 32 104 32 88 C32 72 46 58 64 58 M64 58 C50 48 44 34 56 26 C68 18 84 24 90 32" fill="none" stroke="#6B4520" stroke-opacity=".3" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" transform="translate(1.5 2.5)"/><path d="M64 58 C82 58 96 72 96 88 C96 104 82 116 64 116 C46 116 32 104 32 88 C32 72 46 58 64 58 M64 58 C50 48 44 34 56 26 C68 18 84 24 90 32" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M58 14 C61 8 67 8 70 14 L116 104 C119 110 116 117 109 117 H19 C12 117 9 110 12 104 Z" fill="url(#Ldeltatrianglemono0g)"/>
+<path d="M58 14 C61 8 67 8 70 14 L116 104 C119 110 116 117 109 117 H19 C12 117 9 110 12 104 Z" fill="none" stroke="#6B4520" stroke-opacity=".45" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

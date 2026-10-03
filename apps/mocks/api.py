@@ -9,7 +9,7 @@ from apps.content.api import AssignmentSerializer
 from apps.content.models import Assignment
 
 from .models import MockExam, MockExamResult
-from .services import MockDeadlineExpired, start_mock, submit_mock
+from .services import MockDeadlineExpired, start_mock, submit_mock, save_draft
 
 
 class MockListView(views.APIView):
@@ -49,16 +49,36 @@ class SubmitMockView(views.APIView):
         student = get_student(request)
         result = get_object_or_404(
             MockExamResult, pk=result_id, student=student,
-            status=MockExamResult.Status.IN_PROGRESS,
         )
         answers = request.data.get("answers", {})
         try:
             submit_mock(result, answers)
         except MockDeadlineExpired as exc:
             return Response({"detail": str(exc)}, status=409)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
         return Response({
             "primary_score": result.primary_score,
             "scaled_score": result.scaled_score,
             "status": result.status,
             "time_expired": result.time_expired,
         })
+
+
+class MockDraftView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated, HasFeature]
+    feature = Feature.MOCKS
+
+    def get(self, request, result_id):
+        result = get_object_or_404(MockExamResult, pk=result_id, student=get_student(request))
+        return Response({"answers": result.draft_answers, "revision": result.draft_revision, "saved_at": result.draft_saved_at})
+
+    def post(self, request, result_id):
+        result = get_object_or_404(MockExamResult, pk=result_id, student=get_student(request))
+        try:
+            save_draft(result, request.data.get("answers", {}), request.data.get("revision"))
+        except MockDeadlineExpired as exc:
+            return Response({"detail": str(exc)}, status=409)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response({"revision": result.draft_revision, "saved_at": result.draft_saved_at})

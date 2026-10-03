@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<linearGradient id="Lsigmaoctagonlogo2p" x1="12%" y1="0%" x2="88%" y2="100%"><stop offset="0" stop-color="#FBFCFF" stop-opacity="1"/><stop offset="0.35" stop-color="#D2DAEA" stop-opacity="1"/><stop offset="0.72" stop-color="#8E9AB8" stop-opacity="1"/><stop offset="1" stop-color="#5C6884" stop-opacity="1"/></linearGradient>
+<linearGradient id="Lsigmaoctagonlogo2i" x1="0%" y1="0%" x2="60%" y2="100%"><stop offset="0" stop-color="#D2DAEA" stop-opacity="1"/><stop offset="0.55" stop-color="#8E9AB8" stop-opacity="1"/><stop offset="1" stop-color="#5C6884" stop-opacity="1"/></linearGradient>
+<linearGradient id="Lsigmaoctagonlogo2g" x1="0%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.1"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<radialGradient id="Lsigmaoctagonlogo2c" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#FFD34E" stop-opacity="1"/><stop offset="1" stop-color="#D8A21C" stop-opacity="1"/></radialGradient>
+</defs>
+<path d="M42 8 H86 L120 42 V86 L86 120 H42 L8 86 V42 Z" fill="url(#Lsigmaoctagonlogo2p)"/>
+<g transform="translate(64,64) scale(.86) translate(-64,-64)"><path d="M42 8 H86 L120 42 V86 L86 120 H42 L8 86 V42 Z" fill="url(#Lsigmaoctagonlogo2i)" opacity=".55"/></g>
+<g transform="translate(64,64) scale(.74) translate(-64,-64)"><path d="M42 8 H86 L120 42 V86 L86 120 H42 L8 86 V42 Z" fill="url(#Lsigmaoctagonlogo2c)"/></g>
+<defs><linearGradient id="gLsigmaoctagonlogo2logo" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#FFD34E"/></linearGradient></defs><g transform="translate(64.00 64.00) scale(0.5905) translate(-68.00 -64.00)"><path d="M98 26 H34 L66 64 L34 102 H102" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="2" stroke="#7A5A05" stroke-opacity=".34" stroke-width="23.34" transform="translate(4.06 5.28)"/><path d="M98 26 H34 L66 64 L34 102 H102" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="2" stroke="url(#gLsigmaoctagonlogo2logo)" stroke-width="22.01"/></g>
+<path d="M42 8 H86 L120 42 V86 L86 120 H42 L8 86 V42 Z" fill="url(#Lsigmaoctagonlogo2g)"/>
+<path d="M42 8 H86 L120 42 V86 L86 120 H42 L8 86 V42 Z" fill="none" stroke="#5C6884" stroke-opacity=".45" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="101" cy="103" r="18" fill="url(#Lsigmaoctagonlogo2p)" stroke="#5C6884" stroke-opacity=".5" stroke-width="2"/><path d="M96.70 99.27H95.47V95.97Q96.72 95.59 97.95 95.40Q99.17 95.21 100.43 95.21Q103.35 95.21 104.98 96.40Q106.62 97.60 106.62 99.73Q106.62 101.25 105.72 102.45Q104.81 103.66 102.27 105.31L98.01 108.11H105.26V106.30H106.66V110.79H95.34V108.29L97.61 106.72Q100.51 104.72 101.47 103.32Q102.44 101.91 102.44 100.04Q102.44 98.26 101.70 97.33Q100.97 96.41 99.56 96.41Q98.35 96.41 97.63 97.14Q96.90 97.87 96.70 99.27Z" fill="#5C6884"/>
+</svg>

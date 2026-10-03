@@ -180,12 +180,16 @@ def _weekly_hours(student, trajectory) -> int:
 
 
 def _fill_plan_items(student, plan: StudyPlan, trajectory, *, done_pairs=None) -> int:
-    """Разложить темы по дням: сначала выгодные, дальше — по бюджету часов.
+    """Разложить темы по неделям по выбранной нагрузке.
 
-    Бюджет считается в часах, а не в темах: узел на четыре часа не должен
-    занимать столько же места в неделе, сколько узел на два. Если до экзамена
-    времени меньше, чем нужно плану, дни сжимаются — лучше показать честно
-    плотный график, чем расписание, уходящее за дату экзамена.
+    Бюджет считается в часах, а не в темах: тема на четыре часа не должна
+    занимать столько же места в неделе, сколько тема на два. В неделю кладётся
+    ровно столько занятий, сколько человек успевает при своей загрузке.
+
+    Уплотнять неделю, если до экзамена времени не хватает, нельзя: получится
+    расписание, которое обещает выполнимость и её не даёт. То, что не влезает,
+    в план не попадает и считается отдельно — это ровно та часть материала,
+    которую не обещает и прогноз.
     """
     weekly_hours = max(1, _weekly_hours(student, trajectory))
     today = timezone.localdate()
@@ -203,26 +207,28 @@ def _fill_plan_items(student, plan: StudyPlan, trajectory, *, done_pairs=None) -
     if not nodes:
         return 0
 
-    total_hours = sum(_node_hours(node) for node in nodes)
-    weeks_needed = max(1, ceil(total_hours / weekly_hours))
+    hours_per_week = float(weekly_hours)
+    # Сколько недель осталось до экзамена. Без даты горизонта нет: план
+    # раскладывается целиком.
     weeks_left = None
     if student.exam_date:
         weeks_left = max(1, ceil((student.exam_date - today).days / 7))
-    # Сжатие: если недель до экзамена меньше, чем требует бюджет, кладём тот же
-    # объём в оставшиеся недели.
-    weeks = min(weeks_needed, weeks_left) if weeks_left else weeks_needed
-    hours_per_week = total_hours / weeks if weeks else float(weekly_hours)
 
     order = 0
     week = 0
     hours_in_week = 0.0
     day_in_week = 0
+    unplanned = 0
     for node in nodes:
         node_hours = _node_hours(node)
         if hours_in_week and hours_in_week + node_hours > hours_per_week:
             week += 1
             hours_in_week = 0.0
             day_in_week = 0
+        if weeks_left is not None and week >= weeks_left:
+            # Дальше экзамена планировать нечего: остаток честно не помещается.
+            unplanned += 1
+            continue
         due = today + timedelta(days=7 * week + min(day_in_week, 6))
         if student.exam_date and due > student.exam_date:
             due = student.exam_date
@@ -236,7 +242,28 @@ def _fill_plan_items(student, plan: StudyPlan, trajectory, *, done_pairs=None) -
             order += 1
         hours_in_week += node_hours
         day_in_week += 1
+    if plan.unplanned_nodes != unplanned:
+        plan.unplanned_nodes = unplanned
+        plan.save(update_fields=["unplanned_nodes"])
     return order
+
+
+def recommended_weekly_hours(student, exam_date=None) -> int | None:
+    """Сколько часов в неделю нужно, чтобы пройти всё до экзамена.
+
+    Считается по той же трудоёмкости тем, по которой раскладывается план:
+    иначе совет разошёлся бы с расписанием. Без даты экзамена совета нет —
+    успевать не к чему.
+    """
+    exam_date = exam_date or student.exam_date
+    if exam_date is None:
+        return None
+    nodes = order_pending_nodes(student)
+    if not nodes:
+        return 0
+    total_hours = sum(_node_hours(node) for node in nodes)
+    weeks_left = max(1, ceil((exam_date - timezone.localdate()).days / 7))
+    return max(1, ceil(total_hours / weeks_left))
 
 
 def _node_hours(node) -> float:
@@ -594,14 +621,11 @@ def _transition_target(student, current: Trajectory, reason: str, details: dict)
     if reason == PlanChangeLog.Reason.POOR_MOCK:
         primary_score = details.get("primary_score")
         if primary_score is not None:
-            target_primary = next(
-                (
-                    index
-                    for index, scaled in enumerate(settings.PRIMARY_TO_SCALED)
-                    if scaled >= current.target_min
-                ),
-                settings.MAX_PRIMARY_SCORE,
-            )
+            # Таблицу берём из активного профиля экзамена: она меняется вместе
+            # со структурой, а настройки — только запасной вариант.
+            from apps.progress.services import primary_for_scaled
+
+            target_primary = primary_for_scaled(current.target_min)
             should_move_down = primary_score < target_primary - 5
         else:
             score = details.get(

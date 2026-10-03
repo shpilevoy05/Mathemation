@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load l10n %}
 {% block title %}Прогноз — Матемация{% endblock %}
 {% block content %}
 {% if not student %}<section class="empty-state"><h1>Прогноз</h1><p>Этот раздел доступен ученикам.</p></section>{% else %}
@@ -17,6 +18,12 @@
     </span>
   </div>
   {% include "partials/primary_gauge.html" with gauge=gauge %}
+  {% if not scale_is_official %}
+    <p class="disclaimer">Тестовые баллы посчитаны по предварительной шкале перевода:
+      официальную таблицу на {{ gauge.max_primary|floatformat:0 }} первичных баллов
+      Рособрнадзор ещё не публиковал. Первичные баллы и структура заданий — из
+      спецификации {{ exam_profile.year }} года, они точные.</p>
+  {% endif %}
   <div class="convert">
     <div><span class="k">До цели</span><span class="v">{{ gauge.to_target_primary|floatformat:1 }} первичных</span></div>
     <div><span class="k">Цель</span><span class="v">{{ gauge.target_scaled }} тестовых</span></div>
@@ -49,5 +56,48 @@
     <p class="target-success" data-target-score-success hidden></p>
   </form>
 </section>
-<section class="card levers"><div><p class="eyebrow">Рычаги</p><h2>Проверь другой сценарий</h2></div><label>Недельная нагрузка <strong><span data-hours-output>{{ forecast.weekly_hours }}</span> ч</strong><input type="range" min="1" max="24" value="{{ forecast.weekly_hours }}" data-forecast-hours></label><label>Дата экзамена<input type="date" value="{{ forecast.exam_date|date:'Y-m-d' }}" data-forecast-date></label><p class="form-error" data-forecast-error hidden></p></section>
+<section class="card levers">
+  <div><p class="eyebrow">Рычаги</p><h2>Проверь другой сценарий</h2></div>
+  <label>Недельная нагрузка <strong><span data-hours-output>{{ forecast.weekly_hours }}</span> ч</strong>
+    <span class="lever-track">
+      <input type="range" min="1" max="24" value="{{ forecast.weekly_hours }}" data-forecast-hours>
+      {# Отметка «сколько нужно, чтобы успеть всё»: без неё ползунок двигают наугад. #}
+      <span class="lever-mark" data-lever-mark
+            style="left: {{ recommended_percent|unlocalize }}%"
+            {% if not forecast.recommended_hours %}hidden{% endif %}>
+        нужно {{ forecast.recommended_hours|default:0|unlocalize }} ч
+      </span>
+    </span></label>
+  <label>Дата экзамена
+    <input type="date" value="{{ forecast.exam_date|date:'Y-m-d' }}" data-forecast-date></label>
+  {# Почему число перестало двигаться: без этого ползунок выглядит сломанным. #}
+  {% if forecast.recommended_hours %}
+    <p class="muted" data-forecast-advice>
+      Чтобы пройти весь план до экзамена, нужно
+      <b class="num">{{ forecast.recommended_hours|unlocalize }}</b> ч в неделю.
+      {% if forecast.recommended_hours > forecast.weekly_hours %}
+        Сейчас выбрано {{ forecast.weekly_hours|unlocalize }} — часть тем не поместится.
+      {% else %}
+        Текущей нагрузки хватает.
+      {% endif %}
+    </p>
+  {% endif %}
+  <p class="muted" data-forecast-limit>
+    {% if forecast.limited_by == 'scope' %}
+      При такой нагрузке успеваешь весь материал плана: дальше потолок держит не
+      время, а объём программы и текущее освоение тем.
+    {% else %}
+      Не успеваешь {{ forecast.unreachable_count }} тем — потолок держит время.
+      Больше часов в неделю или более поздняя дата поднимут его.
+    {% endif %}
+  </p>
+  <div class="arena-actions">
+    <button class="button button-primary" type="button" data-forecast-apply>Заниматься по этому сценарию</button>
+    <span class="muted" data-forecast-applied hidden>План и расписание перестроены.</span>
+  </div>
+  <p class="muted">Пока сценарий не применён, он ничего не меняет: это «а что если».
+    Применение сохраняет нагрузку и дату экзамена и перестраивает план — расписание
+    подхватит их сразу.</p>
+  <p class="form-error" data-forecast-error hidden></p>
+</section>
 {% endif %}{% endblock %}

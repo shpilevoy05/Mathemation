@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<linearGradient id="Lbetashieldfacet0p" x1="12%" y1="0%" x2="88%" y2="100%"><stop offset="0" stop-color="#5FD6A4" stop-opacity="1"/><stop offset="0.35" stop-color="#0E9A64" stop-opacity="1"/><stop offset="0.72" stop-color="#0A6244" stop-opacity="1"/><stop offset="1" stop-color="#0A6244" stop-opacity="1"/></linearGradient>
+<linearGradient id="Lbetashieldfacet0i" x1="0%" y1="0%" x2="60%" y2="100%"><stop offset="0" stop-color="#0E9A64" stop-opacity="1"/><stop offset="0.55" stop-color="#0A6244" stop-opacity="1"/><stop offset="1" stop-color="#0A6244" stop-opacity="1"/></linearGradient>
+<linearGradient id="Lbetashieldfacet0g" x1="0%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.1"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<radialGradient id="Lbetashieldfacet0c" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#5FD6A4" stop-opacity="1"/><stop offset="1" stop-color="#0E9A64" stop-opacity="1"/></radialGradient>
+</defs>
+<path d="M64 10 C84 10 100 16 106 21 C106 60 98 98 64 118 C30 98 22 60 22 21 C28 16 44 10 64 10 Z" fill="url(#Lbetashieldfacet0p)"/>
+<g transform="translate(64,64) scale(.86) translate(-64,-64)"><path d="M64 10 C84 10 100 16 106 21 C106 60 98 98 64 118 C30 98 22 60 22 21 C28 16 44 10 64 10 Z" fill="url(#Lbetashieldfacet0i)" opacity=".55"/></g>
+<g transform="translate(64,64) scale(.74) translate(-64,-64)"><path d="M64 10 C84 10 100 16 106 21 C106 60 98 98 64 118 C30 98 22 60 22 21 C28 16 44 10 64 10 Z" fill="url(#Lbetashieldfacet0c)"/></g>
+<g transform="translate(64.00 58.00) scale(0.7270) translate(-64 -64)"><path d="M44 26 V108 M44 30 A17 17 0 1 1 44 64 A21 21 0 1 1 44 106" fill="none" stroke="#0A6244" stroke-opacity=".55" stroke-width="15" stroke-linecap="butt" stroke-linejoin="miter" transform="translate(3 4)"/><path d="M44 26 V108 M44 30 A17 17 0 1 1 44 64 A21 21 0 1 1 44 106" fill="none" stroke="#0A6244" stroke-width="14" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M44 26 V108 M44 30 A17 17 0 1 1 44 64 A21 21 0 1 1 44 106" fill="none" stroke="#FFFFFF" stroke-width="9.5" stroke-linecap="butt" stroke-linejoin="miter" transform="translate(-1.6 -2.2)"/><path d="M44 26 V108 M44 30 A17 17 0 1 1 44 64 A21 21 0 1 1 44 106" fill="none" stroke="#5FD6A4" stroke-width="3.4" stroke-linecap="butt" transform="translate(-4 -5.2)"/></g>
+<path d="M64 10 C84 10 100 16 106 21 C106 60 98 98 64 118 C30 98 22 60 22 21 C28 16 44 10 64 10 Z" fill="url(#Lbetashieldfacet0g)"/>
+<path d="M64 10 C84 10 100 16 106 21 C106 60 98 98 64 118 C30 98 22 60 22 21 C28 16 44 10 64 10 Z" fill="none" stroke="#0A6244" stroke-opacity=".45" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

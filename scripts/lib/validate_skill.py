@@ -33,6 +33,9 @@ def _print(result: dict) -> None:
 
 
 def main(argv: list[str]) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     strict = "--strict" in argv
     paths = [arg for arg in argv if not arg.startswith("--")]
     if "--all" in argv:

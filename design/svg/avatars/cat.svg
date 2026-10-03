@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="acatb" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#A8C0E0" stop-opacity="1"/><stop offset="0.52" stop-color="#5F7FA8" stop-opacity="1"/><stop offset="1" stop-color="#21384F" stop-opacity="1"/></radialGradient>
+<radialGradient id="acats" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#21384F" stop-opacity="0"/><stop offset="0.88" stop-color="#21384F" stop-opacity="0.18"/><stop offset="1" stop-color="#21384F" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="acatg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="acatr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<circle cx="64" cy="64" r="60" fill="url(#acatb)"/>
+<g>
+<path d="M32 50 L34 14 L62 36 Z" fill="#FFFFFF" fill-opacity=".94"/>
+<path d="M96 50 L94 14 L66 36 Z" fill="#FFFFFF" fill-opacity=".94"/>
+<path d="M40 26 L41 44 L53 37 Z" fill="#21384F" fill-opacity=".2"/>
+<path d="M88 26 L87 44 L75 37 Z" fill="#21384F" fill-opacity=".2"/>
+<path d="M64 32 C88 32 104 48 104 68 C104 90 88 106 64 106 C40 106 24 90 24 68 C24 48 40 32 64 32 Z" fill="#FFFFFF" fill-opacity=".96"/>
+<ellipse cx="50" cy="64" rx="4.4" ry="8" fill="#21384F" fill-opacity=".82"/>
+<ellipse cx="78" cy="64" rx="4.4" ry="8" fill="#21384F" fill-opacity=".82"/>
+<circle cx="52" cy="60" r="1.8" fill="#FFFFFF"/><circle cx="80" cy="60" r="1.8" fill="#FFFFFF"/>
+<path d="M64 84 L57 78 H71 Z" fill="#21384F" fill-opacity=".82"/>
+<path d="M64 84 V89 M64 89 C61 93 56 93 54 90 M64 89 C67 93 72 93 74 90" stroke="#21384F" stroke-opacity=".32" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+<path d="M44 76 L20 70 M44 82 L21 84 M84 76 L108 70 M84 82 L107 84" stroke="#FFFFFF" stroke-opacity=".7" stroke-width="2.6" stroke-linecap="round"/>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#acats)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#acatg)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#acatr)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#21384F" stroke-opacity="0.14" stroke-width="3"/>
+</svg>

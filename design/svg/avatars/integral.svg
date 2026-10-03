@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="aintegralb" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#7FE0CD" stop-opacity="1"/><stop offset="0.52" stop-color="#17A88E" stop-opacity="1"/><stop offset="1" stop-color="#075949" stop-opacity="1"/></radialGradient>
+<radialGradient id="aintegrals" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#075949" stop-opacity="0"/><stop offset="0.88" stop-color="#075949" stop-opacity="0.18"/><stop offset="1" stop-color="#075949" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="aintegralg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="aintegralr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<circle cx="64" cy="64" r="60" fill="url(#aintegralb)"/>
+<g><path d="M66.93 94.71Q66.50 100.73 62.24 104.13Q59.59 106.24 54.62 106.24Q48.41 106.24 45.48 103.19Q43.38 101.00 42.67 95.50L51.34 94.64Q52.05 96.86 54.39 96.86Q56.93 96.86 57.20 93.27Q57.20 93.27 61.07 39.29Q61.50 33.27 65.76 29.87Q68.41 27.76 73.38 27.76Q79.59 27.76 82.52 30.81Q84.62 33.00 85.33 38.50L76.66 39.36Q75.95 37.14 73.61 37.14Q71.07 37.14 70.80 40.73Q70.80 40.73 66.93 94.71Z" fill="#FFFFFF" fill-opacity="0.2"/><path d="M66.93 91.71Q66.50 97.73 62.24 101.13Q59.59 103.24 54.62 103.24Q48.41 103.24 45.48 100.19Q43.38 98.00 42.67 92.50L51.34 91.64Q52.05 93.86 54.39 93.86Q56.93 93.86 57.20 90.27Q57.20 90.27 61.07 36.29Q61.50 30.27 65.76 26.87Q68.41 24.76 73.38 24.76Q79.59 24.76 82.52 27.81Q84.62 30.00 85.33 35.50L76.66 36.36Q75.95 34.14 73.61 34.14Q71.07 34.14 70.80 37.73Q70.80 37.73 66.93 91.71Z" fill="#FFFFFF" fill-opacity="0.97"/></g>
+<circle cx="64" cy="64" r="60" fill="url(#aintegrals)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#aintegralg)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#aintegralr)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#075949" stroke-opacity="0.14" stroke-width="3"/>
+</svg>

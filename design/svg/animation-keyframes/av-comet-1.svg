@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="acometb" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#FFE08A" stop-opacity="1"/><stop offset="0.52" stop-color="#F0A81E" stop-opacity="1"/><stop offset="1" stop-color="#8A5A05" stop-opacity="1"/></radialGradient>
+<radialGradient id="acomets" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#8A5A05" stop-opacity="0"/><stop offset="0.88" stop-color="#8A5A05" stop-opacity="0.18"/><stop offset="1" stop-color="#8A5A05" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="acometg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="acometr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<g transform="translate(0,0)">
+<circle cx="64" cy="64" r="60" fill="url(#acometb)"/>
+<g>
+<g class="cmv-tail">
+<path d="M74 44 L16 102 M80 54 L26 108 M68 34 L12 90" stroke="#FFFFFF" stroke-opacity=".5" stroke-width="7" stroke-linecap="round"/>
+</g>
+<circle class="cmv-dust" style="--i:0" cx="40" cy="82" r="3.4" fill="#FFFFFF" fill-opacity=".7"/><circle class="cmv-dust" style="--i:1" cx="30" cy="94" r="2.6" fill="#FFFFFF" fill-opacity=".7"/><circle class="cmv-dust" style="--i:2" cx="52" cy="96" r="2.2" fill="#FFFFFF" fill-opacity=".7"/><circle class="cmv-dust" style="--i:3" cx="22" cy="74" r="2" fill="#FFFFFF" fill-opacity=".7"/>
+<g class="cmv-head">
+<circle cx="84" cy="42" r="27" stroke="#FFFFFF" stroke-opacity=".3" stroke-width="3"/>
+<circle cx="84" cy="42" r="19" fill="#FFFFFF" fill-opacity=".96"/>
+<circle cx="78" cy="36" r="6" fill="#FFFFFF"/>
+<circle cx="90" cy="48" r="3.4" fill="#8A5A05" fill-opacity=".18"/>
+</g>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#acomets)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#acometg)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#acometr)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#8A5A05" stroke-opacity="0.14" stroke-width="3"/>
+</g>
+</svg>

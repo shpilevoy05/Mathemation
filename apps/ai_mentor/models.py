@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 
 
@@ -40,3 +42,31 @@ class AiHintMessage(models.Model):
 
     class Meta:
         ordering = ["created_at"]
+
+
+class AiOutboundRequest(models.Model):
+    """Local-only metadata for an outbound LLM request; prompt text is never stored."""
+
+    class Purpose(models.TextChoices):
+        HINT = "hint", "Подсказка"
+        MOCK_CHECK = "mock_check", "Проверка пробника"
+
+    student = models.ForeignKey(
+        "accounts.StudentProfile",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ai_outbound_requests",
+    )
+    pseudonym = models.CharField(max_length=28, db_index=True)
+    request_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    purpose = models.CharField(max_length=24, choices=Purpose.choices)
+    provider = models.CharField(max_length=80)
+    model = models.CharField(max_length=160, blank=True)
+    redaction_counts = models.JSONField(default=dict, blank=True)
+    prompt_tokens = models.PositiveIntegerField(default=0)
+    completion_tokens = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]

@@ -13,6 +13,7 @@ class ExpertReviewRequest(models.Model):
     """
 
     class Status(models.TextChoices):
+        DRAFT = "draft"
         SUBMITTED = "submitted"
         IN_REVIEW = "in_review"
         REVIEWED = "reviewed"

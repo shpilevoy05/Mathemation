@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AiHintMessage, AiHintSession
+from .models import AiHintMessage, AiHintSession, AiOutboundRequest
 
 
 class AiHintMessageInline(admin.TabularInline):
@@ -56,6 +56,38 @@ class AiHintMessageAdmin(admin.ModelAdmin):
     )
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AiOutboundRequest)
+class AiOutboundRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        "request_id", "pseudonym", "student", "purpose", "provider", "model",
+        "prompt_tokens", "completion_tokens", "created_at",
+    )
+    list_filter = ("purpose", "provider", "created_at")
+    search_fields = (
+        "=pseudonym", "=request_id", "student__user__username",
+        "student__user__email",
+    )
+    readonly_fields = (
+        "student", "pseudonym", "request_id", "purpose", "provider", "model",
+        "redaction_counts", "prompt_tokens", "completion_tokens", "created_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        return bool(request.user.is_active and request.user.is_staff)
+
+    def has_module_permission(self, request):
+        return bool(request.user.is_active and request.user.is_staff)
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):

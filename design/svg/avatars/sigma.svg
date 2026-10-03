@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="asigmab" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#9FB2FF" stop-opacity="1"/><stop offset="0.52" stop-color="#4F6BEA" stop-opacity="1"/><stop offset="1" stop-color="#22318E" stop-opacity="1"/></radialGradient>
+<radialGradient id="asigmas" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#22318E" stop-opacity="0"/><stop offset="0.88" stop-color="#22318E" stop-opacity="0.18"/><stop offset="1" stop-color="#22318E" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="asigmag" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="asigmar" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<circle cx="64" cy="64" r="60" fill="url(#asigmab)"/>
+<g><path d="M58.22 81.68H81.10V91.06H46.90V80.71L62.24 65.47L46.90 52.87V42.94H80.39V52.32H58.76L74.65 65.34Z" fill="#FFFFFF" fill-opacity="0.2"/><path d="M58.22 78.68H81.10V88.06H46.90V77.71L62.24 62.47L46.90 49.87V39.94H80.39V49.32H58.76L74.65 62.34Z" fill="#FFFFFF" fill-opacity="0.97"/></g>
+<circle cx="64" cy="64" r="60" fill="url(#asigmas)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#asigmag)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#asigmar)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#22318E" stroke-opacity="0.14" stroke-width="3"/>
+</svg>

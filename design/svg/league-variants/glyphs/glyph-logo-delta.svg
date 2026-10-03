@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<linearGradient id="Ldeltatrianglelogo0p" x1="12%" y1="0%" x2="88%" y2="100%"><stop offset="0" stop-color="#E7C9A6" stop-opacity="1"/><stop offset="0.35" stop-color="#B8865C" stop-opacity="1"/><stop offset="0.72" stop-color="#6B4520" stop-opacity="1"/><stop offset="1" stop-color="#6B4520" stop-opacity="1"/></linearGradient>
+<linearGradient id="Ldeltatrianglelogo0i" x1="0%" y1="0%" x2="60%" y2="100%"><stop offset="0" stop-color="#B8865C" stop-opacity="1"/><stop offset="0.55" stop-color="#6B4520" stop-opacity="1"/><stop offset="1" stop-color="#6B4520" stop-opacity="1"/></linearGradient>
+<linearGradient id="Ldeltatrianglelogo0g" x1="0%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.1"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<radialGradient id="Ldeltatrianglelogo0c" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#E7C9A6" stop-opacity="1"/><stop offset="1" stop-color="#B8865C" stop-opacity="1"/></radialGradient>
+</defs>
+<path d="M58 14 C61 8 67 8 70 14 L116 104 C119 110 116 117 109 117 H19 C12 117 9 110 12 104 Z" fill="url(#Ldeltatrianglelogo0p)"/>
+<g transform="translate(64,64) scale(.86) translate(-64,-64)"><path d="M58 14 C61 8 67 8 70 14 L116 104 C119 110 116 117 109 117 H19 C12 117 9 110 12 104 Z" fill="url(#Ldeltatrianglelogo0i)" opacity=".55"/></g>
+<g transform="translate(64,64) scale(.74) translate(-64,-64)"><path d="M58 14 C61 8 67 8 70 14 L116 104 C119 110 116 117 109 117 H19 C12 117 9 110 12 104 Z" fill="url(#Ldeltatrianglelogo0c)"/></g>
+<defs><linearGradient id="gLdeltatrianglelogo0logo" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E7C9A6"/></linearGradient></defs><g transform="translate(64.00 76.00) scale(0.3974) translate(-64.00 -70.00)"><path d="M64 58 L30 78 V96 L64 116 L98 96 V78 Z M64 58 L46 42 L58 24 L92 30" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="2" stroke="#6B4520" stroke-opacity=".34" stroke-width="34.68" transform="translate(6.04 7.85)"/><path d="M64 58 L30 78 V96 L64 116 L98 96 V78 Z M64 58 L46 42 L58 24 L92 30" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="2" stroke="url(#gLdeltatrianglelogo0logo)" stroke-width="32.72"/></g>
+<path d="M58 14 C61 8 67 8 70 14 L116 104 C119 110 116 117 109 117 H19 C12 117 9 110 12 104 Z" fill="url(#Ldeltatrianglelogo0g)"/>
+<path d="M58 14 C61 8 67 8 70 14 L116 104 C119 110 116 117 109 117 H19 C12 117 9 110 12 104 Z" fill="none" stroke="#6B4520" stroke-opacity=".45" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

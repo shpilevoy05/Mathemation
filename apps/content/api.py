@@ -1,4 +1,7 @@
-from rest_framework import serializers, views, viewsets
+from rest_framework import permissions, serializers, views, viewsets
+from apps.billing.access import Feature
+from apps.billing.gate import HasFeature
+from .visibility import can_preview_content, visible_assignments
 from rest_framework.response import Response
 
 from .models import Assignment, Lesson, TheoryBlock
@@ -29,11 +32,22 @@ class LessonSerializer(serializers.ModelSerializer):
 class LessonViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Lesson.objects.prefetch_related("theory_blocks", "assignments")
     serializer_class = LessonSerializer
+    permission_classes = [permissions.IsAuthenticated, HasFeature]
+    feature = Feature.LESSONS
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset if can_preview_content(self.request.user) else queryset.filter(status=Lesson.Status.PUBLISHED)
 
 
 class AssignmentViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Assignment.objects.all()
     serializer_class = AssignmentSerializer
+    permission_classes = [permissions.IsAuthenticated, HasFeature]
+    feature = Feature.PRACTICE
+
+    def get_queryset(self):
+        return super().get_queryset() if can_preview_content(self.request.user) else visible_assignments()
 
 
 class TrackView(views.APIView):
@@ -62,7 +76,7 @@ class TrackView(views.APIView):
             for node in cluster.nodes.all():
                 s = states.get(node.id, {})
                 state = s.get("state", "locked")
-                for lesson in node.lessons.all():
+                for lesson in node.lessons.filter(status=Lesson.Status.PUBLISHED):
                     points.append({
                         "type": "lesson",
                         "lesson_id": lesson.id,

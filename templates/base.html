@@ -1,6 +1,7 @@
 {% load static web_permissions %}
 <!doctype html>
-<html lang="ru"{% if ui_theme %} data-theme="{{ ui_theme }}"{% endif %}>
+<html lang="ru"{% if ui_theme %} data-theme="{{ ui_theme }}"{% endif %}
+      data-cosmetics-sprite="{% static 'img/cosmetics.svg' %}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,6 +12,8 @@
   <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  {% comment %}Анимации косметики собраны из спецификации дизайна отдельным файлом: их правит дизайнер, и мешать их с версткой кабинета не стоит.{% endcomment %}
+  <link rel="stylesheet" href="{% static 'css/cosmetics.css' %}">
   <script src="{% static 'js/app.js' %}" defer></script>
 </head>
 <body{% if not user.is_authenticated or hide_nav %} class="no-rail"{% endif %}>
@@ -106,7 +109,8 @@
             <svg aria-hidden="true"><use href="#i-chat"></use></svg><span>Сообщить о проблеме</span>
           </button>
           <div class="account-menu">
-            {% if user.student_profile %}{% include "partials/avatar.html" with size="sm" %}{% endif %}
+            {% comment %}Свой значок в рельсе — единственное место, где косметика живая: купленное движение должно быть видно владельцу.{% endcomment %}
+            {% if user.student_profile %}{% include "partials/avatar.html" with size="sm" motion=True %}{% endif %}
             <span class="account-name">
               <strong>{{ user.get_full_name|default:user.username }}</strong>
               {% if user.student_profile %}

@@ -8,24 +8,58 @@
   <a class="back-link" href="{% url 'arena' %}">← В арену</a>
 
   <div class="match-shell" data-match="{{ match.id|unlocalize }}"
+       data-mode="{{ match.mode }}"
+       data-limit="{{ match.limit_kind }}"
        data-seconds="{{ match.seconds_per_question|unlocalize }}">
     <header class="match-head">
-      <div>
-        <p class="eyebrow">{{ state.mode_label }}</p>
-        <h1>Партия против {{ state.opponent.title|default:"соперника" }}</h1>
-        <p class="muted">
+      <p class="eyebrow">{{ state.mode_label }}</p>
+      <div class="match-sides">
+        {% include "partials/match_side.html" with side=state.me you=True %}
+        <span class="match-versus">против</span>
+        {% include "partials/match_side.html" with side=state.opponent you=False %}
+      </div>
+      <p class="muted">
+        {% if match.mode == 'speed' %}
           {% if match.ege_task_number %}Задание {{ match.ege_task_number }}{% else %}Случайный набор{% endif %} ·
-          {{ state.questions_total }} вопрос{{ state.questions_total|pluralize:"а,ов" }} ·
-          {{ match.seconds_per_question }} с на вопрос
-        </p>
-      </div>
-      <div class="match-score">
-        <span><small>Вы</small><strong class="num" data-my-score>{{ state.me.score }}</strong></span>
-        <span><small>{{ state.opponent.title|default:"Соперник" }}</small><strong class="num" data-rival-progress>{{ state.opponent.answered|default:0 }}/{{ state.questions_total }}</strong></span>
-      </div>
+          {% if match.limit_kind == 'time' %}
+            на время: {{ match.time_limit_seconds }} с на всю партию
+          {% else %}
+            задач: {{ state.questions_total }}, побеждает тот, кто решил больше
+          {% endif %}
+        {% else %}
+          Вопросы по теории · {{ match.seconds_per_question }} с на ответ
+        {% endif %}
+      </p>
+      <p class="match-clock" data-run-clock {% if match.limit_kind != 'time' %}hidden{% endif %}>
+        Осталось <b class="num" data-run-left>{{ state.seconds_left|default:0 }}</b> с
+      </p>
     </header>
 
-    <section class="card match-board" data-match-question data-question-id="{{ state.question.id|default:0|unlocalize }}" {% if not state.question %}hidden{% endif %}>
+    {# — Ожидание: партия начинается, когда за столом оба — #}
+    <section class="card match-lobby" data-lobby {% if not state.lobby %}hidden{% endif %}>
+      <div class="lobby-pulse" aria-hidden="true"><span></span><span></span><span></span></div>
+      <h2 data-lobby-title>
+        {% if state.lobby.invited %}Ждём согласия соперника{% else %}Ждём соперника за столом{% endif %}
+      </h2>
+      <p class="muted" data-lobby-note>
+        {% if state.lobby.waiting_for %}Не подошли: {{ state.lobby.waiting_for|join:", " }}.{% endif %}
+        Партия начнётся, когда её откроют оба: до этого таймер не идёт и вопросы закрыты.
+      </p>
+      <p class="muted">Ожидание снимется само через <b class="num" data-lobby-left>{{ state.lobby.seconds_left|default:0 }}</b> с.</p>
+      <div class="arena-actions">
+        <button class="button button-primary" type="button" data-lobby-accept
+                {% if not state.lobby.invited or state.lobby.can_cancel %}hidden{% endif %}>Принять вызов</button>
+        <button class="button" type="button" data-lobby-cancel
+                {% if not state.lobby.can_cancel %}hidden{% endif %}>Отменить партию</button>
+        <a class="button button-small" href="{% url 'arena' %}">В арену</a>
+      </div>
+      <p class="form-error" data-lobby-error hidden></p>
+    </section>
+
+    {# — Нарешивание: у каждого своя очередь задач — #}
+    <section class="card match-board" data-match-question
+             data-question-id="{{ state.question.id|default:0|unlocalize }}"
+             {% if not state.question %}hidden{% endif %}>
       <div class="section-heading">
         <h2 data-question-title>{{ state.question.title|default:"" }}</h2>
         <span class="chip" data-question-points>{{ state.question.points|default:0 }} очков</span>
@@ -39,6 +73,88 @@
       <p class="verdict" data-match-verdict hidden></p>
       <p class="form-error" data-match-error hidden></p>
     </section>
+
+    {# — Квиз: вопрос общий, забирает тот, кто первым нажал верный вариант — #}
+    <section class="card quiz-card" data-quiz
+             {% if match.mode != 'quiz' or state.lobby %}hidden{% endif %}>
+      <div class="section-heading">
+        <h2 data-quiz-topic>{{ state.quiz.question.topic|default:"Квиз" }}</h2>
+        <span class="chip" data-quiz-progress>{{ state.quiz.played|default:0 }} из {{ state.quiz.total|default:0 }}</span>
+      </div>
+      <div class="match-timer"><i data-quiz-timer></i></div>
+      <p class="statement" data-quiz-prompt>{{ state.quiz.question.prompt|default:"" }}</p>
+      <div class="quiz-options" data-quiz-options>
+        {% for option in state.quiz.question.options %}
+          <button class="quiz-option" type="button" data-quiz-option="{{ forloop.counter0|unlocalize }}">{{ option }}</button>
+        {% endfor %}
+      </div>
+      <p class="muted" data-quiz-note>Кто первым нажмёт верный вариант — тот и забрал очки. Промах закрывает вопрос для вас, но не для соперника.</p>
+      <p class="form-error" data-quiz-error hidden></p>
+    </section>
+
+    {# — Своя игра: доска тем и цен, ход по очереди — #}
+    <section class="card board-card" data-board
+             {% if match.mode != 'board' or state.lobby %}hidden{% endif %}>
+      <div class="section-heading">
+        <h2>Доска</h2>
+        <span class="chip" data-board-turn>
+          {% if state.board.turn == 'me' %}Ваш ход{% elif state.board.turn %}Ход соперника{% endif %}
+        </span>
+      </div>
+      <div class="board-grid" data-board-grid style="--board-columns: {{ state.board.columns|length|unlocalize }}">
+        {% for column in state.board.columns %}
+          <div class="board-column">
+            <h3 class="board-topic">{{ column.title }}</h3>
+            {% for cell in column.cells %}
+              <button class="board-cell is-{{ cell.state }}" type="button"
+                      data-cell="{{ cell.id|unlocalize }}"
+                      {% if cell.state != 'free' %}disabled{% endif %}>{{ cell.points }}</button>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="board-open" data-board-open {% if not state.board.open %}hidden{% endif %}>
+        <div class="section-heading">
+          <h3 data-board-topic>{{ state.board.open.topic|default:"" }}</h3>
+          <span class="chip" data-board-points>{{ state.board.open.points|default:0 }} очков</span>
+        </div>
+        <div class="match-timer"><i data-board-timer></i></div>
+        <p class="statement" data-board-prompt>{{ state.board.open.prompt|default:"" }}</p>
+        <p class="muted" data-board-hint>{{ state.board.open.hint|default:"" }}</p>
+        <p class="rebound-note" data-board-rebound {% if not state.board.open.rebound %}hidden{% endif %}>{{ state.board.open.rebound_note }}</p>
+        <form class="answer-row" data-board-form {% if not state.board.open.mine %}hidden{% endif %}>
+          <input name="answer" autocomplete="off" required placeholder="Ответ">
+          <button class="button button-success" type="submit">Ответить</button>
+        </form>
+        <p class="muted" data-board-wait {% if state.board.open.mine %}hidden{% endif %}>Отвечает соперник.</p>
+        <p class="verdict" data-board-verdict hidden></p>
+        <p class="form-error" data-board-error hidden></p>
+      </div>
+      <h3 class="arena-subhead">Разыграно</h3>
+      <ul class="board-log" data-board-log>
+        {% for row in state.board.log %}
+          <li>
+            <b class="num">{{ row.points }}</b>
+            <span class="board-log-topic">{{ row.topic }}</span>
+            <span class="board-log-answers">
+              {% for answer in row.answers %}
+                <span class="{% if answer.is_correct %}is-correct{% else %}is-wrong{% endif %}">{{ answer.title }}: {{ answer.answer|default:"—" }}</span>
+              {% empty %}<span class="muted">никто не ответил</span>{% endfor %}
+            </span>
+            <small class="muted">верно: {{ row.correct_answer }}</small>
+          </li>
+        {% empty %}
+          <li><small class="muted">Пока ничего не разыграно.</small></li>
+        {% endfor %}
+      </ul>
+      <p class="disclaimer">Верный ответ приносит цену клетки и оставляет ход за вами. Неверный списывает цену и отдаёт клетку сопернику вместе с вашим ответом: если он тоже ошибётся, цену потеряют оба, а выбирать дальше будет он. Молчание до конца таймера очков не стоит.</p>
+    </section>
+
+    <p class="match-exit" data-match-exit {% if state.lobby or match.is_finished %}hidden{% endif %}>
+      <button class="button button-small" type="button" data-leave-match>Выйти из партии</button>
+      <small class="muted">Выход засчитывается как поражение: победа достанется сопернику.</small>
+    </p>
 
     <section class="card match-result" data-match-result {% if not match.is_finished %}hidden{% endif %}>
       <div class="section-heading"><h2>Итог</h2></div>
@@ -67,11 +183,12 @@
           </li>
         {% endfor %}
       </ol>
-      <p class="disclaimer">Ошибки партии не идут в отработку: под таймером промахиваются от спешки, а не от незнания. Если тема действительно проседает, её вернёт занятие.{% if match.against_bot %} Результат бота разыгран при создании партии и не зависел от вашей игры.{% endif %}</p>
+      <p class="disclaimer">Ошибки партии не идут в отработку: под таймером промахиваются от спешки, а не от незнания. Если тема действительно проседает, её вернёт занятие.{% if match.against_bot %} Ход бота разыгран при создании партии и не зависел от вашей игры.{% endif %}</p>
       <a class="button button-primary" href="{% url 'arena' %}">В арену</a>
     </section>
 
-    <section class="card" data-match-waiting {% if state.question or match.is_finished %}hidden{% endif %}>
+    <section class="card" data-match-waiting
+             {% if state.lobby or state.question or state.quiz.question or state.board.columns or match.is_finished %}hidden{% endif %}>
       <h2>Вы закончили</h2>
       <p class="muted">Соперник ещё отвечает. Итог появится здесь, как только он закончит.</p>
     </section>

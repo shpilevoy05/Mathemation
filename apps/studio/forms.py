@@ -10,6 +10,22 @@ from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicClust
 from apps.mocks.models import MockExam
 
 
+def exam_task_number_choices() -> list[tuple[int, str]]:
+    """Use the active exam profile, with the code blueprint as cold-start fallback."""
+    from apps.exams.models import ExamProfile
+
+    profile = ExamProfile.active()
+    if profile is not None:
+        rows = profile.tasks.order_by("number").values_list("number", "title")
+        return [
+            (number, f"№{number} — {title}" if title else f"№{number}")
+            for number, title in rows
+        ]
+    from apps.exams.blueprint import TASKS
+
+    return [(number, f"№{number} — {title}") for number, _part, _score, _diff, title in TASKS]
+
+
 class AccessibleFieldsMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -241,6 +257,14 @@ class KnowledgeNodeForm(AccessibleFieldsMixin, forms.ModelForm):
             raise forms.ValidationError("Укажите целые номера через запятую.") from error
         if any(number <= 0 for number in numbers):
             raise forms.ValidationError("Номер задания должен быть положительным.")
+        allowed = {number for number, _label in exam_task_number_choices()}
+        unknown = sorted(set(numbers) - allowed)
+        if unknown:
+            raise forms.ValidationError(
+                "В активном профиле экзамена нет заданий: "
+                + ", ".join(map(str, unknown))
+                + "."
+            )
         return list(dict.fromkeys(numbers))
 
     def save(self, commit=True):
@@ -283,11 +307,17 @@ class DependencyForm(AccessibleFieldsMixin, forms.Form):
 class TaskPickerFilterForm(AccessibleFieldsMixin, forms.Form):
     q = forms.CharField(label="Поиск", required=False)
     node = GroupedNodeField(label="Тема", required=False)
-    ege = forms.IntegerField(label="Номер ЕГЭ", required=False, min_value=1)
+    ege = forms.TypedChoiceField(
+        label="Номер ЕГЭ", required=False, coerce=int, empty_value=None,
+    )
     part = forms.ChoiceField(
         label="Часть", required=False,
         choices=(("", "Все части"), *Assignment.Part.choices),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["ege"].choices = [("", "Все номера"), *exam_task_number_choices()]
 
 
 class AssignmentChoiceField(forms.ModelChoiceField):

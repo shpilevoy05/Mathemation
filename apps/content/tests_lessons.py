@@ -91,7 +91,9 @@ class LessonSummaryTests(TestCase):
     def setUp(self):
         self.student = make_student("summary-student")
         self.node = make_node("summary-node")
-        lesson = Lesson.objects.create(node=self.node, title="Урок")
+        lesson = Lesson.objects.create(
+            node=self.node, title="Урок", status=Lesson.Status.PUBLISHED
+        )
         TheoryBlock.objects.create(lesson=lesson, title="Приём", body="Раздели случаи.")
         make_assignment(self.node, answer="7")
         self.client.force_login(self.student.user)

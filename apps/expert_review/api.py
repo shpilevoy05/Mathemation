@@ -143,7 +143,9 @@ class ExpertReviewListView(views.APIView):
         student = get_student(request)
         return Response([
             _payload(r)
-            for r in ExpertReviewRequest.objects.filter(student=student)
+            for r in ExpertReviewRequest.objects.filter(student=student).exclude(
+                status=ExpertReviewRequest.Status.DRAFT
+            )
         ])
 
 
@@ -176,7 +178,10 @@ class SubmitSolutionView(views.APIView):
             mock_result = get_object_or_404(
                 MockExamResult, pk=request.data["mock_result"], student=student
             )
-        review = submit_solution(student, assignment, solution, mock_result=mock_result)
+        try:
+            review = submit_solution(student, assignment, solution, mock_result=mock_result)
+        except DjangoValidationError as exc:
+            return Response({"detail": " ".join(exc.messages)}, status=409)
         return Response(_payload(review), status=201)
 
 
@@ -234,5 +239,5 @@ class ExpertReviewFinishView(views.APIView):
             data=request.data, context={"review": review}
         )
         serializer.is_valid(raise_exception=True)
-        finish_review(review, reviewer=request.user, **serializer.validated_data)
+        review = finish_review(review, reviewer=request.user, **serializer.validated_data)
         return Response(_payload(review))

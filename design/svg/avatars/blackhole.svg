@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="ablackholeb" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#6E6BB8" stop-opacity="1"/><stop offset="0.52" stop-color="#2C2E60" stop-opacity="1"/><stop offset="1" stop-color="#0A0B22" stop-opacity="1"/></radialGradient>
+<radialGradient id="ablackholes" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#0A0B22" stop-opacity="0"/><stop offset="0.88" stop-color="#0A0B22" stop-opacity="0.18"/><stop offset="1" stop-color="#0A0B22" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="ablackholeg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="ablackholer" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<circle cx="64" cy="64" r="60" fill="url(#ablackholeb)"/>
+<g>
+<circle class="bh-star" style="--i:0" cx="26" cy="34" r="2.4" fill="#FFFFFF" fill-opacity=".85"/><circle class="bh-star" style="--i:1" cx="100" cy="30" r="2" fill="#FFFFFF" fill-opacity=".85"/><circle class="bh-star" style="--i:2" cx="108" cy="92" r="2.6" fill="#FFFFFF" fill-opacity=".85"/><circle class="bh-star" style="--i:3" cx="22" cy="96" r="2" fill="#FFFFFF" fill-opacity=".85"/>
+<g class="bh-disc">
+<ellipse class="bh-flow" pathLength="100" stroke-dasharray="9 3" cx="64" cy="64" rx="52" ry="18" stroke="#FFFFFF" stroke-opacity=".9" stroke-width="7" transform="rotate(-18 64 64)"/>
+<ellipse class="bh-flow" pathLength="100" stroke-dasharray="6 4" cx="64" cy="64" rx="42" ry="12" stroke="#FFFFFF" stroke-opacity=".45" stroke-width="4" transform="rotate(-18 64 64)"/>
+</g>
+<circle class="bh-core" cx="64" cy="64" r="23" fill="#0A0B22" fill-opacity=".94"/>
+<circle class="bh-core" cx="64" cy="64" r="23" stroke="#FFFFFF" stroke-opacity=".7" stroke-width="3"/>
+<path class="bh-flow" pathLength="100" stroke-dasharray="9 3" d="M28 55 A52 18 0 0 1 100 55" stroke="#FFFFFF" stroke-opacity=".9" stroke-width="7" transform="rotate(-18 64 64)" fill="none"/>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#ablackholes)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#ablackholeg)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#ablackholer)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#0A0B22" stroke-opacity="0.14" stroke-width="3"/>
+</svg>

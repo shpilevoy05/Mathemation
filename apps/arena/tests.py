@@ -1,5 +1,7 @@
 """Арена: дружба, партии, бот и правила подсчёта."""
 
+from unittest.mock import patch
+
 from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test import TestCase
@@ -16,7 +18,7 @@ from apps.knowledge.tests import make_node, make_student
 from apps.practice.models import Attempt, MistakeBacklogItem
 
 from .bot import bot_run, clamp_level
-from .leagues import league_for_rating
+from .ranks import rank_for_rating
 from .models import Friendship, Match, MatchParticipant
 from .services import (
     DAILY_REWARDED_MATCHES,
@@ -31,6 +33,42 @@ from .services import (
     winner_of,
     question_pool,
 )
+
+
+def sit_down(match, *students):
+    """Посадить игроков за стол: партия не начинается, пока не зашли все."""
+    from .services import join_match
+
+    for student in students:
+        join_match(match, student)
+    match.refresh_from_db()
+    return match
+
+
+def make_theory(count: int = 30, clusters: int = 5):
+    """Банк вопросов по теории: из него собираются квиз и «своя игра».
+
+    Вопросы простые и однословные — тесту важны правила игры, а не содержание.
+    """
+    from apps.content.models import TheoryQuestion
+    from apps.knowledge.models import TopicCluster
+
+    made = []
+    for column in range(clusters):
+        cluster, _ = TopicCluster.objects.get_or_create(
+            title=f"Тема {column}", defaults={"order": column}
+        )
+        for index in range(max(1, count // clusters)):
+            difficulty = (index % 5) + 1
+            answer = f"ответ{column}{index}"
+            made.append(TheoryQuestion.objects.create(
+                cluster=cluster,
+                prompt=f"Вопрос {column}-{index}?",
+                correct_answer=answer,
+                difficulty=difficulty,
+                options=[answer, "мимо1", "мимо2", "мимо3"],
+            ))
+    return made
 
 
 def make_pool(count: int = 12, ege_number: int | None = None):
@@ -85,7 +123,7 @@ class ArenaProfileBatchTests(TestCase):
         self.assertEqual(len(profile_queries), 1, profile_queries)
         self.assertEqual(len(context["match_history"]), 3)
         self.assertTrue(
-            all(row["results"][0].league_code for row in context["match_history"])
+            all(row["results"][0].rank_code for row in context["match_history"])
         )
 
     def test_match_payload_loads_both_profiles_in_one_query(self):
@@ -106,8 +144,8 @@ class ArenaProfileBatchTests(TestCase):
             and query["sql"].lstrip().upper().startswith("SELECT")
         ]
         self.assertEqual(len(profile_queries), 1, profile_queries)
-        self.assertTrue(payload["me"]["league_code"])
-        self.assertTrue(payload["opponent"]["league_code"])
+        self.assertTrue(payload["me"]["rank_code"])
+        self.assertTrue(payload["opponent"]["rank_code"])
 
 
 class FriendshipTests(TestCase):
@@ -167,7 +205,7 @@ class BotTests(TestCase):
         self.assertEqual(clamp_level(9), 5)
 
     def test_bot_run_is_reproducible(self):
-        match = create_match(self.student, mode=Match.Mode.QUIZ, bot_level=3)
+        match = create_match(self.student, mode=Match.Mode.SPEED, bot_level=3)
         questions = list(match.questions.select_related("assignment"))
 
         first = bot_run(questions, 3, seed=42)
@@ -193,7 +231,7 @@ class BotTests(TestCase):
         self.assertGreater(strong, weak)
 
     def test_bot_plays_before_the_human_starts(self):
-        match = create_match(self.student, mode=Match.Mode.QUIZ, bot_level=4)
+        match = create_match(self.student, mode=Match.Mode.SPEED, bot_level=4)
         bot = match.participants.get(is_bot=True)
 
         # Результат соперника существует до первого хода человека: подстроиться
@@ -209,13 +247,15 @@ class MatchCreationTests(TestCase):
         make_pool()
 
     def test_modes_have_their_own_length(self):
+        make_theory()
         speed = create_match(self.student, mode=Match.Mode.SPEED, bot_level=2)
         quiz = create_match(self.student, mode=Match.Mode.QUIZ, bot_level=2)
 
         self.assertEqual(speed.questions.count(), 8)
-        self.assertEqual(quiz.questions.count(), 5)
+        self.assertEqual(quiz.questions.count(), 6)
 
     def test_board_prices_cells_by_difficulty(self):
+        make_theory()
         match = create_match(self.student, mode=Match.Mode.BOARD, bot_level=2)
 
         prices = {question.points for question in match.questions.all()}
@@ -226,30 +266,30 @@ class MatchCreationTests(TestCase):
         from .services import accept_friend_request
 
         accept_friend_request(send_friend_request(self.student, self.friend), self.friend)
-        match = create_match(self.student, mode=Match.Mode.QUIZ, opponent=self.friend)
+        match = create_match(self.student, mode=Match.Mode.SPEED, opponent=self.friend)
 
         self.assertEqual(match.participants.count(), 2)
-        self.assertEqual(match.questions.count(), 5)
+        self.assertEqual(match.questions.count(), 8)
 
     def test_stranger_cannot_be_challenged(self):
         with self.assertRaises(ValidationError):
-            create_match(self.student, mode=Match.Mode.QUIZ, opponent=self.friend)
+            create_match(self.student, mode=Match.Mode.SPEED, opponent=self.friend)
 
     def test_opponent_is_required(self):
         with self.assertRaises(ValidationError):
-            create_match(self.student, mode=Match.Mode.QUIZ)
+            create_match(self.student, mode=Match.Mode.SPEED)
 
     def test_empty_bank_is_refused_with_a_reason(self):
         Assignment.objects.all().delete()
 
         with self.assertRaises(ValidationError):
-            create_match(self.student, mode=Match.Mode.QUIZ, bot_level=2)
+            create_match(self.student, mode=Match.Mode.SPEED, bot_level=2)
 
     def test_prototype_filters_the_pool(self):
-        make_pool(count=6, ege_number=13)
+        make_pool(count=10, ege_number=13)
 
         match = create_match(
-            self.student, mode=Match.Mode.QUIZ, bot_level=2, ege_task_number=13
+            self.student, mode=Match.Mode.SPEED, bot_level=2, ege_task_number=13
         )
 
         for question in match.questions.select_related("assignment"):
@@ -265,11 +305,20 @@ class PlayTests(TestCase):
     def setUp(self):
         self.student = make_student("player")
         make_pool()
-        self.match = create_match(self.student, mode=Match.Mode.QUIZ, bot_level=3)
+        self.match = create_match(self.student, mode=Match.Mode.SPEED, bot_level=3)
+        sit_down(self.match, self.student)
         self.me = participant_for(self.match, self.student)
 
     def answer_all(self, *, correct: bool):
+        """Играть до конца партии.
+
+        Конец наступает не только на последней задаче: как только догнать
+        лидера уже нельзя, партия закрывается сама.
+        """
         while True:
+            self.match.refresh_from_db()
+            if self.match.is_over:
+                break
             question = next_question(self.match, self.me)
             if question is None:
                 break
@@ -293,15 +342,16 @@ class PlayTests(TestCase):
         with self.assertRaises(ValidationError):
             submit_answer(self.match, self.student, question, "2", 1000)
 
-    def test_time_is_capped_by_the_match_rule(self):
+    def test_client_time_is_ignored_for_ranking(self):
         question = next_question(self.match, self.me)
 
-        submit_answer(self.match, self.student, question, "1", 999_999_999)
+        with patch("apps.arena.services._elapsed_ms", return_value=4000):
+            submit_answer(self.match, self.student, question, "1", 999_999_999)
 
         self.me.refresh_from_db()
-        self.assertEqual(self.me.total_time_ms, self.match.seconds_per_question * 1000)
+        self.assertEqual(self.me.total_time_ms, 4000)
 
-    def test_match_finishes_when_the_last_question_is_answered(self):
+    def test_match_finishes_when_nothing_can_change(self):
         self.answer_all(correct=True)
 
         self.match.refresh_from_db()
@@ -327,7 +377,7 @@ class PlayTests(TestCase):
 
     def test_finished_match_takes_no_more_answers(self):
         self.answer_all(correct=True)
-        other = create_match(self.student, mode=Match.Mode.QUIZ, bot_level=1)
+        other = create_match(self.student, mode=Match.Mode.SPEED, bot_level=1)
         question = other.questions.first()
 
         with self.assertRaises(ValidationError):
@@ -340,7 +390,7 @@ class ScoringTests(TestCase):
         make_pool()
 
     def test_time_breaks_a_tie(self):
-        match = create_match(self.student, mode=Match.Mode.QUIZ, bot_level=1)
+        match = create_match(self.student, mode=Match.Mode.SPEED, bot_level=1)
         me = participant_for(match, self.student)
         bot = match.participants.get(is_bot=True)
         MatchParticipant.objects.filter(pk=me.pk).update(score=300, total_time_ms=10_000)
@@ -351,7 +401,7 @@ class ScoringTests(TestCase):
         self.assertEqual(champion.pk, me.pk)
 
     def test_full_tie_has_no_winner(self):
-        match = create_match(self.student, mode=Match.Mode.QUIZ, bot_level=1)
+        match = create_match(self.student, mode=Match.Mode.SPEED, bot_level=1)
         match.participants.update(score=200, total_time_ms=15_000)
 
         self.assertIsNone(winner_of(match))
@@ -363,7 +413,7 @@ class RewardTests(TestCase):
         make_pool()
 
     def play_and_win(self):
-        match = create_match(self.student, mode=Match.Mode.QUIZ, bot_level=1)
+        match = create_match(self.student, mode=Match.Mode.SPEED, bot_level=1)
         me = participant_for(match, self.student)
         bot = match.participants.get(is_bot=True)
         MatchParticipant.objects.filter(pk=bot.pk).update(
@@ -436,10 +486,14 @@ class ArenaApiTests(TestCase):
     def test_create_match_and_answer_through_the_api(self):
         created = self.client.post(
             "/api/arena/matches/",
-            {"mode": "quiz", "bot_level": 2}, content_type="application/json",
+            {"mode": "speed", "bot_level": 2}, content_type="application/json",
         )
         self.assertEqual(created.status_code, 201)
-        state = created.json()
+        # Партия ждёт игрока: задачи появляются, когда он сел за стол.
+        self.assertEqual(created.json()["status"], "lobby")
+        state = self.client.post(
+            f"/api/arena/matches/{created.json()['id']}/join/"
+        ).json()
         self.assertIsNotNone(state["question"])
 
         answer = self.client.post(
@@ -451,22 +505,35 @@ class ArenaApiTests(TestCase):
         self.assertEqual(answer.status_code, 200)
         self.assertIn("last_answer", answer.json())
 
-    def test_opponent_score_stays_hidden_until_the_end(self):
+    def test_opponent_is_visible_live(self):
         created = self.client.post(
             "/api/arena/matches/",
-            {"mode": "quiz", "bot_level": 2}, content_type="application/json",
+            {"mode": "speed", "bot_level": 2}, content_type="application/json",
         ).json()
 
         state = self.client.get(f"/api/arena/matches/{created['id']}/").json()
 
-        # Пока партия идёт, видно только сколько соперник закрыл вопросов.
-        self.assertNotIn("score", state["opponent"])
-        self.assertIn("answered", state["opponent"])
+        # Соперник виден целиком: имя, оформление и счёт. Это табло, а не
+        # подсказка — гнаться не за кем, если счёт соперника узнаёшь в конце.
+        for key in ("title", "avatar", "frame", "score", "answered"):
+            self.assertIn(key, state["opponent"])
+
+    def test_opponent_answers_stay_hidden(self):
+        created = self.client.post(
+            "/api/arena/matches/",
+            {"mode": "speed", "bot_level": 2}, content_type="application/json",
+        ).json()
+
+        state = self.client.get(f"/api/arena/matches/{created['id']}/").json()
+
+        # Счёт — да, ответы — нет: иначе арена превращается в списывание.
+        self.assertEqual(state["review"], [])
+        self.assertNotIn("answers", state["opponent"])
 
     def test_someone_elses_match_is_not_found(self):
         created = self.client.post(
             "/api/arena/matches/",
-            {"mode": "quiz", "bot_level": 2}, content_type="application/json",
+            {"mode": "speed", "bot_level": 2}, content_type="application/json",
         ).json()
         self.client.force_login(self.friend.user)
 
@@ -480,6 +547,6 @@ class ArenaApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Новая партия")
         self.assertEqual(
-            response.context["arena_league"],
-            league_for_rating(response.context["arena_rating"]),
+            response.context["arena_rank"],
+            rank_for_rating(response.context["arena_rating"]),
         )

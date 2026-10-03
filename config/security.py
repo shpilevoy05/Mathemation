@@ -55,6 +55,7 @@ def hardening_settings(*, debug: bool, behind_proxy: bool = True) -> dict:
     hardened = {
         **common,
         "SECURE_SSL_REDIRECT": True,
+        "SECURE_REDIRECT_EXEMPT": [r"^healthz$", r"^readyz$"],
         "SECURE_HSTS_SECONDS": HSTS_SECONDS,
         "SECURE_HSTS_INCLUDE_SUBDOMAINS": True,
         "SECURE_HSTS_PRELOAD": True,

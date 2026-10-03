@@ -27,19 +27,24 @@ class ShopCardArtworkTests(TestCase):
     def setUpTestData(cls):
         call_command("seed_demo", verbosity=0)
 
-    def test_known_cosmetic_codes_use_their_slot_as_art(self):
+    def test_only_theme_and_badge_use_the_legacy_art_field(self):
+        badge = ShopItem.objects.create(
+            title="Значок серии", slot=ShopItem.Slot.BADGE,
+            code="streak7", price_coins=10,
+        )
         expected_art = {
-            (ShopItem.Slot.AVATAR, "owl"): "avatar",
-            (ShopItem.Slot.FRAME, "flame"): "frame",
-            (ShopItem.Slot.THEME, "forest"): "theme",
-            (ShopItem.Slot.BADGE, "streak7"): "badge",
+            (ShopItem.Slot.AVATAR, "owl"): ("", "avatar"),
+            (ShopItem.Slot.FRAME, "flame"): ("", "frame"),
+            (ShopItem.Slot.THEME, "forest"): ("theme", ""),
+            (badge.slot, badge.code): ("badge", ""),
         }
 
-        for (slot, code), expected in expected_art.items():
+        for (slot, code), (expected_art_value, expected_kind) in expected_art.items():
             with self.subTest(slot=slot, code=code):
                 item = ShopItem.objects.get(slot=slot, code=code)
                 card = _shop_card(shop_card_row(item), balance=0)
-                self.assertEqual(card["art"], expected)
+                self.assertEqual(card["art"], expected_art_value)
+                self.assertEqual(card["art_kind"], expected_kind)
 
     def test_consumable_and_unknown_cosmetic_codes_have_no_art(self):
         freeze = ShopItem.objects.filter(
@@ -73,18 +78,20 @@ class RenderedArtworkTests(TestCase):
     def setUp(self):
         self.client.force_login(self.user)
 
-    def test_student_page_contains_brand_league_and_avatar_symbols(self):
+    def test_student_page_contains_brand_and_arena_rank_symbols(self):
+        # Аватары, рамки и знаки месячных лиг едут спрайтом cosmetics.svg,
+        # в разметке страницы остаются только знак бренда и ранги арены.
         response = self.client.get(reverse("dashboard"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'id="avatar-owl"')
         for symbol_id in (
             "brand-mark",
-            "league-bronze",
-            "league-silver",
-            "league-gold",
-            "league-platinum",
-            "league-diamond",
-            "avatar-owl",
+            "rank-bronze",
+            "rank-silver",
+            "rank-gold",
+            "rank-platinum",
+            "rank-diamond",
         ):
             with self.subTest(symbol_id=symbol_id):
                 self.assertContains(response, f'id="{symbol_id}"')
@@ -93,14 +100,14 @@ class RenderedArtworkTests(TestCase):
         response = self.client.get(reverse("shop"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'href="#avatar-owl"')
+        self.assertContains(response, "cosmetics.svg#avatar-owl")
         self.assertContains(response, "theme-swatch--forest")
 
     def test_arena_renders_the_context_league_class_and_title(self):
         response = self.client.get(reverse("arena"))
 
         self.assertEqual(response.status_code, 200)
-        league = response.context["arena_league"]
+        league = response.context["arena_rank"]
         self.assertContains(response, f'league-card--{league["code"]}')
         self.assertContains(response, league["title"])
 

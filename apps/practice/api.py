@@ -1,4 +1,6 @@
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.db import transaction
 from rest_framework import permissions, serializers, views
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -7,6 +9,8 @@ from apps.accounts.api import get_student
 from apps.billing.access import Feature
 from apps.billing.gate import HasFeature
 from apps.content.models import Assignment
+from apps.content.visibility import visible_assignments
+from .access import ensure_practice_allowed
 
 from .models import Attempt, MistakeBacklogItem, ReviewSchedule
 from .services import (
@@ -34,13 +38,17 @@ class SubmitAttemptView(views.APIView):
 
     def post(self, request, assignment_id):
         student = get_student(request)
-        assignment = get_object_or_404(Assignment, pk=assignment_id)
+        assignment = get_object_or_404(visible_assignments(), pk=assignment_id)
+        ensure_practice_allowed(student, assignment)
         context = request.data.get("context", Attempt.Context.LESSON)
-        if context not in Attempt.Context.values:
+        if context != Attempt.Context.LESSON:
             return Response({"detail": "Неизвестный контекст."}, status=400)
         # Награда за ответ показывается ученику числом, поэтому её измеряем
         # до и после попытки: XP и сигмы начисляются глубоко в домене, и
         # собирать их по кускам в интерфейсе было бы враньём.
+        answer = request.data.get("answer", "")
+        if not isinstance(answer, str) or len(answer) > 500:
+            return Response({"detail": "Ответ должен быть текстом до 500 символов."}, status=400)
         before = _reward_state(student)
         try:
             attempt = submit_attempt(
@@ -183,17 +191,32 @@ class CompleteReviewView(views.APIView):
     permission_classes = [permissions.IsAuthenticated, HasFeature]
     feature = Feature.PRACTICE
 
+    @transaction.atomic
     def post(self, request, review_id):
         student = get_student(request)
         review = get_object_or_404(
-            ReviewSchedule, pk=review_id, backlog_item__student=student
+            ReviewSchedule.objects.select_for_update(), pk=review_id,
+            backlog_item__student=student,
+            status=ReviewSchedule.Status.PENDING, due_date__lte=timezone.localdate(),
         )
+        assignment = review.backlog_item.assignment
+        if assignment.exam_part != Assignment.Part.PART1:
+            return Response({"detail": "Решение второй части должен проверить эксперт."}, status=409)
+        answer = request.data.get("answer", "")
+        if not isinstance(answer, str) or len(answer) > 500:
+            return Response({"detail": "Ответ должен быть текстом до 500 символов."}, status=400)
         before = _reward_state(student)
-        complete_review(review, success=bool(request.data.get("success")))
+        try:
+            attempt = submit_attempt(student, assignment, answer, Attempt.Context.REVIEW)
+        except AnswerNotUnderstood as error:
+            return Response({"detail": str(error), "code": "answer_not_understood"}, status=422)
+        review = complete_review(review, success=attempt.is_correct)
+        review.backlog_item.refresh_from_db()
         item = review.backlog_item
         resolved = item.status == MistakeBacklogItem.Status.RESOLVED
         payload = {
             "status": review.status,
+            "is_correct": attempt.is_correct,
             "mistake_resolved": resolved,
             "rewards": _rewards_since(student, before),
         }

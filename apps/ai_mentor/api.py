@@ -7,6 +7,7 @@ from apps.accounts.api import get_student
 from apps.billing.access import Feature
 from apps.billing.gate import HasFeature
 from apps.content.models import Assignment
+from apps.content.visibility import visible_assignments
 from apps.practice.models import Attempt
 
 from .services import DailyHintLimitExceeded, HintNotAllowed, request_hint
@@ -22,11 +23,14 @@ class HintView(views.APIView):
 
     def post(self, request, assignment_id):
         student = get_student(request)
-        assignment = get_object_or_404(Assignment, pk=assignment_id)
+        assignment = get_object_or_404(visible_assignments(), pk=assignment_id)
+        question = request.data.get("question", "")
+        if not isinstance(question, str) or len(question) > 2000:
+            return Response({"detail": "Вопрос должен быть текстом до 2000 символов."}, status=400)
         try:
             result = request_hint(
                 student, assignment,
-                question=request.data.get("question", ""),
+                question=question,
                 context=request.data.get("context", Attempt.Context.LESSON),
             )
         except HintNotAllowed as e:

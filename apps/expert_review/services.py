@@ -1,7 +1,9 @@
 """Expert review lifecycle for part-2 solutions."""
 from django.utils import timezone
+from django.db import transaction
+from django.core.exceptions import ValidationError
 
-from apps.practice.models import Attempt, MistakeBacklogItem
+from apps.practice.models import Attempt, MistakeBacklogItem, ReviewSchedule
 from apps.practice.services import process_attempt_result, register_mistake, submit_attempt
 
 from .evidence import apply_step_marks
@@ -20,15 +22,34 @@ def delete_student_solution_files(student) -> int:
             review.save(update_fields=["solution_file"])
             deleted += 1
     return deleted
-
-
+@transaction.atomic
 def submit_solution(student, assignment, solution_file, attempt=None, mock_result=None):
+    if mock_result is not None:
+        from apps.mocks.models import MockExamResult
+        mock_result = MockExamResult.objects.select_for_update().get(pk=mock_result.pk)
+        if (mock_result.student_id != student.pk or assignment.exam_part != 2
+                or not mock_result.exam.assignments.filter(pk=assignment.pk).exists()):
+            raise ValidationError("Задача не принадлежит этому пробнику.")
+        if mock_result.status != MockExamResult.Status.IN_PROGRESS or timezone.now() >= mock_result.deadline:
+            raise ValidationError("Приём решений завершён.")
+        existing = ExpertReviewRequest.objects.filter(mock_result=mock_result, assignment=assignment).first()
+        if existing:
+            if existing.status != ExpertReviewRequest.Status.DRAFT:
+                raise ValidationError("Работа уже отправлена эксперту.")
+            existing.solution_file = solution_file
+            existing.save(update_fields=["solution_file"])
+            return existing
     return ExpertReviewRequest.objects.create(
         student=student, assignment=assignment, solution_file=solution_file,
         attempt=attempt, mock_result=mock_result,
+        status=(
+            ExpertReviewRequest.Status.DRAFT
+            if mock_result is not None else ExpertReviewRequest.Status.SUBMITTED
+        ),
     )
 
 
+@transaction.atomic
 def finish_review(request: ExpertReviewRequest, reviewer, score_by_criteria: dict,
                   comment: str = "", related_node_ids=None,
                   error_tags=None, step_marks=None,
@@ -39,6 +60,18 @@ def finish_review(request: ExpertReviewRequest, reviewer, score_by_criteria: dic
     балл говорит, сколько потеряно, а отметки — где именно. Без отметок
     остаётся прежнее поведение по тегам задачи.
     """
+    request = ExpertReviewRequest.objects.select_for_update().select_related(
+        "student", "assignment", "attempt", "mock_result"
+    ).get(pk=request.pk)
+    if request.mock_result_id:
+        from apps.mocks.models import MockExamResult
+        request.mock_result = MockExamResult.objects.select_for_update().get(
+            pk=request.mock_result_id
+        )
+    # A retry from the browser or expert workstation must not apply mastery,
+    # backlog changes, mock calibration, or events for a second time.
+    if request.reviewed_at is not None:
+        return request
     request.reviewer = reviewer
     request.score_by_criteria = score_by_criteria
     request.total_score = sum(score_by_criteria.values())
@@ -91,6 +124,18 @@ def finish_review(request: ExpertReviewRequest, reviewer, score_by_criteria: dic
         )
         for node in request.related_nodes.exclude(pk__in=tagged_ids):
             register_mistake(request.student, request.assignment, node)
+    else:
+        open_items = MistakeBacklogItem.objects.filter(
+            student=request.student, assignment=request.assignment
+        ).exclude(status=MistakeBacklogItem.Status.RESOLVED)
+        now = timezone.now()
+        for item in open_items:
+            item.status = MistakeBacklogItem.Status.RESOLVED
+            item.resolved_at = now
+            item.save(update_fields=["status", "resolved_at"])
+            item.reviews.filter(status=ReviewSchedule.Status.PENDING).update(
+                status=ReviewSchedule.Status.COMPLETED
+            )
     apply_error_tags(request)
 
     from apps.events.models import Event

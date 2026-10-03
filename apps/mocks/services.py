@@ -1,6 +1,7 @@
 """Mock exam completion: score, snapshot, calibration, plan adaptation."""
 from django.db import transaction
 from django.utils import timezone
+from django.db import transaction
 
 from apps.content.models import Assignment
 from apps.planning.models import PlanChangeLog
@@ -42,8 +43,29 @@ class MockDeadlineExpired(Exception):
     """The server-side exam deadline has passed."""
 
 
+def forecast_snapshot(student):
+    from dataclasses import asdict
+    from django.conf import settings
+    from apps.knowledge.models import SkillMastery
+    from apps.progress.services import expected_primary, _engine_params, active_exam_profile
+    profile = active_exam_profile()
+    raw = expected_primary(student)
+    return {
+        "raw_primary": raw,
+        "calibrated_primary": raw + student.primary_calibration,
+        "calibration": student.primary_calibration,
+        "engine_version": "ema-irt-v1",
+        "params": asdict(_engine_params(profile)),
+        "profile_id": profile.pk if profile else None,
+        "year": profile.year if profile else None,
+        "primary_to_scaled": list(profile.primary_to_scaled if profile else settings.PRIMARY_TO_SCALED),
+        "mastery": list(SkillMastery.objects.filter(student=student).values("node_id", "mastery")),
+    }
+
+
+@transaction.atomic
 def start_mock(student, exam: MockExam) -> MockExamResult:
-    result = MockExamResult.objects.create(student=student, exam=exam)
+    result = MockExamResult.objects.create(student=student, exam=exam, forecast_at_start=forecast_snapshot(student))
     from apps.events.models import Event
     from apps.events.services import log_event
 
@@ -57,11 +79,14 @@ def start_mock(student, exam: MockExam) -> MockExamResult:
 
 
 def _rescore(result: MockExamResult) -> None:
-    result.scaled_score = primary_to_scaled(result.total_primary_score)
+    from apps.engine.forecast import scaled_score
+    table = result.forecast_at_start.get("primary_to_scaled")
+    result.scaled_score = scaled_score(result.total_primary_score, table) if table else primary_to_scaled(result.total_primary_score)
 
 
 def complete_mock_part1(result: MockExamResult) -> MockExamResult:
     """Finish auto-checked part; part 2 items may still await expert review."""
+    result.expert_reviews.filter(status="draft").update(status="submitted")
     result.primary_score = result.attempts.filter(is_correct=True).count()
     _rescore(result)
     # Ждать эксперта имеет смысл только по тем работам, которые ученик реально
@@ -84,14 +109,48 @@ def complete_mock_part1(result: MockExamResult) -> MockExamResult:
     return result
 
 
+def validate_answers(result, answers):
+    if not isinstance(answers, dict):
+        raise ValueError("Ответы должны быть объектом.")
+    allowed = {str(pk) for pk in result.exam.assignments.filter(exam_part=1).values_list("pk", flat=True)}
+    if any(key not in allowed or not isinstance(value, str) or len(value) > 500 for key, value in answers.items()):
+        raise ValueError("Неизвестная задача или недопустимая запись ответа.")
+    return answers
+
+
+@transaction.atomic
+def save_draft(result, answers, revision=None):
+    caller = result
+    result = MockExamResult.objects.select_for_update().get(pk=result.pk)
+    if result.status != MockExamResult.Status.IN_PROGRESS or timezone.now() >= result.deadline:
+        raise MockDeadlineExpired("Приём изменений завершён. Сохранённые ответы будут проверены.")
+    if revision is not None and revision != result.draft_revision:
+        raise MockDeadlineExpired("Черновик изменён в другой вкладке. Обновите страницу.")
+    result.draft_answers = {**result.draft_answers, **validate_answers(result, answers)}
+    result.draft_saved_at = timezone.now()
+    result.draft_revision += 1
+    result.save(update_fields=["draft_answers", "draft_saved_at", "draft_revision"])
+    caller.refresh_from_db()
+    return caller
+
+
+@transaction.atomic
 def submit_mock(result: MockExamResult, answers: dict) -> MockExamResult:
     """Validate the server deadline, record part 1 and close its automatic check."""
-    if timezone.now() > result.deadline:
-        result.time_expired = True
-        result.save(update_fields=["time_expired"])
-        raise MockDeadlineExpired("Время пробника истекло. Ответы не приняты.")
+    caller = result
+    result = MockExamResult.objects.select_for_update().get(pk=result.pk)
     if result.status != MockExamResult.Status.IN_PROGRESS:
-        raise ValueError("Пробник уже отправлен.")
+        caller.refresh_from_db()
+        return caller
+    result.time_expired = timezone.now() >= result.deadline
+    if not result.time_expired:
+        result.draft_answers = {**result.draft_answers, **validate_answers(result, answers)}
+    answers = result.draft_answers
+    # Older in-progress rows have no start snapshot; capture before processing
+    # any answers, never after learning from this submission.
+    if not result.forecast_at_start:
+        result.forecast_at_start = forecast_snapshot(result.student)
+    result.save(update_fields=["time_expired", "draft_answers", "forecast_at_start"])
 
     from apps.practice.models import Attempt
     from apps.practice.services import submit_attempt
@@ -107,7 +166,9 @@ def submit_mock(result: MockExamResult, answers: dict) -> MockExamResult:
             # переспрашивают, он просто не приносит балла.
             strict=False,
         )
-    return complete_mock_part1(result)
+    complete_mock_part1(result)
+    caller.refresh_from_db()
+    return caller
 
 
 def maybe_complete_mock(result: MockExamResult) -> MockExamResult:
@@ -160,7 +221,13 @@ def _finalize(result: MockExamResult) -> None:
 
 
 def _adapt_plan_after_mock(result: MockExamResult) -> None:
-    predicted, _ = predict_score(result.student)
+    snapshot = result.forecast_at_start
+    table = snapshot.get("primary_to_scaled") if snapshot else None
+    if table and "calibrated_primary" in snapshot:
+        from apps.engine.forecast import scaled_score
+        predicted = scaled_score(snapshot["calibrated_primary"], table)
+    else:
+        predicted, _ = predict_score(result.student)
     if result.scaled_score is not None and result.scaled_score + POOR_MOCK_GAP < predicted:
         from apps.knowledge.models import KnowledgeNode
 

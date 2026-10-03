@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="ahedgehogb" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#E6BE96" stop-opacity="1"/><stop offset="0.52" stop-color="#B87B45" stop-opacity="1"/><stop offset="1" stop-color="#6B4118" stop-opacity="1"/></radialGradient>
+<radialGradient id="ahedgehogs" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#6B4118" stop-opacity="0"/><stop offset="0.88" stop-color="#6B4118" stop-opacity="0.18"/><stop offset="1" stop-color="#6B4118" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="ahedgehogg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="ahedgehogr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<circle cx="64" cy="64" r="60" fill="url(#ahedgehogb)"/>
+<g>
+<path d="M12 66 L23 44 L34 66 Z" fill="#FFFFFF" fill-opacity=".55"/><path d="M28 54 L39 32 L50 54 Z" fill="#FFFFFF" fill-opacity=".55"/><path d="M46 46 L57 24 L68 46 Z" fill="#FFFFFF" fill-opacity=".55"/><path d="M66 46 L77 24 L88 46 Z" fill="#FFFFFF" fill-opacity=".55"/><path d="M84 54 L95 32 L106 54 Z" fill="#FFFFFF" fill-opacity=".55"/><path d="M18 76 L28 58 L38 76 Z" fill="#FFFFFF" fill-opacity=".85"/><path d="M36 62 L46 44 L56 62 Z" fill="#FFFFFF" fill-opacity=".85"/><path d="M56 56 L66 38 L76 56 Z" fill="#FFFFFF" fill-opacity=".85"/><path d="M76 62 L86 44 L96 62 Z" fill="#FFFFFF" fill-opacity=".85"/><path d="M92 76 L102 58 L112 76 Z" fill="#FFFFFF" fill-opacity=".85"/>
+<path d="M16 84 C16 62 37 48 64 48 C91 48 112 62 112 84 Z" fill="#FFFFFF" fill-opacity=".9"/>
+<path d="M16 84 H112" stroke="#6B4118" stroke-opacity=".16" stroke-width="4"/>
+<path d="M64 62 C84 62 97 74 97 90 C97 104 83 114 64 114 C45 114 31 104 31 90 C31 74 44 62 64 62 Z" fill="#FFFFFF" fill-opacity=".97"/>
+<ellipse cx="52" cy="84" rx="4.4" ry="5.2" fill="#6B4118" fill-opacity=".82"/><circle cx="53.8" cy="82.2" r="1.4" fill="#FFFFFF" fill-opacity=".9"/>
+<ellipse cx="76" cy="84" rx="4.4" ry="5.2" fill="#6B4118" fill-opacity=".82"/><circle cx="77.8" cy="82.2" r="1.4" fill="#FFFFFF" fill-opacity=".9"/>
+<path d="M64 102 C60 102 57 99 57 96 C57 94 60 93 64 93 C68 93 71 94 71 96 C71 99 68 102 64 102 Z" fill="#6B4118" fill-opacity=".82"/>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#ahedgehogs)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#ahedgehogg)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#ahedgehogr)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#6B4118" stroke-opacity="0.14" stroke-width="3"/>
+</svg>

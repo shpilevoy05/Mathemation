@@ -238,6 +238,24 @@ def _prepare_plan_items(items):
     return prepared
 
 
+def next_learning_action(student):
+    """Resolve one actionable task without changing the planner's ordering."""
+    running = MockExamResult.objects.filter(student=student, status="in_progress").order_by("started_at").first()
+    if running:
+        return {"url": reverse("mock_run", args=[running.pk]), "title": "Продолжить пробник"}
+    review = due_reviews(student).first()
+    if review:
+        return {"url": reverse("practice_backlog") + f"#review-{review.pk}", "title": "Повторить задачу"}
+    plan = get_active_plan(student)
+    item = plan.items.exclude(status=StudyPlanItem.Status.DONE).select_related("node").first() if plan else None
+    if item and item.node_id:
+        return {"url": reverse("lesson", args=[item.node_id]), "title": f"Продолжить: {item.node.title}"}
+    if item and item.item_type == StudyPlanItem.ItemType.MOCK:
+        return {"url": reverse("mocks"), "title": "Пройти пробник"}
+    return {"url": reverse("diagnostics" if not plan else "practice_backlog"),
+            "title": "Пройти диагностику" if not plan else "Повторить изученное"}
+
+
 def dashboard_context(student):
     apply_decay(student)
     today = timezone.localdate()
@@ -288,6 +306,9 @@ def dashboard_context(student):
         ),
         "week_streak": _week_streak(student, today),
         "daily": _daily_banner(student),
+        "next_action": next_learning_action(student),
+        "offer_pvp": bool(plan and plan.items.filter(completed_at__date=today).exists()
+                          and not plan.items.filter(due_date__lte=today).exclude(status="done").exists()),
     }
 
 
@@ -546,15 +567,32 @@ def knowledge_node_context(student, node_id):
 
 
 MATCH_MODE_HINTS = {
-    "speed": "Восемь задач подряд. Побеждает тот, кто решил больше; при равенстве — кто быстрее.",
-    "quiz": "Пять задач с ценой в 100 очков. Короткая партия на перемене.",
-    "board": "Шесть клеток разной цены: чем сложнее задача, тем дороже.",
+    "speed": "Задачи из тренировки. Правило выбираете сами: кто быстрее решит "
+             "восемь или кто больше решит за отведённое время.",
+    "quiz": "Вопросы по теории с четырьмя вариантами. Кто первым нажал верный — "
+            "тот и забрал очки.",
+    "board": "Пять тем, цены от 100 до 500. Ход по очереди, промах списывает "
+             "цену клетки. Тридцать секунд на ответ.",
 }
+
+
+def part1_task_numbers() -> list[int]:
+    """Номера заданий части 1 по активному профилю экзамена."""
+    from apps.exams.models import ExamProfile
+
+    profile = ExamProfile.active()
+    if profile is None:
+        from apps.exams.blueprint import TASKS
+
+        return [number for number, part, *_rest in TASKS if part == 1]
+    return list(
+        profile.tasks.filter(exam_part=1).order_by("number").values_list("number", flat=True)
+    )
 
 
 def arena_context(student) -> dict:
     """Арена: друзья, вызовы, идущие и сыгранные партии."""
-    from apps.arena.leagues import league_for_rating
+    from apps.arena.ranks import rank_for_rating
     from apps.arena.models import ArenaProfile, Friendship, Match
     from apps.arena.matchmaking import profiles_by_student_id
     from apps.arena.services import friends_of, rank, rewarded_today, DAILY_REWARDED_MATCHES
@@ -581,11 +619,11 @@ def arena_context(student) -> dict:
         participants = participants_by_match[match.pk]
         me = next((row for row in participants if row.student_id == student.pk), None)
         other = next((row for row in participants if row.student_id != student.pk), None)
-        results = rank(match, participants) if match.is_finished else []
+        results = rank(match) if match.is_finished else []
         for participant in results:
             if not participant.is_bot and participant.student_id is not None:
                 profile = profile_map.get(participant.student_id)
-                participant.league_code = league_for_rating(
+                participant.rank_code = rank_for_rating(
                     profile.rating if profile else ArenaProfile.BASE_RATING
                 )["code"]
         row = {
@@ -593,12 +631,24 @@ def arena_context(student) -> dict:
             "opponent": other.title if other else "—",
             "mine_done": me.finished_at is not None if me else False,
             "results": results,
+            # В «своей игре» ход по очереди: список партий должен говорить,
+            # ждут вас или соперника, иначе игрок не понимает, куда идти.
+            "my_turn": (
+                match.mode == Match.Mode.BOARD
+                and me is not None
+                and match.turn_participant_id == me.pk
+            ),
         }
+        row["waiting"] = match.is_waiting
         if match.status == Match.Status.FINISHED:
             history.append(row)
         elif match.status == Match.Status.INVITED and match.created_by_id != student.pk:
             invites.append(row)
-        elif match.status in (Match.Status.ACTIVE, Match.Status.INVITED):
+        elif match.status in (
+            Match.Status.ACTIVE, Match.Status.INVITED, Match.Status.LOBBY
+        ):
+            # Партия в сборе игроков — тоже идущая: из списка она пропадать не
+            # должна, иначе игрок не найдёт, куда вернуться.
             active.append(row)
     own_profile = profile_map.get(student.pk)
     arena_rating = own_profile.rating if own_profile else ArenaProfile.BASE_RATING
@@ -619,18 +669,61 @@ def arena_context(student) -> dict:
         "match_history": history,
         "mode_hints": MATCH_MODE_HINTS,
         "arena_rating": arena_rating,
-        "arena_league": league_for_rating(arena_rating),
+        "arena_rank": rank_for_rating(arena_rating),
+        # Номера части 1 берутся из профиля экзамена: их стало тринадцать,
+        # и список в форме не должен жить своей жизнью.
+        "part1_numbers": part1_task_numbers(),
         "rewarded_today": rewarded_today(student),
         "reward_limit": DAILY_REWARDED_MATCHES,
     }
 
 
+def leagues_context(student) -> dict:
+    """Экран лиги. Всё считает сервис лиг: страница только рисует."""
+    from apps.gamification.leagues import league_state
+
+    from apps.gamification.models import LEAGUE_ORDER, League
+
+    state = league_state(student)
+    current = LEAGUE_ORDER.index(state["league"])
+    return {
+        **state,
+        # Лестница лиг: ученик должен видеть, куда он поднимается и сколько
+        # ступеней впереди, иначе «Дельта» — просто слово.
+        # Лиги выше текущей закрыты: показывать награду, до которой ученик
+        # ещё не добрался, — значит обесценить путь к ней. Силуэт со знаком
+        # вопроса честнее: ступень есть, но что там — пока не показываем.
+        "ladder": [
+            {
+                "code": code,
+                "label": League(code).label if index <= current else "",
+                "is_current": index == current,
+                "is_passed": index < current,
+                "is_locked": index > current,
+            }
+            for index, code in enumerate(LEAGUE_ORDER)
+        ],
+        # Подпись зоны вылета/повышения нужна в двух местах — считаем один раз.
+        "promotion_note": (
+            f"Топ-{state['promotion_places']} переходят в следующую лигу"
+        ),
+    }
+
+
 def arena_match_context(student, match_id) -> dict:
-    """Экран партии. Состояние приходит из того же API, что и ходы."""
+    """Экран партии. Состояние приходит из того же API, что и ходы.
+
+    Открыть экран — и значит сесть за стол: партия начинается, когда это
+    сделали оба. Отмечаем это здесь, а не только в скрипте, чтобы игрок не
+    видел мигающего «ждём вас» на собственном экране.
+    """
     from apps.arena.api import match_payload
     from apps.arena.models import Match
+    from apps.arena.services import join_match
 
     match = get_object_or_404(Match, pk=match_id, participants__student=student)
+    join_match(match, student)
+    match.refresh_from_db()
     return {"match": match, "state": match_payload(match, student)}
 
 
@@ -645,9 +738,15 @@ def schedule_context(student, year=None, month=None):
             return None
 
     schedule = month_schedule(student, as_int(year), as_int(month))
+    plan = get_active_plan(student)
     return {
         "schedule": schedule,
         "month_label": MONTH_LABELS[schedule["month"] - 1],
+        # Сколько тем не поместилось до экзамена при текущей нагрузке. Молчать
+        # об этом нельзя: расписание выглядело бы полным планом, которым оно
+        # не является.
+        "unplanned_nodes": plan.unplanned_nodes if plan else 0,
+        "weekly_hours": student.weekly_hours,
     }
 
 
@@ -913,8 +1012,6 @@ SHOP_SLOT_LABELS = {"avatar": "аватар", "frame": "рамка", "theme": "�
 # рамку — на аватаре ученика, тему — её цветами. Код без рисунка остаётся
 # на иконке слота.
 SHOP_ART_CODES = {
-    "avatar": {"owl", "fox", "rocket", "sigma"},
-    "frame": {"coordinates", "flame", "integral", "gold"},
     "theme": {"dark", "sunrise", "forest", "graphite"},
     "badge": {"streak7"},
 }
@@ -939,17 +1036,28 @@ def _shop_card(row: dict, balance: int) -> dict:
     else:
         tag, tag_class = SHOP_SLOT_LABELS.get(item.slot, item.get_slot_display().lower()), "chip-mute"
     has_art = item.effect == ShopItem.Effect.NONE and item.code in SHOP_ART_CODES.get(item.slot, set())
+    from apps.economy.catalog import TIER_LABELS
     return {
         **row,
         "icon": icon,
         "tone": tone,
         "tag": tag,
         "tag_class": tag_class,
+        # Аватар и рамку показываем ими самими, а не значком слота: витрина
+        # косметики, на которой не видно вещь, — это прайс-лист, а не витрина.
+        "art_kind": item.slot if item.slot in ("avatar", "frame") else "",
+        "tier_label": (
+            TIER_LABELS.get(item.tier, "")
+            if item.tier == ShopItem.Tier.ANIMATED else ""
+        ),
         "frosted": item.effect == ShopItem.Effect.STREAK_FREEZE,
         "group": "boost" if row["is_consumable"] else item.slot,
         "description": item.description or row.get("effect_note") or "Оформление кабинета.",
         "available": row["owned"] or row["affordable"],
         "missing": max(item.price_coins - balance, 0),
+        # Купленную косметику цена только путает: платить второй раз не за что.
+        # У расходников цена остаётся — их покупают повторно.
+        "show_price": row["is_consumable"] or not row["owned"],
         # Косметику можно примерить до покупки: слот и код нужны интерфейсу,
         # чтобы показать вещь на месте, ничего не сохраняя.
         "previewable": not row["is_consumable"] and not row["equipped"],
@@ -1111,7 +1219,7 @@ def lesson_context(student, node_id, attempt_context=Attempt.Context.LESSON):
     return {
         "node": node,
         "video_lessons": video_lessons,
-        "theory_blocks": TheoryBlock.objects.filter(lesson__node=node).select_related("lesson"),
+        "theory_blocks": TheoryBlock.objects.filter(lesson__node=node, lesson__status=Lesson.Status.PUBLISHED).select_related("lesson"),
         "tasks": tasks,
         "attempt_context": attempt_context,
         "mentor_enabled": mentor_available(attempt_context),
@@ -1213,7 +1321,9 @@ def expert_verdicts(student, limit: int = 8) -> list[dict]:
     from apps.expert_review.evidence import missing_required_steps
 
     requests = (
-        ExpertReviewRequest.objects.filter(student=student)
+        ExpertReviewRequest.objects.filter(student=student).exclude(
+            status=ExpertReviewRequest.Status.DRAFT
+        )
         .select_related("assignment")
         .prefetch_related("step_marks__step__node")
         .order_by("-created_at")[:limit]
@@ -1251,6 +1361,18 @@ def expert_verdicts(student, limit: int = 8) -> list[dict]:
     ]
 
 
+LEVER_MIN_HOURS, LEVER_MAX_HOURS = 1, 24
+
+
+def _lever_percent(hours) -> float:
+    """Позиция отметки на ползунке нагрузки, в процентах."""
+    if not hours:
+        return 0.0
+    hours = min(max(int(hours), LEVER_MIN_HOURS), LEVER_MAX_HOURS)
+    span = LEVER_MAX_HOURS - LEVER_MIN_HOURS
+    return round((hours - LEVER_MIN_HOURS) / span * 100, 1)
+
+
 def forecast_context(student):
     from apps.exams.models import ExamTask
     from apps.progress.services import (
@@ -1279,6 +1401,14 @@ def forecast_context(student):
         "gauge": primary_gauge(student, forecast),
         "interval": forecast_interval(student),
         "coverage": {**coverage, "numbers": numbers},
+        # Год, структура и происхождение шкалы. Прогноз в тестовых баллах
+        # честен ровно настолько, насколько официальна таблица перевода:
+        # пока Рособрнадзор её не опубликовал, об этом надо говорить прямо.
+        "exam_profile": profile,
+        "scale_is_official": profile.scale_is_official if profile else True,
+        # Где на ползунке стоит рекомендованная нагрузка: ползунок идёт от 1
+        # до 24 часов, отметка ставится в тех же координатах.
+        "recommended_percent": _lever_percent(forecast.get("recommended_hours")),
     }
 
 
@@ -1321,6 +1451,8 @@ def mock_run_context(student, result_id):
         "result": result,
         "part1_assignments": result.exam.assignments.filter(exam_part=1),
         "part2_assignments": result.exam.assignments.filter(exam_part=2),
+        "draft_state": {"answers": result.draft_answers, "revision": result.draft_revision,
+                        "uploaded": list(result.expert_reviews.values_list("assignment_id", flat=True))},
     }
 
 

@@ -260,6 +260,32 @@ def equipped_items(student) -> dict[str, InventoryItem]:
     }
 
 
+# Коды оформления, которые умеет нарисовать интерфейс. Список — из каталога
+# косметики: там же лежат цены и уровни, и разъехаться им негде. Купленный
+# предмет с неизвестным кодом не должен ломать страницу — он игнорируется.
+from .catalog import AVATAR_CODES, FRAME_CODES, THEME_CODES
+
+KNOWN_THEMES = set(THEME_CODES)
+KNOWN_AVATARS = set(AVATAR_CODES)
+KNOWN_FRAMES = set(FRAME_CODES)
+KNOWN_CODES = {"theme": KNOWN_THEMES, "avatar": KNOWN_AVATARS, "frame": KNOWN_FRAMES}
+
+
+def cosmetic_codes(student) -> dict[str, str]:
+    """Что надето на ученике: тема, аватар, рамка.
+
+    Нужна не только своему кабинету: в арене соперник должен выглядеть так же,
+    как выглядит у себя, — купленная рамка иначе не имеет смысла.
+    """
+    equipped = equipped_items(student)
+    codes = {}
+    for slot, known in KNOWN_CODES.items():
+        inventory = equipped.get(slot)
+        value = inventory.item.code if inventory else ""
+        codes[slot] = value if value in known else ""
+    return codes
+
+
 def storefront(now=None):
     """Витрина: активные товары, доступные по датам."""
     now = now or timezone.now()

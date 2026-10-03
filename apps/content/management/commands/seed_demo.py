@@ -18,6 +18,7 @@ from apps.content.models import Assignment, AssignmentSkillTag, Lesson, TheoryBl
 from apps.diagnostics.models import DiagnosticTest
 from apps.expert_review.models import ExpertReviewRequest
 from apps.gamification.services import generate_weekly_quests
+from apps.content.theory_bank import load_theory_bank
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.mocks.models import MockExam
 from apps.planning.services import assign_trajectory, build_study_plan, get_active_plan
@@ -37,36 +38,44 @@ CLUSTERS = [
 ]
 
 # (code, title, cluster_idx, part, ege_tasks, weight, prerequisites)
+# Номера заданий — по структуре 2027 года (см. apps/exams/blueprint.py).
 NODES = [
-    ("frac-powers", "Действия с дробями и степенями", 0, 1, [7], 1.0, []),
-    ("roots-logs", "Корни и логарифмы", 0, 1, [7], 1.0, ["frac-powers"]),
-    ("trig-values", "Тригонометрические выражения", 0, 1, [7], 1.0, ["frac-powers"]),
-    ("linear-quadratic", "Линейные и квадратные уравнения", 1, 1, [6], 1.2, ["frac-powers"]),
-    ("exp-log-eq", "Показательные и логарифмические уравнения", 1, 1, [6, 13], 1.2,
+    ("frac-powers", "Действия с дробями и степенями", 0, 1, [8], 1.0, []),
+    ("roots-logs", "Корни и логарифмы", 0, 1, [8], 1.0, ["frac-powers"]),
+    ("trig-values", "Тригонометрические выражения", 0, 1, [8], 1.0, ["frac-powers"]),
+    ("linear-quadratic", "Линейные и квадратные уравнения", 1, 1, [7], 1.2, ["frac-powers"]),
+    ("exp-log-eq", "Показательные и логарифмические уравнения", 1, 1, [7, 14], 1.2,
      ["roots-logs", "linear-quadratic"]),
-    ("trig-eq", "Тригонометрические уравнения", 1, 2, [13], 1.3,
+    ("trig-eq", "Тригонометрические уравнения", 1, 2, [14], 1.3,
      ["trig-values", "linear-quadratic"]),
-    ("log-ineq", "Логарифмические неравенства", 1, 2, [15], 1.3, ["exp-log-eq"]),
+    ("log-ineq", "Логарифмические неравенства", 1, 2, [16], 1.3, ["exp-log-eq"]),
     ("triangles", "Треугольники и их элементы", 2, 1, [1], 1.0, []),
-    ("circles", "Окружности и вписанные углы", 2, 1, [1, 17], 1.0, ["triangles"]),
+    ("circles", "Окружности и вписанные углы", 2, 1, [1, 18], 1.0, ["triangles"]),
     ("polyhedra", "Объёмы многогранников", 3, 1, [3], 1.0, []),
-    ("plane-angles", "Угол между плоскостями", 3, 2, [14], 1.2, ["polyhedra"]),
+    ("plane-angles", "Угол между плоскостями", 3, 2, [15], 1.2, ["polyhedra"]),
     ("classic-prob", "Классическая вероятность", 4, 1, [4], 0.8, []),
     ("compound-prob", "Сложная вероятность", 4, 1, [5], 0.9, ["classic-prob"]),
-    ("deriv-graph", "Производная по графику", 5, 1, [8], 1.1, []),
-    ("extrema", "Экстремумы и исследование функций", 5, 1, [12], 1.2, ["deriv-graph"]),
-    ("parameter", "Задачи с параметром", 5, 2, [18], 1.4, ["extrema", "exp-log-eq"]),
-    # Узлы ниже закрывают оставшиеся номера профиля (2, 9, 10, 11, 16, 19):
-    # незамапленное задание даёт нулевой вклад и занижает прогноз.
+    # Новое задание 6: случайная величина и её характеристики.
+    ("random-variables", "Случайная величина: ожидание и дисперсия", 4, 1, [6], 1.0,
+     ["compound-prob"]),
+    ("deriv-graph", "Производная по графику", 5, 1, [9], 1.1, []),
+    ("extrema", "Экстремумы и исследование функций", 5, 1, [9], 1.2, ["deriv-graph"]),
+    ("parameter", "Задачи с параметром", 5, 2, [19], 1.4, ["extrema", "exp-log-eq"]),
+    # Узлы ниже закрывают оставшиеся номера профиля: незамапленное задание даёт
+    # нулевой вклад и занижает прогноз.
     ("vectors", "Векторы и действия с ними", 6, 1, [2], 0.9, ["triangles"]),
-    ("applied-formulas", "Прикладные задачи с формулами", 7, 1, [9], 1.0,
+    ("applied-formulas", "Прикладные задачи с формулами", 7, 1, [10], 1.0,
      ["linear-quadratic"]),
-    ("graph-formula", "Графики функций и их формулы", 7, 1, [11], 1.1,
+    ("graph-formula", "Графики функций и их формулы", 7, 1, [12], 1.1,
      ["linear-quadratic"]),
-    ("word-problems", "Текстовые задачи на движение и работу", 8, 1, [10], 1.2,
+    ("word-problems", "Текстовые задачи на движение и работу", 8, 1, [11], 1.2,
      ["linear-quadratic"]),
-    ("economics", "Экономическая задача", 8, 2, [16], 1.3, ["word-problems"]),
-    ("number-theory", "Числа и их свойства", 9, 2, [19], 1.2, []),
+    # Новое задание 13: задачи о личных и семейных финансах.
+    ("personal-finance", "Личные и семейные финансы", 8, 1, [13], 1.2,
+     ["word-problems"]),
+    ("economics", "Экономическая задача", 8, 2, [17], 1.3,
+     ["word-problems", "personal-finance"]),
+    ("number-theory", "Числа и их свойства", 9, 2, [20], 1.2, []),
 ]
 
 # (node_code, title, statement, answer, difficulty)
@@ -107,6 +116,16 @@ PART1_TASKS = [
      "Из городов, расстояние между которыми 300 км, навстречу выехали два "
      "автомобиля со скоростями 60 и 90 км/ч. Через сколько часов они встретятся?",
      "2", 2),
+    ("random-variables", "Математическое ожидание",
+     "Случайная величина принимает значения 1, 2 и 5 с вероятностями 0.2, 0.5 "
+     "и 0.3. Найдите её математическое ожидание.", "2.7", 3),
+    ("random-variables", "Дисперсия набора",
+     "Случайная величина принимает значения 0 и 10 с вероятностями 0.5 и 0.5. "
+     "Найдите её дисперсию.", "25", 3),
+    ("personal-finance", "Семейный бюджет",
+     "Доход семьи 90 000 рублей в месяц, обязательные расходы — 65 000 рублей. "
+     "Сколько месяцев нужно откладывать остаток, чтобы накопить 150 000 рублей?",
+     "6", 3),
 ]
 
 # (node_code, title, statement, reference_solution (по строке на шаг), max_score)
@@ -328,12 +347,16 @@ class Command(BaseCommand):
         )
 
         self._seed_engagement(nodes, part1, student)
+        # Банк теории живёт разметкой в коде: демо-данные его просто раскладывают.
+        theory = load_theory_bank()
 
         if options.get("verbosity", 1) < 1:
             return
         self.stdout.write(self.style.SUCCESS(
             f"Демо-данные готовы: {KnowledgeNode.objects.count()} узлов, "
-            f"{Assignment.objects.count()} задач, профиль экзамена {profile.year} "
+            f"{Assignment.objects.count()} задач, "
+            f"{theory['created'] + theory['updated']} вопросов по теории, "
+            f"профиль экзамена {profile.year} "
             f"({profile.tasks.count()} заданий). "
             "Пользователи: student / parent / expert / methodist (пароль demo12345)."
         ))
@@ -368,3 +391,12 @@ class Command(BaseCommand):
                 "is_active": True,
             },
         )
+        # Витрину раскладывает общий каталог: коды косметики совпадают с
+        # именами файлов дизайна, а расходники — те же, что выдаёт лига.
+        from apps.accounts.models import StudentProfile
+        from apps.economy.catalog import grant_base_avatars, load_cosmetics
+
+        load_cosmetics()
+        # Базовые аватары есть у каждого ученика с первой минуты.
+        for profile in StudentProfile.objects.all():
+            grant_base_avatars(profile)

@@ -198,6 +198,8 @@ def start_payment(
 
     existing = Payment.objects.filter(idempotency_key=idempotency_key).first()
     if existing is not None:
+        if (existing.student_id, existing.payer_id, existing.tariff_id) != (student.pk, payer.pk, tariff.pk):
+            raise ValidationError("Ключ платежа уже используется для другой покупки.")
         return existing, get_provider().create_payment(existing)
 
     priced = quote(tariff, code=promo_code)
@@ -227,6 +229,8 @@ def start_payment(
 def confirm_payment(payment: Payment, *, provider_payment_id: str = "") -> Subscription:
     """Подтвердить оплату и продлить подписку. Повторный колбэк ничего не меняет."""
     caller_instance = payment
+    from apps.accounts.models import StudentProfile
+    StudentProfile.objects.select_for_update().get(pk=payment.student_id)
     payment = Payment.objects.select_for_update().get(pk=payment.pk)
     if payment.status == Payment.Status.SUCCEEDED:
         caller_instance.refresh_from_db()
@@ -258,10 +262,11 @@ def confirm_payment(payment: Payment, *, provider_payment_id: str = "") -> Subsc
     payment.status = Payment.Status.SUCCEEDED
     payment.paid_at = now
     payment.subscription = subscription
+    payment.metadata = {**payment.metadata, "granted_days": payment.tariff.period_days}
     if provider_payment_id:
         payment.provider_payment_id = provider_payment_id
     payment.save(
-        update_fields=["status", "paid_at", "subscription", "provider_payment_id"]
+        update_fields=["status", "paid_at", "subscription", "provider_payment_id", "metadata"]
     )
     # Экземпляр вызывающего кода мог остаться со старым статусом: обновляем,
     # иначе следующий шаг (возврат, отчёт) увидит платёж неоплаченным.
@@ -289,19 +294,28 @@ def handle_callback(payload: dict) -> Payment | None:
 @transaction.atomic
 def refund_payment(payment: Payment) -> Payment:
     """Вернуть деньги и снять подписку, оплаченную этим платежом."""
+    from apps.accounts.models import StudentProfile
+    StudentProfile.objects.select_for_update().get(pk=payment.student_id)
     payment = Payment.objects.select_for_update().get(pk=payment.pk)
     if payment.status != Payment.Status.SUCCEEDED:
         raise ValidationError("Возврат возможен только по оплаченному платежу.")
-    get_provider().refund(payment)
+    if get_provider().refund(payment) is not True:
+        raise ValidationError("Провайдер не подтвердил возврат. Доступ сохранён.")
     payment.status = Payment.Status.REFUNDED
     payment.refunded_at = timezone.now()
     payment.save(update_fields=["status", "refunded_at"])
 
     subscription = payment.subscription
     if subscription is not None:
-        subscription.status = Subscription.Status.CANCELED
-        subscription.ends_at = timezone.now()
-        subscription.save(update_fields=["status", "ends_at"])
+        subscription = Subscription.objects.select_for_update().get(pk=subscription.pk)
+        other = subscription.payments.filter(status=Payment.Status.SUCCEEDED).select_related("tariff").order_by("-paid_at").first()
+        now = timezone.now()
+        days = payment.metadata.get("granted_days", payment.tariff.period_days)
+        subscription.ends_at = max(now, subscription.ends_at - timedelta(days=days)) if other and subscription.ends_at else now
+        subscription.status = Subscription.Status.ACTIVE if subscription.ends_at > now else Subscription.Status.CANCELED
+        if other:
+            subscription.tariff = other.tariff
+        subscription.save(update_fields=["status", "ends_at", "tariff"])
     return payment
 
 
