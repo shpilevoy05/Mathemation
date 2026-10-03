@@ -105,6 +105,7 @@ INSTALLED_APPS = [
     "apps.expert_review",
     "apps.progress",
     "apps.ai_mentor",
+    "apps.social_agent",
     "apps.gamification",
     "apps.adminpanel",
     "apps.exams",
@@ -385,6 +386,10 @@ MIN_REVIEW_INTERVAL_DAYS = 1
 MAX_REVIEW_INTERVAL_DAYS = 60
 # Open mistakes on one node that force the topic back into the plan.
 FREQUENT_MISTAKE_THRESHOLD = 3
+# Minimum time before another automatic trajectory downgrade is allowed.
+TRAJECTORY_DOWNGRADE_COOLDOWN_HOURS = int(
+    os.environ.get("TRAJECTORY_DOWNGRADE_COOLDOWN_HOURS") or "24"
+)
 # Expert review SLA (hours), stored per-request but defaulted here.
 EXPERT_REVIEW_SLA_HOURS = 48
 # Max leading hints per assignment per student.
@@ -411,6 +416,28 @@ AI_MENTOR_LLM_TEMPERATURE = float(
     os.environ.get("AI_MENTOR_LLM_TEMPERATURE") or "0.3"
 )
 AI_PRIVACY_PSEUDONYM_KEY = os.environ.get("AI_PRIVACY_PSEUDONYM_KEY", "")
+
+# --- Агент социальных сетей ---
+SOCIAL_AGENT_ENABLED = _env_bool("SOCIAL_AGENT_ENABLED", default=False)
+SOCIAL_AGENT_PUBLISH_ENABLED = _env_bool("SOCIAL_AGENT_PUBLISH_ENABLED", default=False)
+SOCIAL_AGENT_PROVIDER = os.environ.get(
+    "SOCIAL_AGENT_PROVIDER", "apps.social_agent.providers.MockProvider"
+) or "apps.social_agent.providers.MockProvider"
+SOCIAL_AGENT_LLM_FORMAT = os.environ.get("SOCIAL_AGENT_LLM_FORMAT") or "openai"
+SOCIAL_AGENT_LLM_BASE_URL = os.environ.get("SOCIAL_AGENT_LLM_BASE_URL", "")
+SOCIAL_AGENT_LLM_API_KEY = os.environ.get("SOCIAL_AGENT_LLM_API_KEY", "")
+SOCIAL_AGENT_LLM_MODEL = os.environ.get("SOCIAL_AGENT_LLM_MODEL", "")
+SOCIAL_AGENT_LLM_FOLDER_ID = os.environ.get("SOCIAL_AGENT_LLM_FOLDER_ID", "")
+SOCIAL_AGENT_LLM_TIMEOUT_SECONDS = int(os.environ.get("SOCIAL_AGENT_LLM_TIMEOUT_SECONDS") or "20")
+SOCIAL_AGENT_LLM_MAX_TOKENS = int(os.environ.get("SOCIAL_AGENT_LLM_MAX_TOKENS") or "800")
+SOCIAL_AGENT_LLM_TEMPERATURE = float(os.environ.get("SOCIAL_AGENT_LLM_TEMPERATURE") or "0.3")
+SOCIAL_AGENT_COST_PER_1K_INPUT = _env_decimal("SOCIAL_AGENT_COST_PER_1K_INPUT")
+SOCIAL_AGENT_COST_PER_1K_OUTPUT = _env_decimal("SOCIAL_AGENT_COST_PER_1K_OUTPUT")
+SOCIAL_AGENT_TELEGRAM_BOT_TOKEN = os.environ.get("SOCIAL_AGENT_TELEGRAM_BOT_TOKEN", "")
+SOCIAL_AGENT_REVIEW_CHAT_IDS = [int(value.strip()) for value in os.environ.get("SOCIAL_AGENT_REVIEW_CHAT_IDS", "").split(",") if value.strip()]
+SOCIAL_AGENT_REVIEWER_USER_IDS = [int(value.strip()) for value in os.environ.get("SOCIAL_AGENT_REVIEWER_USER_IDS", "").split(",") if value.strip()]
+SOCIAL_AGENT_MAX_REWRITES = int(os.environ.get("SOCIAL_AGENT_MAX_REWRITES") or "2")
+# TODO(session 2): add Celery beat entries and route social-agent tasks to the social queue.
 
 # --- Внутренняя валюта и магазин ---
 # Монеты идут за тем же событием, что и XP: XP отвечает за прогресс, монеты —

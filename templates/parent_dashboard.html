@@ -58,13 +58,14 @@
           {% if report_data.trajectory.changed_to %}
             <li>
               <strong>{% if report_data.trajectory.changed_from %}{{ report_data.trajectory.changed_from }} → {% endif %}{{ report_data.trajectory.changed_to }}</strong>
-              <small>последний переход{% if report_data.trajectory.change_reasons %}: {{ report_data.trajectory.change_reasons|join:", " }}{% endif %}</small>
+              <small>последний переход</small>
             </li>
           {% endif %}
         </ul>
         {% if report_data.trajectory.recovery_actions %}
           <p class="muted">Что вернуть: {{ report_data.trajectory.recovery_actions|join:"; " }}</p>
         {% endif %}
+        {% if report_data.trajectory.change_reasons %}<p><strong>Почему:</strong></p><ul>{% for reason in report_data.trajectory.change_reasons %}<li>{{ reason }}</li>{% endfor %}</ul>{% endif %}
       {% else %}
         <p class="empty-copy">Траектория назначается после входной диагностики или выбора цели. Пока её нет, план строится по общей программе.</p>
       {% endif %}

@@ -23,7 +23,22 @@ from apps.progress.services import (
     localize_parent_report_payload,
     predict_score,
     primary_to_scaled,
+    ru_plural,
 )
+
+
+class RussianPluralTests(TestCase):
+    def test_forms_for_one_few_many_and_teens(self):
+        cases = {1: 0, 2: 1, 5: 2, 11: 2, 21: 0}
+        form_sets = [
+            ("ошибка", "ошибки", "ошибок"),
+            ("неисправленная ошибка", "неисправленные ошибки", "неисправленных ошибок"),
+            ("день", "дня", "дней"),
+        ]
+        for forms in form_sets:
+            for number, expected_index in cases.items():
+                with self.subTest(forms=forms, number=number):
+                    self.assertEqual(ru_plural(number, *forms), forms[expected_index])
 
 
 class ForecastTests(TestCase):
@@ -161,7 +176,7 @@ class ParentReportTests(TestCase):
             [
                 "изменена цель", "результат пробника", "частые ошибки",
                 "перерыв в занятиях", "тема подзабылась",
-                "ручная корректировка", "custom_reason",
+                "ручная корректировка", "другая причина",
             ],
         )
         self.assertEqual(payload["next_step"], "Практика: Квадратные уравнения")
@@ -178,7 +193,7 @@ class ParentReportTests(TestCase):
 
         reasons = build_parent_report(self.student).payload["trajectory"]["change_reasons"]
 
-        self.assertEqual(reasons, ["изменена цель", "результат пробника", "unknown"])
+        self.assertEqual(reasons, ["изменена цель", "результат пробника", "изменение траектории"])
 
     def test_report_idempotent_per_week(self):
         build_parent_report(self.student)

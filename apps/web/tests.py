@@ -13,6 +13,7 @@ from apps.mocks.models import MockExam
 from apps.practice.models import Attempt, MistakeBacklogItem
 from apps.practice.services import submit_attempt
 from apps.progress.models import ProgressSnapshot
+from apps.planning.models import TrajectoryTransition
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.knowledge.services import set_mastery
 from apps.knowledge.tests import make_node, make_student
@@ -195,6 +196,20 @@ class StudentCabinetTests(TestCase):
         self.assertContains(response, "Траектория")
         self.assertContains(response, "84+")
         self.assertContains(response, "при текущем темпе")
+
+    def test_dashboard_never_renders_raw_trajectory_reason(self):
+        transition = TrajectoryTransition.objects.filter(
+            student=self.user.student_profile
+        ).first()
+        transition.reasons = ["frequent_mistakes"]
+        transition.evidence = {}
+        transition.acknowledged = False
+        transition.save(update_fields=["reasons", "evidence", "acknowledged"])
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertContains(response, "частые ошибки")
+        self.assertNotContains(response, "frequent_mistakes")
 
     def test_dashboard_contains_h1_design_system_markers_and_logo(self):
         response = self.client.get(reverse("dashboard"))

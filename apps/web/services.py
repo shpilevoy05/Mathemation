@@ -279,6 +279,14 @@ def dashboard_context(student):
         snapshot.predicted_score if snapshot else 0,
         student.target_score,
     )
+    transitions = list(
+        TrajectoryTransition.objects.filter(student=student, acknowledged=False)
+        .select_related("from_trajectory", "to_trajectory")
+    )
+    from apps.progress.services import transition_explanation
+
+    for transition in transitions:
+        transition.explanations = transition_explanation(transition)
     return {
         "today_items": _prepare_plan_items(items_for_period(student, today, today)),
         "week_items": _prepare_plan_items(
@@ -292,9 +300,7 @@ def dashboard_context(student):
         "major_changes": (
             plan.change_logs.filter(is_major=True, acknowledged=False) if plan else []
         ),
-        "trajectory_transitions": TrajectoryTransition.objects.filter(
-            student=student, acknowledged=False
-        ).select_related("from_trajectory", "to_trajectory"),
+        "trajectory_transitions": transitions,
         "forecast": forecast,
         "gamification": gamification,
         "has_diagnostic": snapshot is not None and snapshot.start_score is not None,

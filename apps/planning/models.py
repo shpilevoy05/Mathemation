@@ -126,6 +126,7 @@ class TrajectoryTransition(models.Model):
         related_name="transitions_to",
     )
     reasons = models.JSONField(default=list)
+    evidence = models.JSONField(default=dict, blank=True)
     recovery_actions = models.JSONField(default=list)
     acknowledged = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

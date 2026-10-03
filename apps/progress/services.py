@@ -32,6 +32,89 @@ TRAJECTORY_REASON_LABELS = {
     "decay": "тема подзабылась",
     "manual": "ручная корректировка",
 }
+
+
+def ru_plural(number: int, one: str, few: str, many: str) -> str:
+    """Choose a Russian noun form for an integer."""
+    value = abs(int(number)) % 100
+    if 11 <= value <= 14:
+        return many
+    tail = value % 10
+    if tail == 1:
+        return one
+    if 2 <= tail <= 4:
+        return few
+    return many
+
+
+def transition_explanation(transition) -> list[str]:
+    """Return complete, human-readable reasons without exposing internal codes."""
+    evidence = transition.evidence or {}
+    reasons = transition.reasons or []
+    sentences = []
+    for reason in reasons:
+        if reason == "frequent_mistakes" and evidence:
+            trigger_topic = evidence.get("trigger_topic")
+            trigger_count = evidence.get("trigger_count")
+            threshold = evidence.get("threshold")
+            if trigger_topic and trigger_count is not None and threshold is not None:
+                mistake_phrase = ru_plural(
+                    trigger_count,
+                    "неисправленная ошибка",
+                    "неисправленные ошибки",
+                    "неисправленных ошибок",
+                )
+                accumulated = ru_plural(trigger_count, "накопилась", "накопились", "накопилось")
+                sentences.append(
+                    f"По теме «{trigger_topic}» {accumulated} {trigger_count} {mistake_phrase} — "
+                    f"при {threshold} и больше мы снижаем темп, чтобы сначала закрыть пробел."
+                )
+            topics = evidence.get("topics") or []
+            if topics:
+                rendered = ", ".join(f"{item['title']} — {item['count']}" for item in topics)
+                days = evidence.get("breakdown_days", evidence.get("period_days", 7))
+                day_word = ru_plural(days, "день", "дня", "дней")
+                sentences.append(
+                    f"За последние {days} {day_word} больше всего ошибок в темах: {rendered}."
+                )
+            error_types = [
+                item for item in (evidence.get("error_types") or [])
+                if item.get("label") not in {"unknown", "тип уточняется"}
+                and item.get("error_type") != "unknown"
+            ]
+            if error_types:
+                rendered = ", ".join(
+                    f"{item['label']} — {item['count']}" for item in error_types
+                )
+                sentences.append(f"Чаще всего: {rendered}.")
+            examples = evidence.get("examples") or []
+            if examples:
+                task_word = ru_plural(len(examples), "задача", "задачи", "задачи")
+                sentences.append(
+                    f"Например, {task_word} "
+                    + ", ".join(f"«{title}»" for title in examples)
+                    + "."
+                )
+        elif reason == "poor_mock" and evidence:
+            title = evidence.get("mock_title") or "Пробник"
+            primary = evidence.get("primary_score")
+            scaled = evidence.get("scaled_score")
+            required_primary = evidence.get("required_primary_score")
+            required_scaled = evidence.get("required_scaled_score")
+            scores = []
+            if primary is not None:
+                scores.append(f"{primary} первичных при необходимых {required_primary}")
+            if scaled is not None:
+                scores.append(f"{scaled} тестовых при необходимых {required_scaled}")
+            sentences.append(f"Пробник «{title}»: " + ", ".join(scores) + ".")
+        elif reason == "inactivity" and evidence:
+            days = evidence.get("idle_days", 0)
+            sentences.append(
+                f"Перерыв в занятиях — {days} {ru_plural(days, 'день', 'дня', 'дней')}."
+            )
+        else:
+            sentences.append(TRAJECTORY_REASON_LABELS.get(reason, "изменение траектории"))
+    return sentences
 PLAN_ITEM_TYPE_LABELS = {
     "lesson": "Урок",
     "practice": "Практика",
@@ -49,7 +132,13 @@ def localize_parent_report_payload(payload: dict) -> dict:
     localized = deepcopy(payload)
     trajectory = localized.get("trajectory") or {}
     trajectory["change_reasons"] = [
-        TRAJECTORY_REASON_LABELS.get(reason, reason)
+        (
+            TRAJECTORY_REASON_LABELS[reason]
+            if reason in TRAJECTORY_REASON_LABELS
+            else reason
+            if reason in TRAJECTORY_REASON_LABELS.values() or " " in reason
+            else "другая причина"
+        )
         for reason in trajectory.get("change_reasons", [])
     ]
     exam_date = trajectory.get("exam_date")
@@ -550,10 +639,7 @@ def _trajectory_block(student, plan) -> dict:
             if transition and transition.from_trajectory_id else ""
         ),
         "changed_to": transition.to_trajectory.title if transition else "",
-        "change_reasons": [
-            TRAJECTORY_REASON_LABELS.get(reason, reason)
-            for reason in (transition.reasons if transition else [])
-        ],
+        "change_reasons": transition_explanation(transition) if transition else [],
         "recovery_actions": list(transition.recovery_actions) if transition else [],
     }
 

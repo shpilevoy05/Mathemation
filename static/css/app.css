@@ -10,7 +10,7 @@
   --primary-dark: #2E45B8; --primary-deep: #2E3A8C; --primary-soft: #E6EBFE;
   --night: #141A33; --night-2: #1C2444; --night-ink: #C7CFEA; --night-muted: #AEB8D6; --night-line: rgba(255, 255, 255, .18);
   --ink: #10162A; --ink-2: #3A4460; --muted: #6B7590; --muted-2: #98A2BE;
-  --success: #0E9A64; --success-2: #3FC78D; --success-soft: #DFF3E9;
+  --success: #0E9A64; --success-2: #3FC78D; --success-soft: #DFF3E9; --board-won-bg: #08764B; --board-won-ink: #FFFFFF;
   --success-tint: #F1FAF5; --success-line: #C9E9D9; --success-shadow: #0A7049;
   --flame-1: #FFD34E; --flame-2: #F58A1E; --flame-3: #D33A50;
   --warning: #C97D0C; --warning-soft: #FAEFD9; --warm-tint: #FFF8EC;
@@ -61,7 +61,7 @@
   --locked-bg: #2A3150; --locked-shadow: #1C2240; --locked-ink: #AAB5D8;
   --track-banner-bg: #4A5CB8; --track-current-bg: #4A5CB8; --track-current-shadow: #303D85;
   --track-line: rgba(166, 178, 206, .35); --track-line-done: rgba(166, 178, 206, .78);
-  --success: #3FC78D; --success-2: #5BD3A0; --success-soft: #12301F;
+  --success: #3FC78D; --success-2: #5BD3A0; --success-soft: #12301F; --board-won-bg: #3FC78D; --board-won-ink: #0B1F15;
   --success-tint: #12291F; --success-line: #1F4634;
   --warning: #E1A845; --warning-soft: #2C2312;
   --warm-tint: #241B0E; --warm-tint-2: #2E2413; --warm-line: #3A2E17;
@@ -120,7 +120,7 @@
   --locked-bg: #2E323B; --locked-shadow: #22252C; --locked-ink: #B8BEC8;
   --track-banner-bg: #3F4550; --track-current-bg: #3F4550; --track-current-shadow: #292E37;
   --track-line: rgba(166, 178, 206, .35); --track-line-done: rgba(166, 178, 206, .78);
-  --success: #3FC78D; --success-2: #5BD3A0; --success-soft: #12301F;
+  --success: #3FC78D; --success-2: #5BD3A0; --success-soft: #12301F; --board-won-bg: #3FC78D; --board-won-ink: #0B1F15;
   --success-tint: #12291F; --success-line: #1F4634;
   --warning: #E1A845; --warning-soft: #2C2312;
   --warm-tint: #241B0E; --warm-tint-2: #2E2413; --warm-line: #3A2E17;
@@ -147,7 +147,7 @@ html[data-theme="graphite"], html[data-theme="dark"] { color-scheme: dark; }
     --locked-bg: #2A3150; --locked-shadow: #1C2240; --locked-ink: #AAB5D8;
     --track-banner-bg: #4A5CB8; --track-current-bg: #4A5CB8; --track-current-shadow: #303D85;
     --track-line: rgba(166, 178, 206, .35); --track-line-done: rgba(166, 178, 206, .78);
-    --success: #3FC78D; --success-2: #5BD3A0; --success-soft: #12301F;
+    --success: #3FC78D; --success-2: #5BD3A0; --success-soft: #12301F; --board-won-bg: #3FC78D; --board-won-ink: #0B1F15;
     --success-tint: #12291F; --success-line: #1F4634;
     --warning: #E1A845; --warning-soft: #2C2312;
     --warm-tint: #241B0E; --warm-tint-2: #2E2413; --warm-line: #3A2E17;
@@ -1212,13 +1212,18 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 .quiz-option.is-wrong { border-color: var(--danger); background: var(--danger-soft); }
 
 /* — Своя игра: доска тем и цен — */
-.board-grid { display: grid; grid-template-columns: repeat(var(--board-columns, 5), minmax(0, 1fr)); gap: 8px; margin: 12px 0 16px; overflow-x: auto; }
-.board-column { display: grid; gap: 8px; align-content: start; }
-.board-topic { min-height: 2.4em; margin: 0; color: var(--muted); font-size: .76rem; font-weight: 700; letter-spacing: .04em; text-align: center; text-transform: uppercase; }
+/* Столбцы доски делят общие строки (subgrid): заголовок темы в две строки
+   больше не сдвигает свой столбец ниже соседей — все клетки одной цены стоят
+   на одной линии, а строка заголовков растёт по самому длинному. */
+.board-grid { display: grid; grid-template-columns: repeat(var(--board-columns, 5), minmax(0, 1fr)); grid-template-rows: auto; gap: 8px; margin: 12px 0 16px; overflow-x: auto; }
+.board-column { display: grid; grid-row: span var(--board-rows, 6); grid-template-rows: subgrid; gap: 8px; align-content: start; }
+.board-topic { display: flex; align-items: flex-end; justify-content: center; margin: 0; color: var(--muted); font-size: .76rem; font-weight: 700; line-height: 1.3; letter-spacing: .04em; text-align: center; text-transform: uppercase; }
 .board-cell { padding: 14px 6px; border: 1px solid var(--sigma); border-radius: var(--radius-sm); background: var(--sigma-soft); color: var(--sigma); font: inherit; font-weight: 800; cursor: pointer; transition: transform .12s ease; }
 .board-cell:hover:not(:disabled) { transform: translateY(-2px); }
 .board-cell:disabled { cursor: default; }
-.board-cell.is-mine { border-color: var(--success); background: var(--success-soft); color: var(--success); }
+/* Выигранная клетка — сплошная заливка, а не бледный тон: в зелёной теме
+   свободные клетки сами светло-зелёные, и мягкий «успех» с ними сливался. */
+.board-cell.is-mine { border-color: var(--board-won-bg); background: var(--board-won-bg); color: var(--board-won-ink); }
 .board-cell.is-rival { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
 .board-cell.is-burned { border-color: var(--line); background: var(--gray-soft); color: var(--muted); }
 .board-cell.is-active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-dark); animation: ringPulse 1.6s infinite; }

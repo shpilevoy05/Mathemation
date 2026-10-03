@@ -1,4 +1,5 @@
 """Study plan building and adaptation."""
+import logging
 from datetime import timedelta
 from math import ceil
 
@@ -19,6 +20,9 @@ from .models import (
     Trajectory,
     TrajectoryTransition,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def _engine_params() -> EngineParams:
@@ -663,6 +667,83 @@ def _transition_target(student, current: Trajectory, reason: str, details: dict)
     return None
 
 
+def _transition_evidence(student, current: Trajectory, reason: str, details: dict) -> dict:
+    """Freeze the concrete facts that justified a trajectory transition."""
+    if reason == PlanChangeLog.Reason.FREQUENT_MISTAKES:
+        from apps.practice.models import ERROR_TYPE_LABELS, MistakeBacklogItem
+
+        breakdown_days = 7
+        cutoff = timezone.now() - timedelta(days=breakdown_days)
+        trigger_node_ids = details.get("node_ids", [])
+        trigger_node = (
+            KnowledgeNode.objects.filter(pk=trigger_node_ids[0]).first()
+            if trigger_node_ids else None
+        )
+        items = list(
+            MistakeBacklogItem.objects.filter(
+                student=student,
+                created_at__gte=cutoff,
+            )
+            .exclude(status=MistakeBacklogItem.Status.RESOLVED)
+            .select_related("node", "assignment")
+            .order_by("-created_at", "-id")
+        )
+        topic_counts: dict[str, int] = {}
+        error_type_counts: dict[str, int] = {}
+        for item in items:
+            topic_counts[item.node.title] = topic_counts.get(item.node.title, 0) + item.error_count
+            if item.error_type != MistakeBacklogItem.ErrorType.UNKNOWN:
+                label = ERROR_TYPE_LABELS.get(item.error_type, item.get_error_type_display())
+                error_type_counts[label] = error_type_counts.get(label, 0) + item.error_count
+
+        examples = []
+        if trigger_node:
+            trigger_titles = (
+                MistakeBacklogItem.objects.filter(student=student, node=trigger_node)
+                .exclude(status=MistakeBacklogItem.Status.RESOLVED)
+                .order_by("-created_at", "-id")
+                .values_list("assignment__title", flat=True)
+            )
+            examples.extend(dict.fromkeys(trigger_titles))
+        for item in items:
+            if item.assignment.title not in examples:
+                examples.append(item.assignment.title)
+
+        trigger_title = trigger_node.title if trigger_node else ""
+        return {
+            "trigger_topic": trigger_title,
+            "trigger_count": int(details.get("error_count", 0)),
+            "breakdown_days": breakdown_days,
+            "mistake_count": sum(item.error_count for item in items),
+            "threshold": settings.FREQUENT_MISTAKE_THRESHOLD,
+            "topics": [
+                {"title": title, "count": count}
+                for title, count in sorted(
+                    topic_counts.items(),
+                    key=lambda row: (row[0] != trigger_title, -row[1], row[0]),
+                )[:3]
+            ],
+            "error_types": [
+                {"label": label, "count": count}
+                for label, count in sorted(error_type_counts.items(), key=lambda row: (-row[1], row[0]))
+            ],
+            "examples": examples[:3],
+        }
+    if reason == PlanChangeLog.Reason.POOR_MOCK:
+        from apps.progress.services import primary_for_scaled
+
+        return {
+            "mock_title": details.get("mock_title", ""),
+            "primary_score": details.get("primary_score"),
+            "scaled_score": details.get("scaled_score"),
+            "required_primary_score": primary_for_scaled(current.target_min),
+            "required_scaled_score": current.target_min,
+        }
+    if reason == PlanChangeLog.Reason.INACTIVITY:
+        return {"idle_days": int(details.get("idle_days", details.get("days", 0)))}
+    return {}
+
+
 @transaction.atomic
 def maybe_transition(student, reason: str, details: dict | None = None):
     details = details or {}
@@ -674,12 +755,33 @@ def maybe_transition(student, reason: str, details: dict | None = None):
         return None
 
     moving_down = target.target_min < current.target_min
+    if moving_down:
+        cooldown_started_at = timezone.now() - timedelta(
+            hours=settings.TRAJECTORY_DOWNGRADE_COOLDOWN_HOURS
+        )
+        recent_downgrade_exists = TrajectoryTransition.objects.filter(
+            student=student,
+            from_trajectory__target_min__gt=models.F("to_trajectory__target_min"),
+            created_at__gt=cooldown_started_at,
+        ).exists()
+        if recent_downgrade_exists:
+            logger.debug(
+                "trajectory.downgrade_skipped student=%s current=%s target=%s "
+                "cooldown_hours=%s",
+                student.pk,
+                current.slug,
+                target.slug,
+                settings.TRAJECTORY_DOWNGRADE_COOLDOWN_HOURS,
+            )
+            return None
+
     recovery_actions = _recovery_actions(student, details, target) if moving_down else []
     transition = TrajectoryTransition.objects.create(
         student=student,
         from_trajectory=current,
         to_trajectory=target,
         reasons=[reason],
+        evidence=_transition_evidence(student, current, reason, details),
         recovery_actions=recovery_actions,
     )
     old_plan = get_active_plan(student)

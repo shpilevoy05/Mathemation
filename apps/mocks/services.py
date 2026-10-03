@@ -220,6 +220,7 @@ def _finalize(result: MockExamResult) -> None:
         result.student,
         PlanChangeLog.Reason.POOR_MOCK,
         {
+            "mock_title": result.exam.title,
             "scaled_score": result.scaled_score,
             "primary_score": result.total_primary_score,
             "node_ids": [topic["node_id"] for topic in weakest],

@@ -1,20 +1,13 @@
-"""Соперник-бот: честный и предсказуемый.
+"""Детерминированный соперник-бот.
 
-Бот не «подыгрывает». Его прогон разыгрывается один раз, в момент создания
-партии, по тем же вероятностям, которыми платформа оценивает шансы ученика
-(IRT-модель из движка): уровень бота — это его условное освоение, сложность
-задачи — её difficulty. Дальше бот не меняется, как бы ни играл человек.
-
-Почему так, а не «бот отвечает чуть хуже игрока»: подстраивающийся соперник
-даёт ощущение подкрутки — а мы обещаем честную оценку и не можем позволить
-себе игру, в которой результат подогнан.
+Нарешивание и квиз используют настроенные по уровням таблицы ошибок и
+среднего времени. «Своя игра» сохраняет IRT-модель освоения и сложности.
+Прогон фиксируется seed при создании партии и не зависит от игры человека.
 """
 
 from __future__ import annotations
 
 import random
-
-from django.conf import settings
 
 from apps.engine.dto import EngineParams
 from apps.engine.forecast import probability_correct
@@ -22,8 +15,9 @@ from apps.engine.forecast import probability_correct
 # Уровень бота 1..5 → условное освоение в процентах. Пятый уровень — сильный
 # ученик, а не безошибочная машина: непобедимый соперник не мотивирует.
 BOT_MASTERY = {1: 25.0, 2: 45.0, 3: 62.0, 4: 78.0, 5: 90.0}
-# Среднее время ответа, секунды: чем выше уровень, тем увереннее и быстрее.
-BOT_SECONDS = {1: 55.0, 2: 42.0, 3: 32.0, 4: 24.0, 5: 17.0}
+BOT_ERROR_PROBABILITY = {1: 0.25, 2: 0.15, 3: 0.15, 4: 0.10, 5: 0.02}
+BOT_SECONDS = {1: 60.0, 2: 40.0, 3: 30.0, 4: 25.0, 5: 15.0}
+BOT_QUIZ_SECONDS = {1: 30.0, 2: 25.0, 3: 20.0, 4: 15.0, 5: 12.5}
 MIN_LEVEL, MAX_LEVEL = 1, 5
 
 
@@ -45,20 +39,13 @@ def bot_run(questions, level: int, seed: int) -> list[dict]:
     и для разбора спорных результатов.
     """
     level = clamp_level(level)
-    mastery = BOT_MASTERY[level]
     average = BOT_SECONDS[level]
     rng = random.Random(seed)
-    params = _params()
 
     run = []
     for question in questions:
-        chance = probability_correct(mastery, question.assignment.difficulty, params)
-        correct = rng.random() < chance
-        # Разброс времени, но без мгновенных ответов: бот «думает».
-        seconds = max(4.0, rng.gauss(average, average * 0.28))
-        # Ошибка обычно стоит времени: неверный ответ приходит позже.
-        if not correct:
-            seconds *= 1.15
+        correct = rng.random() >= BOT_ERROR_PROBABILITY[level]
+        seconds = max(average * 0.6, rng.gauss(average, average * 0.15))
         run.append({
             "question": question,
             "is_correct": correct,
@@ -67,9 +54,6 @@ def bot_run(questions, level: int, seed: int) -> list[dict]:
     return run
 
 
-# Теория спрашивается короче задачи, поэтому у неё свои времена.
-# Квиз: время до нажатия на вариант — здесь решает реакция, а не вычисление.
-BOT_BUZZ_SECONDS = {1: 8.5, 2: 7.0, 3: 5.5, 4: 4.0, 5: 2.8}
 # «Своя игра»: время до ответа на открытую клетку — надо вспомнить и написать.
 BOT_THEORY_SECONDS = {1: 22.0, 2: 18.0, 3: 14.0, 4: 10.0, 5: 7.0}
 
@@ -85,20 +69,22 @@ def theory_run(questions, level: int, seed: int, *, mode: str) -> list[dict]:
     """
     level = clamp_level(level)
     mastery = BOT_MASTERY[level]
-    average = (BOT_BUZZ_SECONDS if mode == "quiz" else BOT_THEORY_SECONDS)[level]
+    average = (BOT_QUIZ_SECONDS if mode == "quiz" else BOT_THEORY_SECONDS)[level]
     rng = random.Random(seed)
     params = _params()
 
     run = []
     for question in questions:
         difficulty = question.theory.difficulty if question.theory_id else 3
-        chance = probability_correct(mastery, difficulty, params)
-        correct = rng.random() < chance
-        seconds = max(1.5, rng.gauss(average, average * 0.3))
-        # Неуверенный ответ приходит позже: бот «сомневается» ровно так же,
-        # как ошибается, — по заранее разыгранному сценарию.
-        if not correct:
-            seconds *= 1.2
+        if mode == "quiz":
+            correct = rng.random() >= BOT_ERROR_PROBABILITY[level]
+            seconds = min(29.5, max(average * 0.6, rng.gauss(average, average * 0.15)))
+        else:
+            chance = probability_correct(mastery, difficulty, params)
+            correct = rng.random() < chance
+            seconds = max(1.5, rng.gauss(average, average * 0.3))
+            if not correct:
+                seconds *= 1.2
         run.append({
             "question": question,
             "is_correct": correct,

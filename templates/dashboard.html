@@ -86,7 +86,7 @@
       {% for transition in trajectory_transitions %}
         <article class="dialog-card" data-ack-url="/api/trajectory/transitions/{{ transition.id }}/ack/">
           <h3>{{ transition.from_trajectory.title|default:"Старт" }} → {{ transition.to_trajectory.title }}</h3>
-          {% if transition.reasons %}<p><strong>Причины:</strong> {{ transition.reasons|join:", " }}</p>{% endif %}
+          {% if transition.explanations %}<p><strong>Почему:</strong></p><ul>{% for explanation in transition.explanations %}<li>{{ explanation }}</li>{% endfor %}</ul>{% endif %}
           {% if transition.recovery_actions %}<p><strong>Что вернуть:</strong></p><ul>{% for action in transition.recovery_actions %}<li>{{ action }}</li>{% endfor %}</ul>{% endif %}
         </article>
       {% endfor %}

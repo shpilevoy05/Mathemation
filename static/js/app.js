@@ -463,12 +463,14 @@
     matchForm.elements.limit_kind.addEventListener("change", syncMode);
     syncMode();
     opponent.addEventListener("change", syncOpponent);
+    // Подписи совпадают с таблицей бота (apps/arena/bot.py): доля ошибок и
+    // среднее время на задачу в нарешивании.
     const levelNotes = {
-      1: "почти не решает — для первой партии",
-      2: "ошибается часто",
-      3: "решает уверенно, но ошибается",
-      4: "сильный соперник",
-      5: "как отличник: ошибается редко",
+      1: "ошибается в каждой четвёртой задаче, на задачу — около минуты",
+      2: "ошибается в 15 % задач, на задачу — около 40 секунд",
+      3: "ошибается в 15 % задач, на задачу — около 30 секунд",
+      4: "ошибается в каждой десятой задаче, на задачу — около 25 секунд",
+      5: "почти не ошибается, на задачу — около 15 секунд",
     };
     level.addEventListener("input", () => {
       matchForm.querySelector("[data-level-output]").textContent = level.value;
@@ -777,6 +779,8 @@
 
       const grid = matchShell.querySelector("[data-board-grid]");
       grid.style.setProperty("--board-columns", board.columns.length);
+      // Строк в общей сетке: заголовок темы + самая длинная колонка клеток.
+      grid.style.setProperty("--board-rows", 1 + Math.max(0, ...board.columns.map(column => column.cells.length)));
       grid.replaceChildren(...board.columns.map(column => {
         const box = document.createElement("div");
         box.className = "board-column";

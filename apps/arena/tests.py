@@ -1,6 +1,7 @@
 """Арена: дружба, партии, бот и правила подсчёта."""
 
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from django.core.exceptions import ValidationError
 from django.db import connection
@@ -17,7 +18,7 @@ from apps.knowledge.models import SkillMastery
 from apps.knowledge.tests import make_node, make_student
 from apps.practice.models import Attempt, MistakeBacklogItem
 
-from .bot import bot_run, clamp_level
+from .bot import BOT_ERROR_PROBABILITY, BOT_QUIZ_SECONDS, BOT_SECONDS, bot_run, clamp_level, theory_run
 from .ranks import rank_for_rating
 from .models import Friendship, Match, MatchParticipant
 from .services import (
@@ -229,6 +230,25 @@ class BotTests(TestCase):
         )
 
         self.assertGreater(strong, weak)
+
+    def test_race_and_quiz_follow_level_tables(self):
+        questions = [SimpleNamespace(theory_id=None) for _ in range(2000)]
+        for level in range(1, 6):
+            with self.subTest(mode="race", level=level):
+                run = bot_run(questions, level, seed=1000 + level)
+                error_rate = sum(not row["is_correct"] for row in run) / len(run)
+                mean = sum(row["time_ms"] for row in run) / len(run) / 1000
+                self.assertAlmostEqual(error_rate, BOT_ERROR_PROBABILITY[level], delta=0.03)
+                self.assertAlmostEqual(mean, BOT_SECONDS[level], delta=BOT_SECONDS[level] * 0.1)
+            with self.subTest(mode="quiz", level=level):
+                run = theory_run(questions, level, seed=2000 + level, mode="quiz")
+                error_rate = sum(not row["is_correct"] for row in run) / len(run)
+                mean = sum(row["time_ms"] for row in run) / len(run) / 1000
+                self.assertAlmostEqual(error_rate, BOT_ERROR_PROBABILITY[level], delta=0.03)
+                self.assertAlmostEqual(
+                    mean, BOT_QUIZ_SECONDS[level], delta=BOT_QUIZ_SECONDS[level] * 0.1
+                )
+                self.assertTrue(all(row["time_ms"] < 30_000 for row in run))
 
     def test_bot_plays_before_the_human_starts(self):
         match = create_match(self.student, mode=Match.Mode.SPEED, bot_level=4)
