@@ -32,7 +32,9 @@ GUARDRAIL_BLOCK_TEXT = (
 
 
 class HintNotAllowed(Exception):
-    pass
+    def __init__(self, message: str, *, payload: dict | None = None):
+        super().__init__(message)
+        self.payload = payload
 
 
 class DailyHintLimitExceeded(Exception):
@@ -104,7 +106,7 @@ def request_hint(student, assignment, question: str, context: str) -> dict:
     try:
         ensure_practice_allowed(student, assignment)
     except PermissionDenied as exc:
-        raise HintNotAllowed(str(exc)) from exc
+        raise HintNotAllowed(str(exc), payload=getattr(exc, "payload", None)) from exc
 
     first_tag = assignment.skill_tags.select_related("node").first()
     session, _ = AiHintSession.objects.get_or_create(

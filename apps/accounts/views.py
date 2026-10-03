@@ -263,11 +263,6 @@ def account_settings(request):
         "last_name": request.user.last_name,
         "email": request.user.email,
     }
-    if hasattr(request.user, "student_profile"):
-        initial.update({
-            "exam_date": request.user.student_profile.exam_date,
-            "weekly_hours": request.user.student_profile.weekly_hours,
-        })
     form = AccountSettingsForm(request.POST or None, user=request.user, initial=initial)
     if request.method == "POST" and form.is_valid():
         update_account(request.user, **form.cleaned_data)

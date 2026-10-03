@@ -43,6 +43,27 @@ class MockDeadlineExpired(Exception):
     """The server-side exam deadline has passed."""
 
 
+def finalize_expired_mocks_for(student=None, *, now=None) -> int:
+    """Submit saved drafts for expired in-progress mocks.
+
+    Celery normally performs this cleanup, but access checks call the same
+    service so a stopped local worker cannot leave an assessment open forever.
+    """
+    now = now or timezone.now()
+    results = MockExamResult.objects.filter(
+        status=MockExamResult.Status.IN_PROGRESS
+    ).select_related("exam", "student")
+    if student is not None:
+        results = results.filter(student=student)
+
+    finalized = 0
+    for result in results.iterator():
+        if now >= result.deadline:
+            submit_mock(result, result.draft_answers)
+            finalized += 1
+    return finalized
+
+
 def forecast_snapshot(student):
     from dataclasses import asdict
     from django.conf import settings

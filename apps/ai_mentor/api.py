@@ -34,7 +34,7 @@ class HintView(views.APIView):
                 context=request.data.get("context", Attempt.Context.LESSON),
             )
         except HintNotAllowed as e:
-            return Response({"detail": str(e)}, status=403)
+            return Response(e.payload or {"detail": str(e)}, status=403)
         except DailyHintLimitExceeded as e:
             return Response(
                 {"detail": str(e), "code": "hint_daily_limit"}, status=429

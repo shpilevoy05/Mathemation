@@ -102,21 +102,10 @@ class AccountSettingsForm(forms.Form):
     first_name = forms.CharField(label="Имя", max_length=150, required=False)
     last_name = forms.CharField(label="Фамилия", max_length=150, required=False)
     email = forms.EmailField(label="Электронная почта", max_length=254)
-    exam_date = forms.DateField(
-        label="Дата экзамена", required=False, widget=forms.DateInput(attrs={"type": "date"})
-    )
-    weekly_hours = forms.IntegerField(
-        label="Часов в неделю", required=True, min_value=1, max_value=40
-    )
 
     def __init__(self, *args, user: User, **kwargs):
         self.user = user
         super().__init__(*args, **kwargs)
-        if not hasattr(user, "student_profile"):
-            self.fields.pop("exam_date")
-            self.fields.pop("weekly_hours")
-        else:
-            self.initial.setdefault("weekly_hours", user.student_profile.weekly_hours)
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()

@@ -225,6 +225,9 @@ h3 { margin-bottom: 6px; font-size: 1rem; font-weight: 600; }
 .nav-group[open] summary { color: #fff; }
 .nav-group[open] .nav-chevron { transform: rotate(180deg); }
 .nav-sub { display: grid; gap: 2px; padding-left: 12px; margin-left: 21px; border-left: 1px solid var(--night-line); }
+/* Длинный пункт («Диагностики и пробники») переносится на вторую строку, а не
+   обрезается: ширина рельса фиксирована, а экраны бывают узкими. */
+.nav-sub a { white-space: normal; line-height: 1.25; }
 .nav-sub .nav-icon { flex: 0 0 16px; }
 .nav-sub .nav-icon svg { width: 16px; height: 16px; }
 .nav-icon { display: grid; flex: 0 0 19px; place-items: center; }
@@ -462,6 +465,14 @@ label:has(> input[type=checkbox]), label:has(> input[type=radio]) { display: fle
 .invite-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
 .invite-row input { min-height: 36px; font-family: var(--data); font-size: .78rem; }
 .invite-row small { display: block; color: var(--muted); font-size: .74rem; }
+/* Ссылка из настроек туда, где живут дата экзамена и нагрузка: эти рычаги
+   меняют прогноз и расписание, поэтому настраиваются рядом с ними. */
+.settings-note { display: flex; align-items: center; gap: 14px; margin: 4px 0 18px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); background: var(--card-2); transition: border-color .18s ease, background .18s ease; }
+.settings-note:hover { border-color: var(--primary); background: var(--primary-soft); }
+.settings-note b { display: block; font-size: .95rem; }
+.settings-note small { display: block; margin-top: 3px; color: var(--muted); font-size: .85rem; line-height: 1.4; }
+.settings-note-icon { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px; color: var(--primary); background: var(--primary-soft); }
+.settings-note-icon svg { width: 20px; height: 20px; }
 .danger-zone { margin-top: 18px; border-color: color-mix(in srgb, var(--danger) 30%, var(--line)); }
 .danger-zone h2 { color: var(--danger); }
 .danger-zone form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
@@ -735,10 +746,20 @@ input[type=range]:focus-visible::-webkit-slider-thumb { outline: 3px solid var(-
    он ушёл бы под фон карточки и стал невидим. */
 .track-node-link { position: relative; isolation: isolate; display: flex; align-items: center; gap: 16px; color: var(--ink); transition: transform .18s ease; }
 a.track-node-link:hover { transform: translateY(-3px); }
-.track-pos-0 .track-node-link { translate: -56px 0; }.track-pos-1 .track-node-link { translate: -28px 0; }.track-pos-2 .track-node-link { translate: 0 0; }.track-pos-3 .track-node-link { translate: 28px 0; }.track-pos-4 .track-node-link { translate: 56px 0; }
-.track-pos-3 .track-node-link, .track-pos-4 .track-node-link { flex-direction: row-reverse; }
-.track-pos-3 .track-node-copy, .track-pos-4 .track-node-copy { text-align: right; }
-.track-node-copy { display: grid; width: 190px; line-height: 1.3; text-align: left; text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg), 0 0 10px var(--bg); }.track-node-copy strong { font-size: .92rem; }.track-node-copy small { margin-top: 3px; font-size: .7rem; }
+/* Серпантин: точки строго чередуются слева и справа от оси на --track-swing,
+   а линия между ними — синусоида без изломов. Подпись вынесена из потока:
+   она стоит с внешней стороны точки (на телефоне — с внутренней, снаружи
+   нет места) и не сдвигает сам кружок, поэтому центры точек лежат ровно на
+   волне, а середина, где идёт линия, свободна. nth-of-type не считает svg
+   линии, который скрипт кладёт первым в .track-path. */
+.track-path { --track-swing: 64px; }
+.track-path > .track-node-row:nth-of-type(odd) .track-node-link { translate: calc(var(--track-swing) * -1) 0; }
+.track-path > .track-node-row:nth-of-type(even) .track-node-link { translate: var(--track-swing) 0; }
+.track-node-copy { position: absolute; top: 50%; translate: 0 -50%; }
+.track-path > .track-node-row:nth-of-type(odd) .track-node-copy { right: calc(100% + 16px); text-align: right; }
+.track-path > .track-node-row:nth-of-type(even) .track-node-copy { left: calc(100% + 16px); text-align: left; }
+.track-path > .track-node-row:nth-of-type(odd) .track-due { justify-self: end; }
+.track-node-copy { display: grid; width: 180px; line-height: 1.3; text-align: left; text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg), 0 0 10px var(--bg); }.track-node-copy strong { font-size: .92rem; }.track-node-copy small { margin-top: 3px; font-size: .7rem; }
 .track-state-mastered .track-node-button { color: var(--track-complete-ink); background: var(--cluster-color); }
 .track-state-review .track-node-button { color: var(--track-review-ink); background: var(--cluster-color); }
 .track-state-mock .track-node-button { color: var(--on-accent); background: var(--cluster-color); }
@@ -1534,9 +1555,12 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
   .review-queue-card { grid-template-columns: 1fr; gap: 10px; }.queue-actions { justify-content: space-between; }
   .app-dialog { padding: 22px; }
   .track { padding-inline: 16px; }
-  .track-node-link { gap: 12px; }
-  .track-node-copy { width: clamp(120px, calc(100vw - 200px), 184px); overflow-wrap: anywhere; }
-  .track-pos-0 .track-node-link { translate: -36px 0; }.track-pos-1 .track-node-link { translate: -18px 0; }.track-pos-2 .track-node-link { translate: 0 0; }.track-pos-3 .track-node-link { translate: 18px 0; }.track-pos-4 .track-node-link { translate: 36px 0; }
+  .track-path { --track-swing: 40px; }
+  .track-path > .track-node-row:nth-of-type(odd) .track-node-copy { right: auto; left: calc(100% + 10px); text-align: left; }
+  .track-path > .track-node-row:nth-of-type(even) .track-node-copy { left: auto; right: calc(100% + 10px); text-align: right; }
+  .track-path > .track-node-row:nth-of-type(odd) .track-due { justify-self: start; }
+  .track-path > .track-node-row:nth-of-type(even) .track-due { justify-self: end; }
+  .track-node-copy { width: clamp(110px, calc(50vw - 46px), 184px); overflow-wrap: break-word; hyphens: auto; }
 }
 
 @media (max-width: 460px) {

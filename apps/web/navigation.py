@@ -47,7 +47,7 @@ class NavGroup:
 
 def _student_groups() -> list[NavGroup]:
     return [
-        NavGroup("Учёба", "i-track", [
+        NavGroup("Учёба", "i-cap", [
             NavItem("Кабинет", reverse("dashboard"), "i-home", ("dashboard",)),
             NavItem("Дорожка", reverse("track"), "i-track", ("track", "lesson")),
             NavItem(
@@ -62,7 +62,7 @@ def _student_groups() -> list[NavGroup]:
         ]),
         NavGroup("Проверить себя", "i-target", [
             NavItem(
-                "Диагностика", reverse("diagnostics"), "i-target",
+                "Диагностика", reverse("diagnostics"), "i-checklist",
                 ("diagnostics", "diagnostic_run"),
             ),
             NavItem(
@@ -77,7 +77,7 @@ def _student_groups() -> list[NavGroup]:
         NavGroup("Результат", "i-chart", [
             NavItem("Прогноз", reverse("forecast"), "i-chart", ("forecast",)),
         ]),
-        NavGroup("Игры", "i-cup", [
+        NavGroup("Игры", "i-gamepad", [
             NavItem("Арена", reverse("arena"), "i-cup", ("arena", "arena_match")),
             NavItem("Лига", reverse("leagues"), "i-medal", ("leagues",)),
         ]),
@@ -117,17 +117,17 @@ def _staff_groups(user) -> list[NavGroup]:
         ]))
     if is_methodist(user):
         groups.append(NavGroup("Контент", "i-book", [
-            NavItem("Обзор", reverse("methodist_dashboard"), "i-book", ("methodist_dashboard",)),
+            NavItem("Обзор", reverse("methodist_dashboard"), "i-grid", ("methodist_dashboard",)),
             NavItem(
-                "Уроки", reverse("studio_lessons"), "i-book",
+                "Уроки", reverse("studio_lessons"), "i-play",
                 ("studio_lessons", "studio_lesson_new", "studio_lesson_edit"),
             ),
             NavItem(
-                "Задачи", reverse("studio_tasks"), "i-doc",
+                "Задачи", reverse("studio_tasks"), "i-pencil",
                 ("studio_tasks", "studio_task_new", "studio_task_edit", "studio_task_picker"),
             ),
             NavItem(
-                "Граф знаний", reverse("studio_graph"), "i-map",
+                "Граф знаний", reverse("studio_graph"), "i-graph",
                 ("studio_graph", "studio_node_new", "studio_node_edit"),
             ),
             NavItem(
@@ -135,17 +135,17 @@ def _staff_groups(user) -> list[NavGroup]:
                 ("studio_daily", "studio_daily_edit"),
             ),
             NavItem(
-                "Диагностики и пробники", reverse("studio_tests"), "i-target",
+                "Диагностики и пробники", reverse("studio_tests"), "i-checklist",
                 ("studio_tests", "studio_diagnostic_new", "studio_diagnostic_edit",
                  "studio_mock_new", "studio_mock_edit"),
             ),
             NavItem(
-                "Цены и акции", reverse("studio_pricing"), "i-ruble",
+                "Цены и акции", reverse("studio_pricing"), "i-tag",
                 ("studio_pricing", "studio_tariff_edit", "studio_tariff_price",
                  "studio_addon_edit", "studio_promotion_new", "studio_promotion_edit"),
             ),
-            NavItem("Панель", reverse("admin-panel"), "i-map", ("admin-panel",)),
-            NavItem("Django-админка", reverse("admin:index"), "i-target", ()),
+            NavItem("Панель", reverse("admin-panel"), "i-sliders", ("admin-panel",)),
+            NavItem("Django-админка", reverse("admin:index"), "i-database", ()),
         ]))
         groups.append(NavGroup("Деньги", "i-ruble", [
             NavItem("Тарифы", reverse("pricing"), "i-ruble", ("pricing",)),
@@ -156,9 +156,9 @@ def _staff_groups(user) -> list[NavGroup]:
 
 
 def _account_group() -> NavGroup:
-    return NavGroup("Аккаунт", "i-target", [
+    return NavGroup("Аккаунт", "i-gear", [
         NavItem(
-            "Настройки", reverse("account_settings"), "i-target",
+            "Настройки", reverse("account_settings"), "i-gear",
             ("account_settings", "account_password"),
         ),
     ])

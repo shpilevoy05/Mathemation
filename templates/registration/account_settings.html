@@ -28,18 +28,12 @@
         <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>{{ form.email }}
         {% if form.email.errors %}<p class="form-error">{{ form.email.errors|join:" " }}</p>{% endif %}
       </div>
-      {% if form.exam_date %}
-        <div class="field-row">
-          <div class="field">
-            <label for="{{ form.exam_date.id_for_label }}">{{ form.exam_date.label }}</label>{{ form.exam_date }}
-            {% if form.exam_date.errors %}<p class="form-error">{{ form.exam_date.errors|join:" " }}</p>{% endif %}
-          </div>
-          <div class="field">
-            <label for="{{ form.weekly_hours.id_for_label }}">{{ form.weekly_hours.label }}</label>{{ form.weekly_hours }}
-            {% if form.weekly_hours.errors %}<p class="form-error">{{ form.weekly_hours.errors|join:" " }}</p>{% endif %}
-          </div>
-        </div>
-        <p class="muted">Дата экзамена и часы в неделю перестраивают расписание — уже сделанное остаётся на месте.</p>
+      {% if user.role == "student" %}
+        <a class="settings-note" href="{% url 'forecast' %}">
+          <span class="settings-note-icon" aria-hidden="true"><svg><use href="#i-chart"></use></svg></span>
+          <span><b>Дата экзамена и часы в неделю — в «Прогнозе»</b>
+          <small>Там видно, как они меняют балл и расписание, и применить новый сценарий можно одной кнопкой.</small></span>
+        </a>
       {% endif %}
       <button class="button button-primary" type="submit">Сохранить</button>
     </form>

@@ -235,9 +235,26 @@ class ThemeCssTests(SimpleTestCase):
         self.assertIn("min-width: 72px", mobile)
         self.assertIn("scroll-snap-type: x proximity", mobile)
         self.assertIn("text-overflow: ellipsis", mobile)
-        self.assertIn("translate: -36px 0", mobile)
-        self.assertIn("translate: 36px 0", mobile)
+        # Серпантин на телефоне — тот же поворот влево-вправо, только уже.
+        self.assertIn(".track-path { --track-swing: 40px; }", mobile)
         self.assertIn("padding-inline: 16px", mobile)
+
+    def test_track_alternates_sides_without_moving_the_node(self):
+        # Точки чередуются строго слева и справа, а подпись вынесена из потока:
+        # иначе центр кружка сдвигается на ширину текста и линия ломается.
+        self.assertIn(".track-path { --track-swing: 64px; }", self.css)
+        self.assertIn(
+            ".track-path > .track-node-row:nth-of-type(odd) .track-node-link "
+            "{ translate: calc(var(--track-swing) * -1) 0; }",
+            self.css,
+        )
+        self.assertIn(
+            ".track-path > .track-node-row:nth-of-type(even) .track-node-link "
+            "{ translate: var(--track-swing) 0; }",
+            self.css,
+        )
+        self.assertIn(".track-node-copy { position: absolute; top: 50%; translate: 0 -50%; }", self.css)
+        self.assertNotIn(".track-pos-3 .track-node-link", self.css)
 
     def test_curve_and_labels_stay_clear_of_track_text(self):
         self.assertIn(

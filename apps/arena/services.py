@@ -930,17 +930,38 @@ def sweep_lobbies(now=None) -> int:
     ).update(status=Match.Status.CANCELLED, finished_at=now)
 
 
-def expire_lobby(match: Match) -> Match:
+def expire_lobby(match: Match, *, now=None) -> Match:
     """Снять партию, к которой соперник так и не подошёл."""
     if not match.is_waiting:
         return match
-    waited = (timezone.now() - match.created_at).total_seconds()
+    now = now or timezone.now()
+    waited = (now - match.created_at).total_seconds()
     if waited < LOBBY_TTL_SECONDS:
         return match
     match.status = Match.Status.CANCELLED
-    match.finished_at = timezone.now()
+    match.finished_at = now
     match.save(update_fields=["status", "finished_at"])
     return match
+
+
+def blocking_match_for_practice(student, assignment, *, now=None) -> Match | None:
+    """Return a genuinely live arena match containing the assignment."""
+    now = now or timezone.now()
+    matches = (
+        Match.objects.filter(
+            participants__student=student,
+            status__in=[Match.Status.ACTIVE, Match.Status.LOBBY],
+            questions__assignment=assignment,
+        )
+        .distinct()
+        .order_by("created_at")
+    )
+    for match in matches:
+        if match.status == Match.Status.LOBBY:
+            expire_lobby(match, now=now)
+        if match.status in [Match.Status.ACTIVE, Match.Status.LOBBY]:
+            return match
+    return None
 
 
 @transaction.atomic

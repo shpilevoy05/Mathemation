@@ -166,8 +166,7 @@ def revoke_parent_invite(student: StudentProfile, invite_id: int) -> Invite:
 
 
 @transaction.atomic
-def update_account(user: User, *, first_name: str, last_name: str, email: str,
-                   exam_date=None, weekly_hours: int | None = None) -> User:
+def update_account(user: User, *, first_name: str, last_name: str, email: str) -> User:
     email = email.strip().lower()
     if User.objects.filter(email__iexact=email, is_active=True).exclude(pk=user.pk).exists():
         raise ValidationError(
@@ -177,31 +176,6 @@ def update_account(user: User, *, first_name: str, last_name: str, email: str,
     user.last_name = last_name.strip()
     user.email = email
     user.save(update_fields=["first_name", "last_name", "email"])
-    if hasattr(user, "student_profile"):
-        student = user.student_profile
-        normalized_weekly_hours = (
-            weekly_hours if weekly_hours is not None else student.weekly_hours
-        )
-        schedule_changed = (
-            student.exam_date != exam_date
-            or student.weekly_hours != normalized_weekly_hours
-        )
-        student.exam_date = exam_date
-        student.weekly_hours = normalized_weekly_hours
-        student.save(update_fields=["exam_date", "weekly_hours"])
-        if schedule_changed:
-            from apps.planning.models import PlanChangeLog
-            from apps.planning.services import rebuild_unfinished_plan
-
-            rebuild_unfinished_plan(
-                student,
-                reason=PlanChangeLog.Reason.MANUAL,
-                description=(
-                    "Расписание пересобрано после изменения даты экзамена "
-                    "или недельной нагрузки."
-                ),
-                is_major=False,
-            )
     return user
 
 

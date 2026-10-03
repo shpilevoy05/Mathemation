@@ -181,15 +181,18 @@ class TemporaryPasswordTests(TestCase):
 
 
 class AccountSettingsTests(TestCase):
-    def test_student_can_save_profile_and_study_fields(self):
+    def test_student_can_save_profile_without_changing_study_fields(self):
         student = make_student("settings-student", "old@example.com")
+        student.exam_date = date(2027, 6, 1)
+        student.weekly_hours = 9
+        student.save(update_fields=["exam_date", "weekly_hours"])
         self.client.force_login(student.user)
         response = self.client.post(reverse("account_settings"), {
             "first_name": " Анна ",
             "last_name": " Иванова ",
             "email": "ANNA@EXAMPLE.COM",
-            "exam_date": "2027-06-01",
-            "weekly_hours": 9,
+            "exam_date": "2028-06-01",
+            "weekly_hours": 20,
         })
         self.assertRedirects(response, reverse("account_settings"))
         student.refresh_from_db()
@@ -199,79 +202,24 @@ class AccountSettingsTests(TestCase):
         self.assertEqual(student.exam_date, date(2027, 6, 1))
         self.assertEqual(student.weekly_hours, 9)
 
-    def test_empty_weekly_hours_is_a_form_error_without_server_error(self):
-        student = make_student("settings-empty-hours", "empty-hours@example.com")
+    def test_study_fields_are_not_part_of_settings_form(self):
+        student = make_student("settings-fields", "fields@example.com")
         self.client.force_login(student.user)
+        form = self.client.get(reverse("account_settings")).context["form"]
+        self.assertNotIn("exam_date", form.fields)
+        self.assertNotIn("weekly_hours", form.fields)
 
-        response = self.client.post(reverse("account_settings"), {
-            "first_name": "",
-            "last_name": "",
-            "email": student.user.email,
-            "exam_date": "",
-            "weekly_hours": "",
-        })
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("weekly_hours", response.context["form"].errors)
-        student.refresh_from_db()
-        self.assertEqual(student.weekly_hours, 6)
-
-    def test_earlier_exam_date_rebuilds_only_unfinished_schedule(self):
-        from apps.knowledge.tests import make_node
-        from apps.planning.models import PlanChangeLog, StudyPlanItem
-        from apps.planning.services import build_study_plan, get_active_plan
-
-        student = make_student("settings-earlier-exam", "earlier@example.com")
-        student.weekly_hours = 1
-        student.save(update_fields=["weekly_hours"])
-        for index in range(6):
-            make_node(f"settings-node-{index}")
-        plan = build_study_plan(student)
-        done_item = plan.items.first()
-        done_item.status = StudyPlanItem.Status.DONE
-        done_item.completed_at = timezone.now()
-        done_item.save(update_fields=["status", "completed_at"])
-        new_exam_date = timezone.localdate() + timedelta(days=3)
-        self.assertTrue(
-            plan.items.filter(
-                status=StudyPlanItem.Status.PENDING,
-                due_date__gt=new_exam_date,
-            ).exists()
-        )
-        self.client.force_login(student.user)
-
-        response = self.client.post(reverse("account_settings"), {
-            "first_name": "",
-            "last_name": "",
-            "email": student.user.email,
-            "exam_date": new_exam_date.isoformat(),
-            "weekly_hours": 1,
-        })
-
-        self.assertRedirects(response, reverse("account_settings"))
-        self.assertEqual(get_active_plan(student).pk, plan.pk)
-        self.assertFalse(
-            plan.items.filter(
-                status__in=[StudyPlanItem.Status.PENDING, StudyPlanItem.Status.IN_PROGRESS],
-                due_date__gt=new_exam_date,
-            ).exists()
-        )
-        done_item.refresh_from_db()
-        self.assertEqual(done_item.status, StudyPlanItem.Status.DONE)
-        change = PlanChangeLog.objects.get(plan=plan, reason=PlanChangeLog.Reason.MANUAL)
-        self.assertFalse(change.is_major)
-
-    def test_unchanged_schedule_values_do_not_rebuild_or_log(self):
+    def test_saving_settings_does_not_rebuild_plan(self):
         from apps.events.models import Event
         from apps.knowledge.tests import make_node
         from apps.planning.models import PlanChangeLog
         from apps.planning.services import build_study_plan, get_active_plan
 
-        student = make_student("settings-unchanged", "unchanged@example.com")
+        student = make_student("settings-plan", "plan@example.com")
         student.exam_date = timezone.localdate() + timedelta(days=30)
         student.weekly_hours = 8
         student.save(update_fields=["exam_date", "weekly_hours"])
-        make_node("settings-unchanged-node")
+        make_node("settings-plan-node")
         plan = build_study_plan(student)
         changes_before = PlanChangeLog.objects.filter(plan=plan).count()
         rebuilds_before = Event.objects.filter(
@@ -283,8 +231,8 @@ class AccountSettingsTests(TestCase):
             "first_name": "",
             "last_name": "",
             "email": student.user.email,
-            "exam_date": student.exam_date.isoformat(),
-            "weekly_hours": student.weekly_hours,
+            "exam_date": (timezone.localdate() + timedelta(days=3)).isoformat(),
+            "weekly_hours": 1,
         })
 
         self.assertRedirects(response, reverse("account_settings"))
@@ -296,6 +244,9 @@ class AccountSettingsTests(TestCase):
             ).count(),
             rebuilds_before,
         )
+        student.refresh_from_db()
+        self.assertEqual(student.exam_date, timezone.localdate() + timedelta(days=30))
+        self.assertEqual(student.weekly_hours, 8)
 
 
 class ParentInviteFlowTests(TestCase):

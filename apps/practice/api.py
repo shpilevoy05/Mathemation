@@ -10,7 +10,7 @@ from apps.billing.access import Feature
 from apps.billing.gate import HasFeature
 from apps.content.models import Assignment
 from apps.content.visibility import visible_assignments
-from .access import ensure_practice_allowed
+from .access import AssessmentInProgress, ensure_practice_allowed
 
 from .models import Attempt, MistakeBacklogItem, ReviewSchedule
 from .services import (
@@ -39,7 +39,10 @@ class SubmitAttemptView(views.APIView):
     def post(self, request, assignment_id):
         student = get_student(request)
         assignment = get_object_or_404(visible_assignments(), pk=assignment_id)
-        ensure_practice_allowed(student, assignment)
+        try:
+            ensure_practice_allowed(student, assignment)
+        except AssessmentInProgress as error:
+            return Response(error.payload, status=403)
         context = request.data.get("context", Attempt.Context.LESSON)
         if context != Attempt.Context.LESSON:
             return Response({"detail": "Неизвестный контекст."}, status=400)
