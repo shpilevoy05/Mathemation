@@ -1,0 +1,38 @@
+suite: skill-conflict-resolution
+kind: negative
+version: 1.0.0
+cases:
+  - id: CR-N-001
+    kind: negative
+    prompt: "Реши конфликт в git при мердже apps/planning/models.py"
+    must_not_activate:
+      - skill-conflict-resolution
+    expect: обычная работа с git, инструкции скиллов не конфликтуют
+
+  - id: CR-N-002
+    kind: negative
+    prompt: "Идемпотентность Celery-задачи и ретраи с backoff — как сделать?"
+    must_not_activate:
+      - skill-conflict-resolution
+    expect: требования совместимы, ложный конфликт не оформляется
+
+  - id: CR-N-003
+    kind: negative
+    prompt: "Посчитай precision выбора скиллов за неделю"
+    must_not_activate:
+      - skill-conflict-resolution
+    expect: работает skill-routing-evaluation
+
+  - id: CR-N-004
+    kind: negative
+    prompt: "Два скилла делают одно и то же, надо ли один удалить?"
+    must_not_activate:
+      - skill-conflict-resolution
+    expect: работает skill-deprecation-and-cleanup
+
+  - id: CR-N-005
+    kind: negative
+    prompt: "Добавь недостающий раздел в SKILL.md нового скилла"
+    must_not_activate:
+      - skill-conflict-resolution
+    expect: работает skill-structure-validator

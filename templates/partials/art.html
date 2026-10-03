@@ -1,0 +1,73 @@
+{% comment %}
+Иллюстрации геймификации: монета-сигма, ранги арены и значки. Знак бренда —
+растровый static/img/mark.png в partials/logo.html.
+Аватары, рамки и знаки месячных лиг — в спрайте static/img/cosmetics.svg.
+Подключаются один раз в base.html; id градиентов уникальны на странице, поэтому
+символы можно использовать сколько угодно раз.
+{% endcomment %}
+<svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+  <defs>
+      <linearGradient id="sigmaCoin" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#4257D6"/><stop offset="1" stop-color="#8FA2FF"/>
+      </linearGradient>
+      <symbol id="sigma-coin" viewBox="0 0 40 40">
+        <path fill="url(#sigmaCoin)" d="M20 1.6l14.7 8.5a3.2 3.2 0 0 1 1.6 2.8v14.2a3.2 3.2 0 0 1-1.6 2.8L20 38.4a3.2 3.2 0 0 1-3.2 0L2.1 29.9a3.2 3.2 0 0 1-1.6-2.8V12.9a3.2 3.2 0 0 1 1.6-2.8L16.8 1.6a3.2 3.2 0 0 1 3.2 0z"/>
+        <path fill="#fff" d="M13.4 12.2h13.2v3.3h-7.4l5.3 4.6-5.3 4.7h7.4v3.3H13.4v-3.2l5.9-4.8-5.9-4.7z"/>
+      </symbol>
+
+  <linearGradient id="avFlame" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD84A"/><stop offset=".55" stop-color="#FF9A26"/><stop offset="1" stop-color="#F2493A"/></linearGradient>
+
+  <!-- ранги арены: шестигранный щит, металл по лиге, эмблема цветом обода -->
+  <linearGradient id="lgBronzeRim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B8733E"/><stop offset="1" stop-color="#6E3A1A"/></linearGradient>
+  <linearGradient id="lgBronzeFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2B98A"/><stop offset="1" stop-color="#C47B45"/></linearGradient>
+  <linearGradient id="lgSilverRim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9AA6B8"/><stop offset="1" stop-color="#586477"/></linearGradient>
+  <linearGradient id="lgSilverFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FBFCFE"/><stop offset="1" stop-color="#BBC5D3"/></linearGradient>
+  <linearGradient id="lgGoldRim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E3A82A"/><stop offset="1" stop-color="#9A6406"/></linearGradient>
+  <linearGradient id="lgGoldFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFEFA6"/><stop offset="1" stop-color="#F5B82E"/></linearGradient>
+  <linearGradient id="lgPlatRim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34B3A8"/><stop offset="1" stop-color="#136860"/></linearGradient>
+  <linearGradient id="lgPlatFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D8FBF6"/><stop offset="1" stop-color="#63D2C5"/></linearGradient>
+  <linearGradient id="lgDiaRim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6F5CF0"/><stop offset="1" stop-color="#2F2394"/></linearGradient>
+  <linearGradient id="lgDiaFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6DCFF"/><stop offset="1" stop-color="#8F76FF"/></linearGradient>
+
+  <symbol id="rank-bronze" viewBox="0 0 48 48">
+   <path fill="url(#lgBronzeRim)" d="M24 2.5l18 10v21L24 45.5 6 33.5v-21z"/>
+   <path fill="url(#lgBronzeFace)" d="M24 7.5l13.6 7.6v16.2L24 40.6 10.4 31.3V15.1z"/>
+   <path fill="#fff" opacity=".35" d="M24 7.5l13.6 7.6v3.4L24 11 10.4 18.5v-3.4z"/>
+   <path fill="#7A4220" d="M15.5 26.8L24 20.6l8.5 6.2v4.6L24 25.2l-8.5 6.2z"/>
+  </symbol>
+  <symbol id="rank-silver" viewBox="0 0 48 48">
+   <path fill="url(#lgSilverRim)" d="M24 2.5l18 10v21L24 45.5 6 33.5v-21z"/>
+   <path fill="url(#lgSilverFace)" d="M24 7.5l13.6 7.6v16.2L24 40.6 10.4 31.3V15.1z"/>
+   <path fill="#fff" opacity=".5" d="M24 7.5l13.6 7.6v3.4L24 11 10.4 18.5v-3.4z"/>
+   <path fill="#5B6679" d="M15.5 23l8.5-6.2 8.5 6.2v4.4L24 21.2l-8.5 6.2zM15.5 30.2l8.5-6.2 8.5 6.2v4.4L24 28.4l-8.5 6.2z"/>
+  </symbol>
+  <symbol id="rank-gold" viewBox="0 0 48 48">
+   <path fill="url(#lgGoldRim)" d="M24 2.5l18 10v21L24 45.5 6 33.5v-21z"/>
+   <path fill="url(#lgGoldFace)" d="M24 7.5l13.6 7.6v16.2L24 40.6 10.4 31.3V15.1z"/>
+   <path fill="#fff" opacity=".45" d="M24 7.5l13.6 7.6v3.4L24 11 10.4 18.5v-3.4z"/>
+   <path fill="#A56A05" d="M24 15.2l2.5 5.3 5.8.7-4.3 4 1.1 5.7-5.1-2.8-5.1 2.8 1.1-5.7-4.3-4 5.8-.7z"/>
+  </symbol>
+  <symbol id="rank-platinum" viewBox="0 0 48 48">
+   <path fill="url(#lgPlatRim)" d="M24 2.5l18 10v21L24 45.5 6 33.5v-21z"/>
+   <path fill="url(#lgPlatFace)" d="M24 7.5l13.6 7.6v16.2L24 40.6 10.4 31.3V15.1z"/>
+   <path fill="#fff" opacity=".5" d="M24 7.5l13.6 7.6v3.4L24 11 10.4 18.5v-3.4z"/>
+   <path fill="#14706A" d="M24 13.4l2.1 4.5 4.9.6-3.6 3.4.9 4.8-4.3-2.4-4.3 2.4.9-4.8-3.6-3.4 4.9-.6zM16.5 31l7.5-5.4 7.5 5.4v4L24 29.6 16.5 35z"/>
+  </symbol>
+  <symbol id="rank-diamond" viewBox="0 0 48 48">
+   <path fill="url(#lgDiaRim)" d="M24 2.5l18 10v21L24 45.5 6 33.5v-21z"/>
+   <path fill="url(#lgDiaFace)" d="M24 7.5l13.6 7.6v16.2L24 40.6 10.4 31.3V15.1z"/>
+   <path fill="#fff" opacity=".5" d="M24 7.5l13.6 7.6v3.4L24 11 10.4 18.5v-3.4z"/>
+   <path fill="#7C69F5" d="M16.4 20.8l4-5.2h7.2l4 5.2z"/>
+   <path fill="#3A2BA8" d="M16.4 20.8h15.2L24 33.4z"/>
+   <path fill="#fff" opacity=".55" d="M20.4 15.6h3.6l-1.8 5.2h-5.8zM22.2 20.8H24v12.6z"/>
+   <path fill="none" stroke="#fff" stroke-opacity=".7" stroke-width=".8" stroke-linejoin="round" d="M16.4 20.8h15.2M20.4 15.6l1.8 5.2 1.8-5.2 1.8 5.2 1.8-5.2M22.2 20.8L24 33.4l1.8-12.6"/>
+  </symbol>
+
+  <symbol id="badge-streak7" viewBox="0 0 48 48">
+   <circle cx="24" cy="24" r="22" fill="#FFF1DC"/>
+   <path fill="url(#avFlame)" d="M23.5 4.5c2.6 7.2-.8 12-5.4 16.8-4.6 4.8-7.4 8.6-7.4 13.4 0 7.8 6.2 13.8 13.8 13.8s13.8-6 13.8-13.8c0-5.5-2-9.8-4.9-13.5.8 4.5-.4 8-2.9 10.2.9-9-2-19.1-7-26.9z" transform="translate(24 26) scale(.86) translate(-24 -26)"/>
+   <text x="25" y="39" text-anchor="middle" font-family="Onest, Manrope, sans-serif" font-weight="800" font-size="17" fill="#fff">7</text>
+  </symbol>
+ 
+  </defs>
+</svg>

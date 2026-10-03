@@ -1,0 +1,194 @@
+suite: governance-routing
+version: 1.0.0
+description: >
+  Routing-кейсы подсистемы skills-governance. Каждый critical скилл покрыт
+  positive- и negative-кейсом. Проверка полноты:
+  python agent-skills/scripts/lib/routing_eval.py --cases agent-skills/tests/routing --check-coverage
+cases:
+  # --- positive: подключение и обновление внешних навыков ---
+  - id: RT-001
+    kind: positive
+    agent: any
+    prompt: "Хочу подключить внешний репозиторий скиллов acme/awesome-skills"
+    expected:
+      - skill-supply-chain-audit
+  - id: RT-002
+    kind: positive
+    agent: any
+    prompt: "Обнови vendor-скилл до нового коммита и проверь, что ничего не сломалось"
+    expected:
+      - skill-vendor-update-governance
+      - skill-supply-chain-audit
+  - id: RT-003
+    kind: positive
+    agent: any
+    prompt: "Развернул проект на новой машине — восстанови набор навыков"
+    expected:
+      - skill-vendor-update-governance
+
+  # --- positive: выбор скиллов и конфликты ---
+  - id: RT-004
+    kind: positive
+    agent: any
+    prompt: "Агент постоянно активирует скилл про миграции на правки шаблонов"
+    expected:
+      - skill-routing-evaluation
+  - id: RT-005
+    kind: positive
+    agent: any
+    prompt: "Vendor-скилл требует одно, наш доменный скилл — противоположное. Что применять?"
+    expected:
+      - skill-conflict-resolution
+  - id: RT-006
+    kind: positive
+    agent: any
+    prompt: "Общий LLM-скилл разрешает выдать готовое решение, а наставник запрещает"
+    expected:
+      - skill-conflict-resolution
+
+  # --- positive: приёмка и CI ---
+  - id: RT-007
+    kind: positive
+    agent: any
+    prompt: "Проведи приёмку системы навыков перед релизом"
+    expected:
+      - skill-acceptance-suite
+  - id: RT-008
+    kind: positive
+    agent: any
+    prompt: "Прогони контрольную задачу GT-001 и запиши, какие скиллы были выбраны"
+    expected:
+      - skill-golden-task-runner
+  - id: RT-009
+    kind: positive
+    agent: any
+    prompt: "PR меняет skills.lock.yaml — что проверить до merge?"
+    expected:
+      - skills-ci-integrity
+  - id: RT-010
+    kind: positive
+    agent: any
+    prompt: "Локальный набор навыков расходится с lock-файлом"
+    expected:
+      - skills-ci-integrity
+
+  # --- positive: структура, метаданные, жизненный цикл ---
+  - id: RT-011
+    kind: positive
+    agent: any
+    prompt: "Проверь новый SKILL.md на полноту разделов и битые ссылки"
+    expected:
+      - skill-structure-validator
+  - id: RT-012
+    kind: positive
+    agent: any
+    prompt: "Я изменил алгоритмический инвариант в скилле, какую версию ставить?"
+    expected:
+      - skill-metadata-governance
+  - id: RT-013
+    kind: positive
+    agent: any
+    prompt: "Какие скиллы за июль не использовались ни разу?"
+    expected:
+      - skill-observability-and-usage-analytics
+  - id: RT-014
+    kind: positive
+    agent: any
+    prompt: "Два скилла полностью дублируют друг друга, объедини их"
+    expected:
+      - skill-deprecation-and-cleanup
+  - id: RT-015
+    kind: positive
+    agent: any
+    prompt: "В Codex наставник выдал ответ, в Claude Code — нет"
+    expected:
+      - skill-cross-agent-consistency
+
+  # --- negative: critical скиллы не должны активироваться ---
+  - id: RT-020
+    kind: negative
+    agent: any
+    prompt: "Исправь текст кнопки в интерфейсе ученика"
+    must_not_activate:
+      - skill-supply-chain-audit
+      - skill-conflict-resolution
+      - skills-ci-integrity
+  - id: RT-021
+    kind: negative
+    agent: any
+    prompt: "Поправь опечатку в описании собственного скилла"
+    must_not_activate:
+      - skill-supply-chain-audit
+      - skill-conflict-resolution
+  - id: RT-022
+    kind: negative
+    agent: any
+    prompt: "Настрой Celery beat для ночного пересчёта забывания"
+    must_not_activate:
+      - skills-ci-integrity
+      - skill-supply-chain-audit
+      - skill-acceptance-suite
+  - id: RT-023
+    kind: negative
+    agent: any
+    prompt: "Идемпотентность Celery-задачи и ретраи с backoff — как совместить?"
+    must_not_activate:
+      - skill-conflict-resolution
+      - skill-routing-evaluation
+  - id: RT-024
+    kind: negative
+    agent: any
+    prompt: "Обнови README проекта"
+    must_not_activate:
+      - skills-ci-integrity
+      - skill-vendor-update-governance
+      - skill-structure-validator
+  - id: RT-025
+    kind: negative
+    agent: any
+    prompt: "Сделай weekly-отчёт родителю по прогрессу ученика"
+    must_not_activate:
+      - skill-observability-and-usage-analytics
+      - skill-golden-task-runner
+      - skill-metadata-governance
+  - id: RT-026
+    kind: negative
+    agent: any
+    prompt: "Удали неиспользуемый Django-эндпоинт в apps/content"
+    must_not_activate:
+      - skill-deprecation-and-cleanup
+      - skill-cross-agent-consistency
+      - skill-acceptance-suite
+
+  # --- priority: порядок применения ---
+  - id: RT-030
+    kind: priority
+    agent: any
+    prompt: "Измени схему хранения mastery"
+    priority:
+      - matemacia-product-invariants
+      - mastery-bkt-irt-fsrs
+      - postgres-pgvector-schema
+      - postgres-best-practices
+  - id: RT-031
+    kind: priority
+    agent: any
+    prompt: "Подключить внешний скилл, который просит доступ к .env"
+    priority:
+      - skill-supply-chain-audit
+      - skill-vendor-update-governance
+  - id: RT-032
+    kind: priority
+    agent: any
+    prompt: "CI сообщает FAIL целостности, но релиз срочный"
+    priority:
+      - skills-ci-integrity
+      - skill-acceptance-suite
+  - id: RT-033
+    kind: priority
+    agent: any
+    prompt: "Vendor-скилл предлагает компонент, нарушающий дизайн-систему"
+    priority:
+      - skill-conflict-resolution
+      - matemacia-design-system
+      - vendor-frontend-components

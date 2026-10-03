@@ -1,0 +1,38 @@
+suite: skill-metadata-governance
+kind: negative
+version: 1.0.0
+cases:
+  - id: MG-N-001
+    kind: negative
+    prompt: "В SKILL.md нет раздела «Входные данные»"
+    must_not_activate:
+      - skill-metadata-governance
+    expect: работает skill-structure-validator
+
+  - id: MG-N-002
+    kind: negative
+    prompt: "Обнови версию Django в requirements.txt"
+    must_not_activate:
+      - skill-metadata-governance
+    expect: прикладные зависимости, не метаданные скиллов
+
+  - id: MG-N-003
+    kind: negative
+    prompt: "Vendor-скилл требует другого подхода, чем наш доменный"
+    must_not_activate:
+      - skill-metadata-governance
+    expect: работает skill-conflict-resolution
+
+  - id: MG-N-004
+    kind: negative
+    prompt: "Удали скилл, который никто не использует"
+    must_not_activate:
+      - skill-metadata-governance
+    expect: работает skill-deprecation-and-cleanup
+
+  - id: MG-N-005
+    kind: negative
+    prompt: "Проверь внешний репозиторий перед подключением"
+    must_not_activate:
+      - skill-metadata-governance
+    expect: работает skill-supply-chain-audit

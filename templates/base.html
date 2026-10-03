@@ -1,0 +1,186 @@
+{% load static web_permissions %}
+<!doctype html>
+<html lang="ru"{% if ui_theme %} data-theme="{{ ui_theme }}"{% endif %}
+      data-cosmetics-sprite="{% static 'img/cosmetics.svg' %}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Матемация{% endblock %}</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 64'%3E%3Cpath fill='%23FF9E2C' d='M24 1c3 8-6 12-3 19 2 5 8 4 9 0 4 9-1 15-7 15-9 0-14-9-8-17-5 2-7 8-5 13C5 24 10 10 24 1z'/%3E%3Ctext x='24' y='59' text-anchor='middle' font-family='Arial' font-weight='900' font-size='30' fill='%233D6BE5'%3EΣ%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  {% comment %}Анимации косметики собраны из спецификации дизайна отдельным файлом: их правит дизайнер, и мешать их с версткой кабинета не стоит.{% endcomment %}
+  <link rel="stylesheet" href="{% static 'css/cosmetics.css' %}">
+  <script src="{% static 'js/app.js' %}" defer></script>
+</head>
+<body{% if not user.is_authenticated or hide_nav %} class="no-rail"{% endif %}>
+  {% include "partials/icons.html" %}
+  {% include "partials/art.html" %}
+  {% comment %}
+  Рельс — навигация вошедшего. На входе и регистрации навигации нет, поэтому и
+  панели быть не должно: пустая тёмная полоса выглядела обрезанным экраном.
+  На странице второго фактора рельс тоже скрыт: человек ещё не вошёл до конца,
+  и ссылки, по которым его всё равно вернут назад, только путают.
+  {% endcomment %}
+  {% if user.is_authenticated and not hide_nav %}
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="/" aria-label="Матемация">{% include "partials/logo.html" with size="sm" %}</a>
+      {% if user.is_authenticated %}
+        {% is_expert user as expert_access %}
+        {% is_methodist user as methodist_access %}
+        {% comment %}
+        Рельс в два уровня: сначала раздел («учёба», «проверить себя»), внутри —
+        страницы. Плоский список из одиннадцати ссылок приходилось читать
+        целиком, чтобы найти одну. Раскрытие — на <details>: работает и без
+        скрипта, а группа с активной страницей открыта сразу.
+        {% endcomment %}
+        <nav class="main-nav" aria-label="Основная навигация">
+          {% for group in nav_groups %}
+            {% if group.is_single %}
+              {% with item=group.items.0 %}
+                <a class="nav-link nav-level-one {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}"{% if item.is_active %} aria-current="page"{% endif %}>
+                  <span class="nav-icon"><svg aria-hidden="true"><use href="#{{ item.icon }}"></use></svg></span>
+                  <span>{{ item.label }}</span>
+                </a>
+              {% endwith %}
+            {% else %}
+              <details class="nav-group" {% if group.is_open %}open{% endif %}>
+                <summary>
+                  <span class="nav-icon"><svg aria-hidden="true"><use href="#{{ group.icon }}"></use></svg></span>
+                  <span>{{ group.title }}</span>
+                  <svg class="nav-chevron" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+                </summary>
+                <div class="nav-sub">
+                  {% for item in group.items %}
+                    <a class="nav-link {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}"{% if item.is_active %} aria-current="page"{% endif %}>
+                      <span class="nav-icon"><svg aria-hidden="true"><use href="#{{ item.icon }}"></use></svg></span>
+                      <span class="desktop-label">{{ item.label }}</span>
+                      <span class="mobile-label">{{ item.short_label }}</span>
+                    </a>
+                  {% endfor %}
+                </div>
+              </details>
+            {% endif %}
+          {% endfor %}
+        </nav>
+        <nav class="mobile-tabs" aria-label="Основная навигация (мобильная)">
+          {% for group in nav_groups %}
+            {% for item in group.items %}
+              <a class="mobile-tab {% if item.is_active %}is-active{% endif %}" href="{{ item.url }}"{% if item.is_active %} aria-current="page"{% endif %}>
+                <span class="nav-icon"><svg aria-hidden="true"><use href="#{{ item.icon }}"></use></svg></span>
+                <span class="mobile-tab-label">{{ item.short_label }}</span>
+              </a>
+            {% endfor %}
+          {% endfor %}
+          <button class="mobile-tab" type="button" data-feedback-open>
+            <span class="nav-icon"><svg aria-hidden="true"><use href="#i-doc"></use></svg></span>
+            <span class="mobile-tab-label">Проблема</span>
+          </button>
+        </nav>
+        <div class="rail-foot">
+          {% if access_state and not access_state.is_active %}
+            <a class="rail-access {% if not access_state.in_trial %}is-locked{% endif %}" href="{% url 'pricing' %}">
+              <svg aria-hidden="true"><use href="#i-ruble"></use></svg>
+              <div>
+                {% if access_state.in_trial %}
+                  <strong>Пробный период</strong>
+                  <small>осталось {{ access_state.trial_days_left }} дн. — продлить доступ</small>
+                {% else %}
+                  <strong>Подписка не активна</strong>
+                  <small>занятия и пробники закрыты</small>
+                {% endif %}
+              </div>
+            </a>
+          {% endif %}
+          {% if not expert_access and not methodist_access and user.student_profile %}
+            <div class="rail-streak">
+              <svg aria-hidden="true"><use href="#i-flame"></use></svg>
+              <div>
+                <strong>{{ user.student_profile.gamification_profile.streak_current|default:0 }} дн.</strong>
+                <small>серия жива, если заниматься сегодня</small>
+              </div>
+            </div>
+          {% endif %}
+          <button class="rail-feedback" type="button" data-feedback-open>
+            <svg aria-hidden="true"><use href="#i-chat"></use></svg><span>Сообщить о проблеме</span>
+          </button>
+          <div class="account-menu">
+            {% comment %}Свой значок в рельсе — единственное место, где косметика живая: купленное движение должно быть видно владельцу.{% endcomment %}
+            {% if user.student_profile %}{% include "partials/avatar.html" with size="sm" motion=True %}{% endif %}
+            <span class="account-name">
+              <strong>{{ user.get_full_name|default:user.username }}</strong>
+              {% if user.student_profile %}
+                <small class="num">уровень {{ user.student_profile.gamification_profile.level|default:1 }} · Σ {{ user.student_profile.wallet.balance|default:0 }}</small>
+              {% endif %}
+            </span>
+            <form method="post" action="{% url 'logout' %}">
+              {% csrf_token %}<button class="button" type="submit">Выйти</button>
+            </form>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </header>
+  {% endif %}
+  <main class="page-shell">
+    {% if messages %}{% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  {% if user.is_authenticated and not hide_nav %}
+  <dialog id="feedback-dialog" class="app-dialog feedback-dialog" aria-labelledby="feedback-title">
+    <div class="feedback-head">
+      <h2 id="feedback-title">Сообщить о проблеме</h2>
+      <form method="dialog"><button class="icon-button" type="submit" aria-label="Закрыть">&times;</button></form>
+    </div>
+    <p class="feedback-hint">Опишите, что делали и что пошло не так. Адрес страницы приложится сам.</p>
+    <form id="feedback-form" class="feedback-form">{% csrf_token %}
+      <label class="visually-hidden" for="feedback-message">Что произошло?</label>
+      <textarea id="feedback-message" name="message" rows="5" maxlength="2000" required placeholder="Например: нажимаю «Проверить», а ответ не засчитывается"></textarea>
+      <div class="feedback-actions">
+        <p id="feedback-result" role="status"></p>
+        <button class="button button-primary" type="submit">Отправить</button>
+      </div>
+    </form>
+  </dialog>
+  <script>
+  (() => {
+    const dialog = document.getElementById("feedback-dialog");
+    const form = document.getElementById("feedback-form");
+    const result = document.getElementById("feedback-result");
+    document.querySelectorAll("[data-feedback-open]").forEach(button => {
+      button.addEventListener("click", () => { result.textContent = ""; result.className = ""; dialog.showModal(); form.message.focus(); });
+    });
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      const submit = form.querySelector("[type=submit]");
+      submit.disabled = true;
+      const response = await fetch("{% url 'feedback_create' %}", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value,
+        },
+        body: JSON.stringify({page_url: window.location.href, message: form.message.value}),
+      });
+      submit.disabled = false;
+      if (response.ok) {
+        form.reset();
+        result.className = "is-ok";
+        result.textContent = "Спасибо! Мы прочитаем";
+      } else {
+        result.className = "is-error";
+        result.textContent = response.status === 429
+          ? "Слишком много сообщений подряд. Попробуйте чуть позже."
+          : "Не удалось отправить сообщение. Попробуйте позже.";
+      }
+    });
+  })();
+  </script>
+  {% endif %}
+</body>
+</html>

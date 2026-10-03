@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}{{ addon.title }} · Матемация{% endblock %}
+{% block content %}<div class="studio-page"><header class="page-heading"><div><p>Цены и акции</p><h1>{{ addon.title }}</h1></div><div class="studio-actions"><a class="button" href="{% url 'studio_pricing' %}">К списку</a></div></header>
+  <form class="studio-form" method="post">{% csrf_token %}{% for error in form.non_field_errors %}<p class="form-error">{{ error }}</p>{% endfor %}<section class="form-section"><h2>Докупка</h2><div class="form-grid">{% include "studio/_field.html" with field=form.title %}{% include "studio/_field.html" with field=form.price_rub %}{% include "studio/_field.html" with field=form.description wide=True %}{% include "studio/_field.html" with field=form.quantity %}{% include "studio/_field.html" with field=form.unit_label %}{% include "studio/_field.html" with field=form.is_active %}</div><div class="studio-actions"><button class="button button-primary" type="submit">Сохранить</button></div></section></form>
+</div>{% endblock %}

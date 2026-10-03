@@ -1,0 +1,25 @@
+__pycache__/
+*.pyc
+db.sqlite3
+media/
+.env
+# Прод-окружение: единственное место, где живут боевые секреты.
+.env.production
+infra/production/certs/
+.venv/
+staticfiles/
+.mcp.json
+.claude/
+.agents/
+
+# Работы учеников: приватное хранилище вне MEDIA_ROOT.
+private-media/
+
+# Выгрузка макетов из Claude Design: исходник дизайна, а не код продукта.
+# Нужные из него ассеты лежат в static/, остальное остаётся локальным.
+_ds/
+assets/
+uploads/
+.thumbnail
+support.js
+*.dc.html

@@ -1,0 +1,38 @@
+suite: skill-deprecation-and-cleanup
+kind: positive
+version: 1.0.0
+cases:
+  - id: DC-P-001
+    kind: positive
+    prompt: "Два скилла делают одно и то же, объедини"
+    expected:
+      - skill-deprecation-and-cleanup
+    expect: список перенесённых правил, переходный период, changelog
+
+  - id: DC-P-002
+    kind: positive
+    prompt: "Внешний репозиторий скиллов заброшен, что делать?"
+    expected:
+      - skill-deprecation-and-cleanup
+    expect: deprecate с заменой, lock и каталоги изменены синхронно
+
+  - id: DC-P-003
+    kind: positive
+    prompt: "Скилл даёт 22% ложных активаций, удалить?"
+    expected:
+      - skill-deprecation-and-cleanup
+    expect: сначала сужение описания, удаление как крайний шаг
+
+  - id: DC-P-004
+    kind: positive
+    prompt: "Рекомендации скилла противоречат нашей архитектуре"
+    expected:
+      - skill-deprecation-and-cleanup
+    expect: замена собственным скиллом, правила перенесены
+
+  - id: DC-P-005
+    kind: positive
+    prompt: "Переходный период истёк, удаляй устаревший скилл"
+    expected:
+      - skill-deprecation-and-cleanup
+    expect: удаление, обновление ссылок, запись в CHANGELOG

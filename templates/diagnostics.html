@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Диагностика — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Диагностика</h1><p>Этот раздел доступен ученикам.</p></section>
+{% else %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">С чего начинается план</p>
+      <h1>Входная диагностика</h1>
+      <p>Короткий срез по ключевым темам. По его результату заполняется карта навыков, назначается траектория и строится план — без него сервис ведёт по общей программе.</p>
+    </div>
+  </div>
+
+  {% if in_progress %}
+    <section class="card">
+      <div class="section-heading"><h2>Диагностика начата</h2><span class="item-type-chip">не завершена</span></div>
+      <p class="muted">{{ in_progress.test.title }} · начата {{ in_progress.started_at|date:"d.m.Y H:i" }}</p>
+      <a class="button button-primary" href="{% url 'diagnostic_run' in_progress.id %}">Продолжить</a>
+    </section>
+  {% endif %}
+
+  {% if last_completed %}
+    <section class="card">
+      <div class="section-heading"><h2>Последний результат</h2><span class="chip success-soft">завершена</span></div>
+      <div class="outro-stats">
+        <div><small>Верных ответов</small><strong class="num">{{ last_completed.primary_score }}</strong></div>
+        <div><small>Оценка балла</small><strong class="num">{{ last_completed.estimated_score }}</strong></div>
+        <div><small>Дата</small><strong>{{ last_completed.completed_at|date:"d.m.Y" }}</strong></div>
+      </div>
+      <p class="muted">
+        {% if has_plan %}План построен по этому срезу — открой дорожку, чтобы начать.{% else %}План появится после первой диагностики.{% endif %}
+      </p>
+      <div class="stage-actions">
+        <a class="button button-primary" href="{% url 'track' %}">К дорожке</a>
+        <a class="button" href="{% url 'knowledge_map' %}">Посмотреть карту навыков</a>
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="card">
+    <div class="section-heading"><h2>Доступные срезы</h2><span class="muted">задачи первой части, без таймера</span></div>
+    {% if tests %}
+      <ul class="plain-list">
+        {% for row in tests %}
+          <li>
+            <strong>{{ row.test.title }}</strong>
+            <small>{{ row.count }} задач · проверяются автоматически</small>
+            <button class="button button-primary button-small" type="button"
+                    data-start-diagnostic="/api/diagnostics/{{ row.test.id }}/start/">Пройти</button>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="form-error" data-diagnostic-error hidden></p>
+    {% else %}
+      <p class="empty-copy">Методист ещё не опубликовал ни одного среза.</p>
+    {% endif %}
+  </section>
+{% endif %}
+{% endblock %}

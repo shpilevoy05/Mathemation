@@ -1,0 +1,420 @@
+<title>Матемация — готовность к коммерческому запуску</title>
+<style>
+  :root {
+    --page: #F3F5FD; --surface: #FFFFFF; --surface-2: #F6F8FE;
+    --ink: #10162A; --ink-2: #3A4460; --muted: #6B7590;
+    --line: #DEE4F4; --line-strong: #C6CFEA;
+    --accent: #4F6BEA; --accent-ink: #2E45B8; --accent-soft: #E6EBFE;
+    --night: #141A33; --night-ink: #C7CFEA;
+    --crit: #D33A50; --crit-soft: #FBE4E8;
+    --warn: #C97D0C; --warn-soft: #FAEFD9;
+    --ok: #0E9A64; --ok-soft: #DFF3E9;
+    --ui: "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page: #0A0F1C; --surface: #121A2B; --surface-2: #0E1626;
+      --ink: #E9EFFF; --ink-2: #BCC7DF; --muted: #8695B4;
+      --line: #24304A; --line-strong: #35425F;
+      --accent: #7C90F8; --accent-ink: #AFBEFF; --accent-soft: #1B2444;
+      --night: #0B1220; --night-ink: #C7CFEA;
+      --crit: #F0697D; --crit-soft: #331A21;
+      --warn: #E1A845; --warn-soft: #2C2312;
+      --ok: #3FC78D; --ok-soft: #0F2A20;
+    }
+  }
+  :root[data-theme="dark"] {
+    --page: #0A0F1C; --surface: #121A2B; --surface-2: #0E1626;
+    --ink: #E9EFFF; --ink-2: #BCC7DF; --muted: #8695B4;
+    --line: #24304A; --line-strong: #35425F;
+    --accent: #7C90F8; --accent-ink: #AFBEFF; --accent-soft: #1B2444;
+    --night: #0B1220; --night-ink: #C7CFEA;
+    --crit: #F0697D; --crit-soft: #331A21;
+    --warn: #E1A845; --warn-soft: #2C2312;
+    --ok: #3FC78D; --ok-soft: #0F2A20;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 20px 80px; background: var(--page); color: var(--ink);
+    font-family: var(--ui); font-size: 16px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: min(920px, 100%); margin: 0 auto; }
+  h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -.015em; text-wrap: balance; }
+  h1 { font-size: clamp(1.9rem, 4vw, 2.5rem); line-height: 1.1; }
+  h2 { font-size: 1.35rem; }
+  h3 { font-size: 1.02rem; }
+  p { margin: 0; }
+  code, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  code { padding: 1px 5px; border-radius: 5px; background: var(--surface-2); font-size: .88em; }
+
+  header.doc { display: grid; gap: 14px; padding: 56px 0 28px; }
+  .kicker { color: var(--accent); font-family: var(--mono); font-size: .74rem; letter-spacing: .14em; text-transform: uppercase; }
+  header.doc p { max-width: 64ch; color: var(--ink-2); font-size: 1.05rem; }
+
+  .verdict { display: grid; gap: 16px; padding: 26px; border-radius: 18px; background: var(--night); color: #fff; }
+  .verdict h2 { color: #fff; }
+  .verdict p { color: var(--night-ink); max-width: 68ch; }
+  .verdict-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .verdict-grid div { padding: 14px 16px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 12px; background: rgba(255, 255, 255, .06); }
+  .verdict-grid span { display: block; color: var(--night-ink); font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; }
+  .verdict-grid b { font-family: var(--mono); font-size: 1.6rem; font-weight: 600; }
+
+  section.area { display: grid; gap: 14px; margin-top: 44px; }
+  .area-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 2px solid var(--line-strong); }
+  .area-head p { color: var(--muted); font-size: .92rem; }
+
+  .finding { display: grid; grid-template-columns: 4px 1fr; gap: 0 16px; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; }
+  .finding > .stripe { background: var(--line-strong); }
+  .finding.is-crit > .stripe { background: var(--crit); }
+  .finding.is-warn > .stripe { background: var(--warn); }
+  .finding.is-ok > .stripe { background: var(--ok); }
+  .finding > .body { display: grid; gap: 8px; padding: 18px 20px 18px 4px; }
+  .finding-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .tag { padding: 3px 10px; border-radius: 999px; font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+  .tag-crit { color: var(--crit); background: var(--crit-soft); }
+  .tag-warn { color: var(--warn); background: var(--warn-soft); }
+  .tag-ok { color: var(--ok); background: var(--ok-soft); }
+  .finding p { color: var(--ink-2); font-size: .95rem; }
+  .finding .where { color: var(--muted); font-family: var(--mono); font-size: .8rem; }
+
+  .ready { display: grid; gap: 10px; padding: 20px; border: 1px solid var(--ok); border-radius: 14px; background: var(--ok-soft); }
+  .ready h3 { color: var(--ok); }
+  .ready ul { margin: 0; padding-left: 20px; color: var(--ink-2); font-size: .95rem; }
+  .ready li { margin-bottom: 4px; }
+
+  .checklist { margin-top: 46px; }
+  table { width: 100%; border-collapse: collapse; font-size: .93rem; }
+  .scroll { overflow-x: auto; }
+  th, td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { color: var(--muted); font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; }
+  td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: 0; }
+
+  footer.doc { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .86rem; }
+</style>
+
+<div class="wrap">
+  <header class="doc">
+    <p class="kicker">Аудит · ветка claude/port-platform-hardening · 392 теста</p>
+    <h1>Готовность к коммерческому запуску</h1>
+    <p>Проверены пять контуров: перестройка плана под скорейший рост балла, информационная безопасность, работа с базой, видеохостинг и ИИ-наставник. Ниже — что готово, что блокирует запуск и что останется доделать после подключения самих интеграций.</p>
+  </header>
+
+  <div class="verdict">
+    <h2>Вердикт: продукт готов, эксплуатация — нет</h2>
+    <p>Доменная логика, роли, приватность работ и абстракции провайдеров на месте: LLM и эквайринг подключаются конфигом без правки кода. Запуск блокируют не фичи, а эксплуатационный слой — троттлинг, мониторинг, индексы, подписанные ссылки на видео и связь подписки с доступом. Отдельно: план не переупорядочивается по мере роста ученика, а это прямо противоречит обещанию «скорейшего роста балла».</p>
+    <div class="verdict-grid">
+      <div><span>Блокеры</span><b>7</b></div>
+      <div><span>Существенные</span><b>11</b></div>
+      <div><span>Готово к API</span><b>3 из 4</b></div>
+      <div><span>Оценка работ</span><b>2–3 нед.</b></div>
+    </div>
+  </div>
+
+  <section class="area">
+    <div class="area-head">
+      <h2>1. План и скорейший рост балла</h2>
+      <p>apps/engine/planner.py · apps/planning/services.py</p>
+    </div>
+
+    <div class="ready">
+      <h3>Что уже работает правильно</h3>
+      <ul>
+        <li>Целевая функция верная: жадный выбор максимизирует <b>прирост ожидаемого первичного балла на час</b>, а не число тем. Учитываются пререквизиты с порогами, часы узла, вес кластера и сложность заданий по IRT.</li>
+        <li>Порядок детерминирован (тай-брейк по весу и исходному порядку) — один и тот же вход даёт один и тот же план, это тестируется.</li>
+        <li>Триггеры пересборки живые: диагностика, смена цели со сменой траектории, слабый пробник, три ошибки на узле, простой 14 дней, забывание темы.</li>
+        <li>Изменения плана логируются с дедупликацией и показываются ученику карточкой с причиной.</li>
+      </ul>
+    </div>
+
+    <article class="finding is-crit">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-crit">блокер</span><h3>План не переупорядочивается по мере прогресса</h3></div>
+        <p><code>build_study_plan</code> вызывается только по событиям. Между ними порядок статичен: ученик за неделю закрыл три темы, освоение выросло — а остаток плана остался в приоритете, посчитанном на старых данных. Это и есть обещание «скорейшего роста», которое сейчас не выполняется.</p>
+        <p class="where">Нужно: ночная джоба переоценки активного плана + инкрементальный пересчёт после закрытия пункта. Пересборку делать без потери сделанного (сохранять статусы и completed_at).</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>Срочная отработка уезжает в конец списка</h3></div>
+        <p><code>reinsert_node</code> ставит возвращённой теме <code>order = last_order + 1</code>, но <code>due_date</code> — завтра. Список сортируется по <code>order</code>, поэтому самый срочный пункт оказывается внизу плана.</p>
+        <p class="where">apps/planning/services.py:186</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>Расписание не знает про дату экзамена и про часы узла</h3></div>
+        <p>Недели считаются от сегодняшнего дня и не обрезаются датой экзамена: план может уходить за неё. Ёмкость недели считается как <code>weekly_hours // HOURS_PER_NODE</code>, поэтому тема на четыре часа занимает столько же места, сколько тема на два — <code>hours_estimate</code> в раскладке не участвует, хотя в приоритете участвует.</p>
+        <p class="where">apps/planning/services.py:151–163</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>Просроченные пункты не переносятся</h3></div>
+        <p>Пропущенный пункт остаётся с прошедшей датой и копится. У родителя это видно как просрочка, у ученика — как мёртвый груз в плане; догоняющего переноса нет.</p>
+      </div>
+    </article>
+
+    <article class="finding is-ok">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-ok">после запуска</span><h3>Калибровка IRT и BKT — бутстрап-константы</h3></div>
+        <p>Параметры сложности и скорость обучения заданы настройками, а не откалиброваны по логам. Для запуска это допустимо (лог попыток пишется с первого дня), но в дорожную карту нужна батч-калибровка на накопленных данных.</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="area">
+    <div class="area-head">
+      <h2>2. Информационная безопасность</h2>
+      <p>config/security.py · apps/*/permissions.py</p>
+    </div>
+
+    <div class="ready">
+      <h3>Что уже работает правильно</h3>
+      <ul>
+        <li>Fail-fast прод-конфигурации: процесс не поднимается на ключе разработки, на <code>ALLOWED_HOSTS=*</code> и когда приватные работы лежат внутри публичной медиапапки.</li>
+        <li>HSTS, редирект на HTTPS, Secure/HttpOnly/SameSite куки, <code>X-Frame-Options: DENY</code>, nosniff, referrer policy.</li>
+        <li>Работы второй части — вне <code>MEDIA_ROOT</code>, отдаются через объектную проверку прав и X-Accel-Redirect; чужой файл даёт 404, а не 403.</li>
+        <li>Загрузки: белый список типов и расширений, лимит размера, проверка сигнатуры файла.</li>
+        <li>Роли и объектные права: панель только методисту, очередь только эксперту, родитель видит только своего ребёнка; DRF по умолчанию требует аутентификацию.</li>
+        <li>Регистрация только по одноразовому коду со сроком; пароли проходят валидаторы Django.</li>
+      </ul>
+    </div>
+
+    <article class="finding is-crit">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-crit">блокер</span><h3>Нет ограничения частоты запросов нигде</h3></div>
+        <p>Ни на входе (перебор паролей), ни на регистрации по коду (перебор кодов), ни на отправке ответов, ни на подсказках наставника — а подсказка стоит денег у провайдера LLM. Троттлинга DRF нет, django-axes нет, на уровне nginx тоже ничего не описано.</p>
+        <p class="where">Нужно: DRF throttling на attempt/hint/buy, блокировка перебора на логине и на <code>/invite/</code>, лимит подсказок в сутки на ученика.</p>
+      </div>
+    </article>
+
+    <article class="finding is-crit">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-crit">блокер</span><h3>Ни логов, ни мониторинга</h3></div>
+        <p><code>LOGGING</code> не сконфигурирован, трекера ошибок нет, health-check эндпоинта для балансировщика нет. Инцидент на проде будет виден только по жалобе ученика.</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>Действия администратора не аудируются</h3></div>
+        <p>Начисление сигм пишет автора в реестр, но публикация урока, смена цены, выдача домашки и деактивация ученика — нет. При споре «кто поменял цену» ответа не будет.</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>152-ФЗ: процедур нет</h3></div>
+        <p>Данные несовершеннолетних собираются (попытки, переписка с наставником, сканы работ), но нет ни срока хранения, ни процедуры удаления по запросу, ни экспорта. Согласие родителя нигде не фиксируется. Хостинг в РФ выбран, этого мало.</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>Привилегированные аккаунты без второго фактора</h3></div>
+        <p>Методист и администратор Django входят по паролю; срок сессии — две недели по умолчанию; CSP не выставлен. Для аккаунтов, которые правят цены и контент, это мало.</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="area">
+    <div class="area-head">
+      <h2>3. База данных</h2>
+      <p>config/settings.py · infra/docker-compose.yml</p>
+    </div>
+
+    <article class="finding is-crit">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-crit">блокер</span><h3>Молчаливый откат на SQLite</h3></div>
+        <p>Если <code>POSTGRES_DB</code> не задан, приложение поднимается на SQLite — в том числе с <code>DEBUG=0</code>. На проде это означает файл рядом с кодом, блокировки на записи и потерю данных при перезапуске контейнера. Проверка должна падать так же, как падает слабый секретный ключ.</p>
+        <p class="where">config/settings.py:129</p>
+      </div>
+    </article>
+
+    <article class="finding is-crit">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-crit">блокер</span><h3>Индексов почти нет</h3></div>
+        <p>На весь проект одно объявление индекса. Горячие пути ходят по неиндексированным полям: попытки по ученику и дате, полка ошибок по ученику и статусу, повторы по <code>due_date</code> и статусу, пункты плана по плану и статусу, события по типу. На демо-данных это незаметно, на первой тысяче учеников — нет.</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>Соединения открываются на каждый запрос</h3></div>
+        <p><code>CONN_MAX_AGE</code> не задан, пула нет. Postgres будет тратить заметную долю времени на установку соединений; для веб-процесса и Celery нужен либо persistent connections, либо PgBouncer.</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>Нет прод-манифеста и бэкапов</h3></div>
+        <p>В <code>infra/</code> только dev-compose с Postgres и Redis. Нет описания веб-процесса, nginx, шага миграций, расписания бэкапов и проверки восстановления. Приватное хранилище работ тоже не забэкаплено.</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>Append-only логи растут без ретенции</h3></div>
+        <p>Лог событий и попыток задуман как актив для ML — это правильно, но политики хранения, архивации и партиционирования нет. Через год таблица станет самой тяжёлой в базе.</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="area">
+    <div class="area-head">
+      <h2>4. Kinescope</h2>
+      <p>apps/content/models.py</p>
+    </div>
+
+    <div class="ready">
+      <h3>Что уже работает правильно</h3>
+      <ul>
+        <li>Провайдер выбирается на уроке, Kinescope стоит по умолчанию; методисту достаточно вставить идентификатор ролика — embed-ссылку собирает модель.</li>
+        <li>Есть запасные провайдеры (VK, Rutube, YouTube) и корректная деградация, если ссылка не встраивается.</li>
+        <li>Черновик урока не показывается ученику, поэтому пустой плеер в плане не появится.</li>
+      </ul>
+    </div>
+
+    <article class="finding is-crit">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-crit">блокер</span><h3>Видео раздаётся публичным embed</h3></div>
+        <p>Ссылка вида <code>kinescope.io/embed/&lt;id&gt;</code> работает у любого, кто её скопировал. Платный контент утекает первым же скриншотом консоли. Нужен серверный вызов Kinescope за подписанной ссылкой на сессию плюс ограничение по домену в кабинете Kinescope.</p>
+        <p class="where">Точка интеграции готова: <code>Lesson.video_embed_url</code> — единственное место, где собирается ссылка.</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>Любой https проходит как встраиваемый</h3></div>
+        <p><code>video_is_embeddable</code> проверяет только схему, поэтому в iframe кабинета можно поставить произвольный сайт. Нужен белый список доменов провайдеров.</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>Нет данных о просмотре</h3></div>
+        <p>Длительность ролика заполняется руками, события просмотра не пишутся. Этап «материал» закрывается кнопкой ученика — это честно, но аналитики «посмотрел ли» нет, и метрика вовлечённости по видео недоступна.</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="area">
+    <div class="area-head">
+      <h2>5. ИИ-наставник</h2>
+      <p>apps/ai_mentor/providers.py · guardrails.py</p>
+    </div>
+
+    <div class="ready">
+      <h3>Что уже работает правильно</h3>
+      <ul>
+        <li>Провайдер подключается настройкой <code>AI_MENTOR_PROVIDER</code>; реализованы OpenAI-совместимый формат (сюда же DeepSeek) и YandexGPT. Таймаут, ретрай и мягкая деградация при недоступности есть.</li>
+        <li>Системный промпт держит сократический контракт: только наводящие вопросы, никогда готовый ответ, признание неуверенности с предложением живого преподавателя.</li>
+        <li>Финальный ответ вырезается из условия, разбора, вопроса и истории до отправки в модель.</li>
+        <li>Символьная проверка на SymPy: числовые утверждения подсказки верифицируются до показа, непроверенные помечаются.</li>
+        <li>Лимит двух подсказок на задание, эскалация к эксперту, блокированные сообщения хранятся; родителю видны счётчики, но не переписка.</li>
+      </ul>
+    </div>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>RAG не подключён</h3></div>
+        <p>Инвариант «работает по проверенным разборам» держится на одном поле <code>reference_solution</code>, которое кладётся в промпт. Векторного поиска нет (pgvector не подключён), поэтому подсказка по теме, у которой разбора нет, опирается только на общие знания модели.</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>Нет бюджета и учёта стоимости</h3></div>
+        <p>Токены не считаются, дневного лимита на ученика нет, стоимость подсказки нигде не видна. Два ограничения на задание не мешают перебирать задания; при платном провайдере это открытый счёт.</p>
+      </div>
+    </article>
+
+    <article class="finding is-warn">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-warn">существенно</span><h3>Смена модели не проверяется офлайн</h3></div>
+        <p>Нет набора эталонных диалогов, на котором прогоняется новый промпт или новая модель перед включением. Регрессию «наставник начал выдавать ответ» заметят ученики.</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="area">
+    <div class="area-head">
+      <h2>6. Деньги (раз запуск коммерческий)</h2>
+      <p>apps/billing</p>
+    </div>
+
+    <article class="finding is-crit">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-crit">блокер</span><h3>Подписка ни на что не влияет</h3></div>
+        <p><code>has_active_subscription</code> определена, но не используется ни в одном представлении: весь продукт доступен без оплаты. Нужен слой доступа — что открыто без подписки, что закрывается и как это объясняется на странице тарифов.</p>
+      </div>
+    </article>
+
+    <article class="finding is-crit">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="finding-top"><span class="tag tag-crit">блокер</span><h3>Колбэк провайдера некуда прислать</h3></div>
+        <p><code>handle_callback</code> написан и идемпотентен, но маршрута для вебхука нет: URL, подпись запроса и проверка источника не реализованы. Фискализация по 54-ФЗ тоже не начата.</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="checklist">
+    <div class="area-head">
+      <h2>Порядок работ до запуска</h2>
+      <p>сначала то, без чего нельзя открывать двери</p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Что</th><th>Почему сейчас</th><th class="n">Оценка</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Падать при <code>DEBUG=0</code> без Postgres; <code>CONN_MAX_AGE</code>; индексы на горячих путях</td><td>иначе первый же прод-инцидент — потеря данных или деградация</td><td class="n">2 дня</td></tr>
+          <tr><td>Троттлинг: логин, инвайты, попытки, подсказки, покупки</td><td>перебор паролей и счёт от LLM-провайдера</td><td class="n">1–2 дня</td></tr>
+          <tr><td>Логи, трекер ошибок, health-check</td><td>без них запуск слепой</td><td class="n">1 день</td></tr>
+          <tr><td>Подписанные ссылки Kinescope + белый список доменов</td><td>платное видео сейчас публично</td><td class="n">1–2 дня</td></tr>
+          <tr><td>Гейт по подписке + вебхук эквайринга с проверкой подписи</td><td>без этого продукт бесплатный</td><td class="n">3 дня</td></tr>
+          <tr><td>Реплан по мере прогресса + порядок срочной отработки + учёт даты экзамена</td><td>основное продуктовое обещание</td><td class="n">3–4 дня</td></tr>
+          <tr><td>Прод-манифест, миграции в деплое, бэкапы с проверкой восстановления</td><td>эксплуатация</td><td class="n">2 дня</td></tr>
+          <tr><td>152-ФЗ: сроки хранения, удаление по запросу, согласие родителя</td><td>юридический риск с первого платящего</td><td class="n">2 дня</td></tr>
+          <tr><td>Аудит действий администратора, второй фактор для методиста</td><td>цены и контент правит человек</td><td class="n">1–2 дня</td></tr>
+          <tr><td>Бюджет подсказок и офлайн-набор для смены модели</td><td>стоимость и качество наставника</td><td class="n">2 дня</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="doc">
+    Проверено по ветке <code>claude/port-platform-hardening</code>: 392 теста, <code>makemigrations --check</code> чист, <code>manage.py check</code> без замечаний. Оценки — рабочие дни одного разработчика, без учёта согласований с юристом и провайдерами.
+  </footer>
+</div>

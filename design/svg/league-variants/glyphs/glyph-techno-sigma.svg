@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<linearGradient id="Lsigmaoctagontechno0p" x1="12%" y1="0%" x2="88%" y2="100%"><stop offset="0" stop-color="#FFD34E" stop-opacity="1"/><stop offset="0.35" stop-color="#D8A21C" stop-opacity="1"/><stop offset="0.72" stop-color="#7A5A05" stop-opacity="1"/><stop offset="1" stop-color="#7A5A05" stop-opacity="1"/></linearGradient>
+<linearGradient id="Lsigmaoctagontechno0i" x1="0%" y1="0%" x2="60%" y2="100%"><stop offset="0" stop-color="#D8A21C" stop-opacity="1"/><stop offset="0.55" stop-color="#7A5A05" stop-opacity="1"/><stop offset="1" stop-color="#7A5A05" stop-opacity="1"/></linearGradient>
+<linearGradient id="Lsigmaoctagontechno0g" x1="0%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.1"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<radialGradient id="Lsigmaoctagontechno0c" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#FFD34E" stop-opacity="1"/><stop offset="1" stop-color="#D8A21C" stop-opacity="1"/></radialGradient>
+</defs>
+<path d="M42 8 H86 L120 42 V86 L86 120 H42 L8 86 V42 Z" fill="url(#Lsigmaoctagontechno0p)"/>
+<g transform="translate(64,64) scale(.86) translate(-64,-64)"><path d="M42 8 H86 L120 42 V86 L86 120 H42 L8 86 V42 Z" fill="url(#Lsigmaoctagontechno0i)" opacity=".55"/></g>
+<g transform="translate(64,64) scale(.74) translate(-64,-64)"><path d="M42 8 H86 L120 42 V86 L86 120 H42 L8 86 V42 Z" fill="url(#Lsigmaoctagontechno0c)"/></g>
+<path d="M69.19 82.53H62.32L73.18 64.16L64.57 51.37H76.84L79.09 43.98H51.46L64.95 64.28L50.44 89.02H71.25Q75.04 89.02 77.29 87.38Q79.54 85.74 80.56 82.14L75.30 79.32Q74.91 80.66 74.11 81.34Q73.31 82.01 72.08 82.27Q70.86 82.53 69.19 82.53Z" fill="#7A5A05" fill-opacity=".3"/><path d="M67.69 80.03H60.82L71.68 61.66L63.07 48.87H75.34L77.59 41.48H49.96L63.45 61.78L48.94 86.52H69.75Q73.54 86.52 75.79 84.88Q78.04 83.24 79.06 79.64L73.80 76.82Q73.41 78.16 72.61 78.84Q71.81 79.51 70.58 79.77Q69.36 80.03 67.69 80.03Z" fill="#FFFFFF"/>
+<path d="M42 8 H86 L120 42 V86 L86 120 H42 L8 86 V42 Z" fill="url(#Lsigmaoctagontechno0g)"/>
+<path d="M42 8 H86 L120 42 V86 L86 120 H42 L8 86 V42 Z" fill="none" stroke="#7A5A05" stroke-opacity=".45" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

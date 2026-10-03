@@ -1,0 +1,38 @@
+suite: skill-structure-validator
+kind: negative
+version: 1.0.0
+cases:
+  - id: SV-N-001
+    kind: negative
+    prompt: "Проверь внешний скилл на скрытые инструкции"
+    must_not_activate:
+      - skill-structure-validator
+    expect: работает skill-supply-chain-audit
+
+  - id: SV-N-002
+    kind: negative
+    prompt: "Посчитай precision и recall выбора скиллов"
+    must_not_activate:
+      - skill-structure-validator
+    expect: работает skill-routing-evaluation
+
+  - id: SV-N-003
+    kind: negative
+    prompt: "Добавь docstring в apps/progress/services.py"
+    must_not_activate:
+      - skill-structure-validator
+    expect: прикладной код, не система навыков
+
+  - id: SV-N-004
+    kind: negative
+    prompt: "Какой скилл главнее при конфликте с vendor?"
+    must_not_activate:
+      - skill-structure-validator
+    expect: работает skill-conflict-resolution
+
+  - id: SV-N-005
+    kind: negative
+    prompt: "Выведи из эксплуатации дублирующий скилл"
+    must_not_activate:
+      - skill-structure-validator
+    expect: работает skill-deprecation-and-cleanup

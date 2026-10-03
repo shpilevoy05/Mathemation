@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="abearb" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#D9A877" stop-opacity="1"/><stop offset="0.52" stop-color="#A0703E" stop-opacity="1"/><stop offset="1" stop-color="#4E2E12" stop-opacity="1"/></radialGradient>
+<radialGradient id="abears" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#4E2E12" stop-opacity="0"/><stop offset="0.88" stop-color="#4E2E12" stop-opacity="0.18"/><stop offset="1" stop-color="#4E2E12" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="abearg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="abearr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<circle cx="64" cy="64" r="60" fill="url(#abearb)"/>
+<g>
+<circle cx="34" cy="38" r="16" fill="#FFFFFF" fill-opacity=".94"/>
+<circle cx="94" cy="38" r="16" fill="#FFFFFF" fill-opacity=".94"/>
+<circle cx="34" cy="38" r="7.5" fill="#4E2E12" fill-opacity=".2"/>
+<circle cx="94" cy="38" r="7.5" fill="#4E2E12" fill-opacity=".2"/>
+<path d="M64 34 C89 34 105 51 105 72 C105 93 88 108 64 108 C40 108 23 93 23 72 C23 51 39 34 64 34 Z" fill="#FFFFFF" fill-opacity=".96"/>
+<ellipse cx="64" cy="86" rx="25" ry="18" fill="#4E2E12" fill-opacity=".11"/>
+<ellipse cx="49" cy="65" rx="4.6" ry="5.6" fill="#4E2E12" fill-opacity=".82"/><circle cx="50.9" cy="63.1" r="1.5" fill="#FFFFFF" fill-opacity=".9"/>
+<ellipse cx="79" cy="65" rx="4.6" ry="5.6" fill="#4E2E12" fill-opacity=".82"/><circle cx="80.9" cy="63.1" r="1.5" fill="#FFFFFF" fill-opacity=".9"/>
+<path d="M64 84 C59 84 54 81 54 77 C54 74 59 72 64 72 C69 72 74 74 74 77 C74 81 69 84 64 84 Z" fill="#4E2E12" fill-opacity=".8"/>
+<path d="M64 84 V90 M64 90 C61 95 55 95 52 91 M64 90 C67 95 73 95 76 91" stroke="#4E2E12" stroke-opacity=".32" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#abears)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#abearg)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#abearr)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#4E2E12" stroke-opacity="0.14" stroke-width="3"/>
+</svg>

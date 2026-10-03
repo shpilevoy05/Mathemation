@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Задание дня {{ challenge_date|date:'d.m.Y' }} · Матемация{% endblock %}
+{% block content %}
+<div class="studio-page">
+  <header class="page-heading"><div><p>Задания дня</p><h1>{{ challenge_date|date:'d.m.Y' }}</h1>{% if is_past %}<span class="chip chip-mute">только чтение</span>{% endif %}</div><div class="studio-actions"><a class="button" href="{% url 'studio_daily' %}">К календарю</a></div></header>
+  {% if is_past %}
+    <section class="form-section"><h2>{{ challenge.title|default:challenge.assignment.title }}</h2>{% if challenge %}<p>{{ challenge.description|default:'Без описания' }}</p><p>Задача: {{ challenge.assignment.title }}</p><p>Награда: {{ challenge.reward_xp }} XP</p><span class="chip {% if challenge.is_active %}chip-live{% else %}chip-mute{% endif %}">{% if challenge.is_active %}активно{% else %}выключено{% endif %}</span>{% else %}<p class="empty-copy">На эту дату задание не назначалось.</p>{% endif %}</section>
+  {% else %}
+    <form class="studio-filters" method="get">
+      {% include "studio/_field.html" with field=picker_filter_form.q %}{% include "studio/_field.html" with field=picker_filter_form.node %}{% include "studio/_field.html" with field=picker_filter_form.ege %}{% include "studio/_field.html" with field=picker_filter_form.part %}<button class="button" type="submit">Найти задачу</button>
+    </form>
+    <form class="studio-form" method="post">{% csrf_token %}
+      {% for error in form.non_field_errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+      <section class="form-section"><h2>Основное</h2><div class="form-grid">{% include "studio/_field.html" with field=form.date %}{% include "studio/_field.html" with field=form.title %}{% include "studio/_field.html" with field=form.description wide=True %}{% include "studio/_field.html" with field=form.reward_xp %}{% include "studio/_field.html" with field=form.is_active %}</div></section>
+      <section class="form-section"><h2>Задача</h2>{% include "studio/_task_picker.html" %}</section>
+      <div class="studio-actions"><button class="button button-primary" type="submit" name="action" value="save">Сохранить</button>{% if can_delete %}<button class="button button-danger" type="submit" name="action" value="delete">Удалить</button>{% endif %}</div>
+      {% if challenge and not can_delete %}<p class="field-hint">Удалить можно только будущее задание дня.</p>{% endif %}
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

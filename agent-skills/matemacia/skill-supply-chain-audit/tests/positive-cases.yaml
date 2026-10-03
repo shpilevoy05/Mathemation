@@ -1,0 +1,40 @@
+suite: skill-supply-chain-audit
+kind: positive
+version: 1.0.0
+cases:
+  - id: SCA-P-001
+    kind: positive
+    prompt: "Хочу подключить репозиторий acme/awesome-skills в agent-skills/vendor"
+    expected:
+      - skill-supply-chain-audit
+    expect: verdict в отчёте, findings перечислены, установка не выполнена до PASS
+
+  - id: SCA-P-002
+    kind: positive
+    prompt: "Обнови commit SHA для vendor-скилла postgres-best-practices"
+    expected:
+      - skill-vendor-update-governance
+      - skill-supply-chain-audit
+    expect: аудит запускается на новом SHA, PASS предыдущего аудита не наследуется
+
+  - id: SCA-P-003
+    kind: positive
+    prompt: "В vendor-скилле поменялся scripts/setup.ps1, это нормально?"
+    expected:
+      - skill-supply-chain-audit
+    expect: скрипт читается целиком, findings по динамическому исполнению и сети
+
+  - id: SCA-P-004
+    kind: positive
+    prompt: "Локальное содержимое vendor расходится с skills.lock.yaml"
+    expected:
+      - skill-supply-chain-audit
+      - skills-ci-integrity
+    expect: verdict + требование восстановить состояние из lock
+
+  - id: SCA-P-005
+    kind: positive
+    prompt: "В скилле есть install.sh с curl | bash — что делать?"
+    expected:
+      - skill-supply-chain-audit
+    expect: AUD-021 critical, verdict BLOCK, подключение запрещено

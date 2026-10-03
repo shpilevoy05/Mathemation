@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Задачи · Матемация{% endblock %}
+{% block content %}
+<div class="studio-page">
+  <header class="page-heading"><div><p>Рабочее место методиста</p><h1>Задачи</h1></div><div class="studio-actions"><a class="button button-primary" href="{% url 'studio_task_new' %}">Создать задачу</a></div></header>
+  <form class="studio-filters" method="get">
+    <label for="task-q">Поиск</label><input id="task-q" name="q" value="{{ filters.q }}" placeholder="Поиск по названию и условию">
+    <label for="task-cluster">Кластер</label><select id="task-cluster" name="cluster"><option value="">Все разделы</option>{% for cluster in clusters %}<option value="{{ cluster.pk }}"{% if filters.cluster == cluster.pk|stringformat:'s' %} selected{% endif %}>{{ cluster.title }}</option>{% endfor %}</select>
+    <label for="task-node">Тема</label><select id="task-node" name="node"><option value="">Все темы</option>{% regroup nodes by cluster as node_groups %}{% for group in node_groups %}<optgroup label="{{ group.grouper.title }}">{% for node in group.list %}<option value="{{ node.pk }}"{% if filters.node == node.pk|stringformat:'s' %} selected{% endif %}>{{ node.title }}</option>{% endfor %}</optgroup>{% endfor %}</select>
+    <label for="task-ege">Номер ЕГЭ</label><input id="task-ege" name="ege" type="number" min="1" max="19" value="{{ filters.ege }}" placeholder="№ ЕГЭ">
+    <label for="task-part">Часть</label><select id="task-part" name="part"><option value="">Любая часть</option>{% for value, label in parts %}<option value="{{ value }}"{% if filters.part == value|stringformat:'s' %} selected{% endif %}>Часть {{ value }}</option>{% endfor %}</select>
+    <label for="task-difficulty">Сложность</label><select id="task-difficulty" name="difficulty"><option value="">Любая сложность</option>{% for value in '12345' %}<option value="{{ value }}"{% if filters.difficulty == value %} selected{% endif %}>Сложность {{ value }}</option>{% endfor %}</select>
+    <label for="task-arena">В арене</label><select id="task-arena" name="arena"><option value="">Арена: любые</option><option value="yes"{% if filters.arena == 'yes' %} selected{% endif %}>В арене</option><option value="no"{% if filters.arena == 'no' %} selected{% endif %}>Не в арене</option></select>
+    <label for="task-answer">Ответ</label><select id="task-answer" name="missing_answer"><option value="">Ответ: любой</option><option value="yes"{% if filters.missing_answer == 'yes' %} selected{% endif %}>Без ответа</option></select>
+    <label for="task-solution">Разбор</label><select id="task-solution" name="missing_solution"><option value="">Разбор: любой</option><option value="yes"{% if filters.missing_solution == 'yes' %} selected{% endif %}>Без разбора</option></select>
+    <button class="button" type="submit">Показать</button>
+  </form>
+  {% if page.object_list %}<div class="studio-table-wrap"><table class="data-table"><thead><tr><th>Название</th><th>Темы</th><th>Часть</th><th>Сложность</th><th>Тип ответа</th><th>Арена</th><th>Версии</th></tr></thead><tbody>
+    {% for assignment in page.object_list %}<tr><td><a href="{% url 'studio_task_edit' assignment.pk %}">{{ assignment.title }}</a></td><td>{% for node in assignment.skills.all %}{{ node.title }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td><td class="num">{{ assignment.exam_part }}</td><td class="num">{{ assignment.difficulty }}</td><td>{{ assignment.get_answer_type_display }}</td><td>{% if assignment.arena_enabled %}<span class="chip chip-live">да</span>{% else %}<span class="chip chip-mute">нет</span>{% endif %}</td><td>{{ assignment.version_count }}</td></tr>{% endfor %}
+  </tbody></table></div>{% else %}<p class="empty-copy">Задачи не найдены.</p>{% endif %}
+  {% if page.paginator.num_pages > 1 %}<nav class="pager" aria-label="Страницы">{% if page.has_previous %}<a class="button" href="?{% if page_query %}{{ page_query }}&amp;{% endif %}page={{ page.previous_page_number }}">Назад</a>{% endif %}<span>Страница {{ page.number }} из {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a class="button" href="?{% if page_query %}{{ page_query }}&amp;{% endif %}page={{ page.next_page_number }}">Дальше</a>{% endif %}</nav>{% endif %}
+</div>
+{% endblock %}

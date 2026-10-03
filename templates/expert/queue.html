@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Проверка работ · Матемация{% endblock %}
+{% block content %}
+{% if not allowed %}
+  <section class="empty-state"><h1>Проверка работ</h1><p>Кабинет эксперта недоступен для вашей роли.</p></section>
+{% else %}
+  <header class="page-heading hero"><div><h1>Проверка работ</h1><p>Вторая часть: живой эксперт — финальный арбитр</p></div></header>
+  <section class="stat-grid backoffice-stats" aria-label="Статистика очереди">
+    <article class="stat-tile"><span class="stat-icon">🧾</span><div><strong>{{ pending_count }}</strong><h2>В очереди</h2></div></article>
+    <article class="stat-tile"><span class="stat-icon">⏰</span><div><strong{% if overdue_count %} class="text-danger"{% endif %}>{{ overdue_count }}</strong><h2>Просрочено SLA</h2></div></article>
+    <article class="stat-tile"><span class="stat-icon">✓</span><div><strong>{{ reviewed_last_7d }}</strong><h2>Проверено за 7 дней</h2></div></article>
+  </section>
+
+  <section class="backoffice-section"><h2>Очередь</h2>
+    <div class="review-queue">
+      {% for item in pending_reviews %}
+        <article class="card review-queue-card hover-lift">
+          <div><strong>{{ item.student.user.username }}</strong><span>{{ item.assignment.title }}</span>{% if item.mock_result_id %}<span class="chip">Пробник</span>{% endif %}</div>
+          <span class="muted">загружено {{ item.age_hours }} ч назад</span>
+          <div class="queue-actions">
+            {% if item.is_overdue %}<span class="chip danger-soft">просрочено</span>{% else %}<span class="chip {{ item.sla_tone }}-soft">до {{ item.sla_deadline|date:"d.m H:i" }}</span>{% endif %}
+            <a class="button button-primary" href="{% url 'expert_review' item.id %}">Проверить</a>
+          </div>
+        </article>
+      {% empty %}
+        <article class="card empty-copy">Очередь пуста 🎉</article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="backoffice-section"><h2>Эскалации наставника</h2>
+    <div class="review-queue">
+      {% for session in escalations %}
+        <article class="card escalation-card">
+          <div class="section-heading"><div><strong>{{ session.student.user.username }}</strong><p>{{ session.assignment.title }}</p></div><span class="chip">Подсказок: {{ session.hints_used }}</span></div>
+          <details><summary>Показать переписку</summary><div class="message-list">
+            {% for message in session.messages.all %}
+              <div class="message {% if message.role == 'student' %}message-student{% else %}message-mentor{% endif %}">
+                {{ message.text }}
+                {% if message.is_blocked %}<strong class="blocked-mark">⛔ заблокировано гардрейлом</strong>{% endif %}
+                {% if message.failed_claims %}<small>failed_claims: {{ message.failed_claims }}</small>{% endif %}
+              </div>
+            {% empty %}<p class="muted">Сообщений нет.</p>{% endfor %}
+          </div></details>
+        </article>
+      {% empty %}<article class="card empty-copy">Новых эскалаций нет.</article>{% endfor %}
+    </div>
+  </section>
+{% endif %}
+{% endblock %}

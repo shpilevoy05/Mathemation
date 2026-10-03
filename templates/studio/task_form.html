@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{% if assignment.pk %}{{ assignment.title }}{% else %}Новая задача{% endif %} · Матемация{% endblock %}
+{% block content %}
+<div class="studio-page">
+  <header class="page-heading"><div><p>Задачи</p><h1>{% if assignment.pk %}{{ assignment.title }}{% else %}Новая задача{% endif %}</h1></div><div class="studio-actions"><a class="button" href="{% url 'studio_tasks' %}">К списку</a></div></header>
+  <form class="studio-form" method="post" data-formset="skills">{% csrf_token %}
+    {% for error in form.non_field_errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    <section class="form-section"><h2>Основное</h2><div class="form-grid">
+      {% include "studio/_field.html" with field=form.title %}{% include "studio/_field.html" with field=form.lesson %}
+      {% include "studio/_field.html" with field=form.statement wide=True %}
+      {% include "studio/_field.html" with field=form.exam_part %}{% include "studio/_field.html" with field=form.difficulty %}
+      {% include "studio/_field.html" with field=form.max_score %}{% include "studio/_field.html" with field=form.arena_enabled %}
+    </div></section>
+    <section class="form-section"><h2>Ответ и разбор</h2><div class="form-grid">
+      {% include "studio/_field.html" with field=form.answer_type %}{% include "studio/_field.html" with field=form.correct_answer %}
+      {% include "studio/_field.html" with field=form.answer_spec wide=True answer_spec=True %}
+      {% include "studio/_field.html" with field=form.reference_solution wide=True %}
+      {% if assignment.pk and has_attempts %}{% include "studio/_field.html" with field=form.change_note wide=True %}{% endif %}
+    </div></section>
+    <section class="form-section"><h2>Темы и вес</h2>
+      {{ skill_formset.management_form }}{% for error in skill_formset.non_form_errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+      <div class="formset" data-formset-rows>{% for skill_form in skill_formset %}<div class="formset-row" data-formset-row><div class="form-grid">
+        {% for hidden in skill_form.hidden_fields %}{{ hidden }}{% endfor %}{% include "studio/_field.html" with field=skill_form.node %}{% include "studio/_field.html" with field=skill_form.weight %}
+        {{ skill_form.DELETE.as_hidden }}<button class="button button-small" type="button" data-formset-remove>Убрать</button>
+      </div></div>{% endfor %}</div>
+      <template data-formset-template><div class="formset-row" data-formset-row><div class="form-grid">{% with skill_form=skill_formset.empty_form %}{% for hidden in skill_form.hidden_fields %}{{ hidden }}{% endfor %}{% include "studio/_field.html" with field=skill_form.node %}{% include "studio/_field.html" with field=skill_form.weight %}{{ skill_form.DELETE.as_hidden }}<button class="button button-small" type="button" data-formset-remove>Убрать</button>{% endwith %}</div></div></template>
+      <button class="button button-small" type="button" data-formset-add>Добавить тему</button>
+    </section>
+    <div class="studio-actions"><button class="button button-primary" type="submit">Сохранить</button></div>
+  </form>
+  {% if assignment.pk %}<section class="form-section"><h2>История версий</h2>
+    {% if versions %}<div class="studio-table-wrap"><table class="data-table"><thead><tr><th>Версия</th><th>Дата</th><th>Автор</th><th>Комментарий</th></tr></thead><tbody>{% for version in versions %}<tr><td>{{ version.number }}</td><td>{{ version.created_at|date:'d.m.Y H:i' }}</td><td>{{ version.created_by.username|default:'—' }}</td><td>{{ version.change_note|default:'—' }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty-copy">Версий пока нет.</p>{% endif %}
+  </section>{% endif %}
+</div>
+{% endblock %}

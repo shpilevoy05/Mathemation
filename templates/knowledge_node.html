@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ node.title|default:"Узел" }} — Матемация{% endblock %}
+{% block content %}
+{% if not student %}<section class="empty-state"><h1>Узел карты навыков</h1><p>Этот раздел доступен ученикам.</p></section>{% else %}
+<a class="back-link" href="{% url 'knowledge_map' %}">← К карте навыков</a>
+<section class="hero compact-hero"><div><p class="eyebrow">{{ node.cluster.title }} · часть {{ node.exam_part }}</p><h1>{{ node.title }}</h1><p><span class="status-pill state-{{ node_state.state }}">{{ node_state.label }}</span> · освоение {{ node_state.mastery|floatformat:0 }}%</p></div><div class="hero-actions"><a class="button button-primary" href="{% url 'lesson' node.id %}">К уроку</a><a class="button" href="{% url 'lesson' node.id %}#tasks">Практика</a></div></section>
+<div class="content-grid"><section class="card card-wide"><p class="eyebrow">Коротко и по делу</p><h2>Теория</h2>{% for block in theory_blocks %}<article class="theory-block"><h3>{{ block.title }}</h3><div>{{ block.body|linebreaksbr }}</div></article>{% empty %}<p>Конспект для этого узла готовится.</p>{% endfor %}</section><aside class="card"><p class="eyebrow">История</p><h2>Ошибки по узлу</h2>{% if mistakes %}<ul class="plain-list">{% for mistake in mistakes %}<li><strong>{{ mistake.error_type }}</strong><span>{{ mistake.assignment }}</span><small>{{ mistake.status }} · {{ mistake.error_count }} раз</small></li>{% endfor %}</ul>{% else %}<p>Ошибок по этому узлу пока нет.</p>{% endif %}</aside></div>
+{% endif %}{% endblock %}

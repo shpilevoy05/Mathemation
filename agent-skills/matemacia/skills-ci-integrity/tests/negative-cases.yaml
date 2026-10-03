@@ -1,0 +1,38 @@
+suite: skills-ci-integrity
+kind: negative
+version: 1.0.0
+cases:
+  - id: CI-N-001
+    kind: negative
+    prompt: "Почему падает pytest в apps/practice?"
+    must_not_activate:
+      - skills-ci-integrity
+    expect: прикладные тесты, целостность навыков не при чём
+
+  - id: CI-N-002
+    kind: negative
+    prompt: "Оцени, какие скиллы реально полезны за последний месяц"
+    must_not_activate:
+      - skills-ci-integrity
+    expect: работает skill-observability-and-usage-analytics
+
+  - id: CI-N-003
+    kind: negative
+    prompt: "Проверь новый внешний репозиторий на prompt injection"
+    must_not_activate:
+      - skills-ci-integrity
+    expect: работает skill-supply-chain-audit
+
+  - id: CI-N-004
+    kind: negative
+    prompt: "Прогони golden tasks на Codex и сравни с Claude Code"
+    must_not_activate:
+      - skills-ci-integrity
+    expect: работают skill-golden-task-runner и skill-cross-agent-consistency
+
+  - id: CI-N-005
+    kind: negative
+    prompt: "Обнови README проекта"
+    must_not_activate:
+      - skills-ci-integrity
+    expect: правка документации без влияния на систему навыков

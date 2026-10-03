@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Домашки — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Домашние задания</h1><p>Раздел доступен ученику.</p></section>
+{% else %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Задания от куратора</p>
+      <h1>Домашки</h1>
+      <p>Задача засчитывается, где бы ты её ни решил: на дорожке, в занятии или здесь. Домашка закроется сама, когда решены все задачи.</p>
+    </div>
+    <span class="item-type-chip">{{ open_count }} в работе</span>
+  </div>
+
+  {% for row in homework_rows %}
+    <section class="card homework-card" data-homework="{{ row.submission.id }}">
+      <div class="section-heading">
+        <div>
+          <h2>{{ row.homework.title }}</h2>
+          <small>
+            решено {{ row.progress.solved }} из {{ row.progress.total }}
+            {% if row.homework.due_at %} · до {{ row.homework.due_at|date:"d.m H:i" }}{% endif %}
+            {% if row.overdue %} · <strong class="form-error">просрочено</strong>{% endif %}
+          </small>
+        </div>
+        {% if row.progress.is_complete %}
+          <span class="quest-check">Готово</span>
+        {% elif row.submission.status == "submitted" %}
+          <span class="item-type-chip">Сдано</span>
+        {% else %}
+          <button class="button button-secondary button-small" type="button"
+                  data-submit-homework="/api/homework/{{ row.submission.id }}/submit/">Сдать как есть</button>
+        {% endif %}
+      </div>
+      {% if row.homework.description %}<p>{{ row.homework.description }}</p>{% endif %}
+      <div class="quest-progress"><span style="width: {{ row.percent }}%"></span></div>
+      <ul class="plain-list">
+        {% for task in row.tasks %}
+          <li>
+            <strong>{{ task.assignment.title }}</strong>
+            {% if task.node %}<small>{{ task.node.title }}</small>{% endif %}
+            {% if task.url %}<a class="link-button" href="{{ task.url }}">Решать →</a>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="form-error" data-homework-error hidden></p>
+    </section>
+  {% empty %}
+    <section class="empty-state">
+      <h2>Домашек пока нет</h2>
+      <p>Куратор выдаст задание — оно появится здесь и в плане.</p>
+      <a class="button button-primary" href="{% url 'track' %}">К дорожке</a>
+    </section>
+  {% endfor %}
+{% endif %}
+{% endblock %}

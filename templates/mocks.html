@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Пробники — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Пробники</h1><p>Для этого аккаунта кабинет ученика недоступен.</p></section>
+{% else %}
+  <section class="page-heading"><div><p class="eyebrow">Экзаменационный режим</p><h1>Пробники</h1><p class="empty-copy">Честная тренировка в формате ЕГЭ. Наставник во время работы отключён.</p></div></section>
+  <div class="content-grid">
+    {% for item in active_mocks %}
+      <article class="card">
+        <p class="eyebrow">{{ item.exam.duration_minutes }} минут</p><h2>{{ item.exam.title }}</h2>
+        <p>{{ item.exam.assignments.count }} задач</p>
+        {% if item.latest_result.status == 'in_progress' %}
+          <a class="button button-primary" href="{% url 'mock_run' item.latest_result.id %}">Продолжить</a>
+        {% else %}
+          <button class="button button-primary" type="button" data-start-mock="/api/mocks/{{ item.exam.id }}/start/">Начать</button>
+        {% endif %}
+      </article>
+    {% empty %}<section class="empty-state card-wide"><h2>Активных пробников пока нет</h2></section>{% endfor %}
+  </div>
+  <section class="card mock-history">
+    <h2>Прошлые результаты</h2>
+    {% if mock_history %}<ul class="plain-list">{% for item in mock_history %}
+      <li class="mock-history-row"><a href="{% url 'mock_result' item.result.id %}"><strong>{{ item.result.exam.title }}</strong></a><span class="muted">{{ item.status_label }} · часть 1: {{ item.result.primary_score }}{% if item.result.scaled_score is not None %} · {{ item.result.scaled_score }} тестовых{% endif %}</span></li>
+    {% endfor %}</ul>{% else %}<p class="empty-copy">Здесь появятся результаты после первого пробника.</p>{% endif %}
+  </section>
+{% endif %}
+{% endblock %}

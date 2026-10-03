@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" fill="none">
+<defs>
+<linearGradient id="aauroraa1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#7FF0D8" stop-opacity="0"/><stop offset="0.25" stop-color="#7FF0D8" stop-opacity="1"/><stop offset="0.75" stop-color="#2FC9C0" stop-opacity="1"/><stop offset="1" stop-color="#2FC9C0" stop-opacity="0"/></linearGradient><linearGradient id="aauroraa2" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#B79BF2" stop-opacity="0"/><stop offset="0.3" stop-color="#B79BF2" stop-opacity="1"/><stop offset="0.8" stop-color="#7B5CD6" stop-opacity="1"/><stop offset="1" stop-color="#7B5CD6" stop-opacity="0"/></linearGradient><linearGradient id="aauroraa3" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0" stop-color="#0A5A6E" stop-opacity="0"/><stop offset="0.35" stop-color="#2FC9C0" stop-opacity="1"/><stop offset="1" stop-color="#7FF0D8" stop-opacity="0"/></linearGradient>
+</defs>
+<g transform="rotate(0 80 80)">
+<path class="au-band" style="--i:0" d="M7.56 99.41 A75 75 0 1 1 123.02 141.44" fill="none" stroke="url(#aauroraa1)" stroke-width="6.5" stroke-linecap="round"/>
+<path class="au-band" style="--i:1" d="M130.56 122.42 A66 66 0 1 1 74.25 14.25" fill="none" stroke="url(#aauroraa2)" stroke-width="5.0" stroke-linecap="round"/>
+<path class="au-band" style="--i:2" d="M60.33 25.97 A57.5 57.5 0 1 1 60.33 134.03" fill="none" stroke="url(#aauroraa3)" stroke-width="3.2" stroke-linecap="round"/>
+<path d="M139.8 125.1 L141.2 128.7 L144.8 130.1 L141.2 131.5 L139.8 135.1 L138.4 131.5 L134.8 130.1 L138.4 128.7 Z" fill="#2FC9C0"/>
+<path d="M40.2 108.4 L41.6 112.0 L45.2 113.4 L41.6 114.8 L40.2 118.4 L38.8 114.8 L35.2 113.4 L38.8 112.0 Z" fill="#2FC9C0"/>
+<path d="M15.3 29.7 L16.7 33.3 L20.3 34.7 L16.7 36.1 L15.3 39.7 L13.9 36.1 L10.3 34.7 L13.9 33.3 Z" fill="#2FC9C0"/>
+<path d="M106.5 29.1 L107.9 32.7 L111.5 34.1 L107.9 35.5 L106.5 39.1 L105.1 35.5 L101.5 34.1 L105.1 32.7 Z" fill="#2FC9C0"/>
+<path d="M148.9 62.8 L150.3 66.4 L153.9 67.8 L150.3 69.2 L148.9 72.8 L147.5 69.2 L143.9 67.8 L147.5 66.4 Z" fill="#2FC9C0"/>
+</g>
+</svg>

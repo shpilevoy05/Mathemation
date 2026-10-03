@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{% if node.pk %}{{ node.title }}{% else %}Новая тема{% endif %} · Матемация{% endblock %}
+{% block content %}
+<div class="studio-page">
+  <header class="page-heading"><div><p>Граф знаний</p><h1>{% if node.pk %}{{ node.title }}{% else %}Новая тема{% endif %}</h1>{% if is_markup_managed %}<span class="chip chip-warn">из методической книги</span>{% endif %}</div><div class="studio-actions"><a class="button" href="{% url 'studio_graph' %}">К графу</a></div></header>
+  <form class="studio-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="save">
+    {% for error in form.non_field_errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+    <section class="form-section"><h2>Тема</h2><div class="form-grid">
+      {% include "studio/_field.html" with field=form.code %}{% include "studio/_field.html" with field=form.title %}
+      {% include "studio/_field.html" with field=form.cluster %}{% include "studio/_field.html" with field=form.ege_numbers %}
+      {% include "studio/_field.html" with field=form.hours_estimate %}{% include "studio/_field.html" with field=form.weight %}
+    </div>
+    {% if node.pk %}<p class="field-hint">Тип: {{ node.get_node_type_display }}. Класс: {{ node.get_skill_class_display }}. Часть экзамена: {{ node.exam_part }}. Эти свойства доступны только для чтения.</p>{% endif %}
+    <div class="studio-actions"><button class="button button-primary" type="submit">Сохранить</button></div></section>
+  </form>
+  {% if node.pk %}
+  <section class="form-section"><h2>Требуется для изучения</h2>
+    {% if prerequisites %}<div class="studio-table-wrap"><table class="data-table"><thead><tr><th>Тема</th><th>Вид</th><th>Порог</th><th>Действия</th></tr></thead><tbody>{% for dependency in prerequisites %}<tr><td><a href="{% url 'studio_node_edit' dependency.prerequisite_id %}">{{ dependency.prerequisite.title }}</a>{% if dependency.is_markup_managed %} <span class="chip chip-warn">из методической книги</span>{% endif %}</td><td>{{ dependency.get_kind_display|lower }}</td><td>{{ dependency.min_mastery }}%</td><td><form method="post" action="{% url 'studio_dependency_delete' node.pk dependency.pk %}" onsubmit="return confirm('Удалить связь?');">{% csrf_token %}<button class="button button-danger button-small" type="submit">Удалить</button></form></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty-copy">Предварительных тем нет.</p>{% endif %}
+  </section>
+  <section class="form-section"><h2>Открывает</h2>
+    {% if dependents %}<div class="studio-table-wrap"><table class="data-table"><thead><tr><th>Тема</th><th>Вид</th><th>Порог</th><th>Действия</th></tr></thead><tbody>{% for dependency in dependents %}<tr><td><a href="{% url 'studio_node_edit' dependency.node_id %}">{{ dependency.node.title }}</a>{% if dependency.is_markup_managed %} <span class="chip chip-warn">из методической книги</span>{% endif %}</td><td>{{ dependency.get_kind_display|lower }}</td><td>{{ dependency.min_mastery }}%</td><td><form method="post" action="{% url 'studio_dependency_delete' node.pk dependency.pk %}" onsubmit="return confirm('Удалить связь?');">{% csrf_token %}<button class="button button-danger button-small" type="submit">Удалить</button></form></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty-copy">Эта тема пока ничего не открывает.</p>{% endif %}
+  </section>
+  <form class="studio-form" method="post">{% csrf_token %}<input type="hidden" name="action" value="add_dependency">
+    <section class="form-section"><h2>Добавить связь</h2>{% for error in dependency_form.non_field_errors %}<p class="form-error">{{ error }}</p>{% endfor %}<div class="form-grid">
+      {% include "studio/_field.html" with field=dependency_form.direction %}{% include "studio/_field.html" with field=dependency_form.other_node %}
+      {% include "studio/_field.html" with field=dependency_form.kind %}{% include "studio/_field.html" with field=dependency_form.min_mastery %}
+    </div><div class="studio-actions"><button class="button button-primary" type="submit">Добавить связь</button></div></section>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

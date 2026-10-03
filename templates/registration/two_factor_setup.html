@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Второй фактор — Матемация{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <section class="auth-card">
+    <div class="auth-brand">{% include "partials/logo.html" with size="lg" %}</div>
+    {% if recovery_codes %}
+      <h1>Фактор настроен</h1>
+      <p>Сохраните резервные коды. Каждый работает один раз и заменяет код из приложения, если телефон потерян.</p>
+      <ul class="recovery-codes">
+        {% for code in recovery_codes %}<li class="num">{{ code }}</li>{% endfor %}
+      </ul>
+      <p class="disclaimer">Эти коды показываются один раз: в базе хранятся только их отпечатки. Сохраните их отдельно от телефона.</p>
+      <p><a class="button button-primary" href="{% url 'dashboard' %}">Продолжить</a></p>
+    {% else %}
+      <h1>Настройте второй фактор</h1>
+      <p>Ваша роль открывает данные учеников и настройки платформы, поэтому одного пароля недостаточно.</p>
+      <ol class="plain-list">
+        <li><strong>Откройте приложение-аутентификатор</strong><small>Подойдёт любое: оно считает коды по стандарту TOTP.</small></li>
+        <li><strong>Добавьте аккаунт вручную</strong><small>Ключ ниже, тип — по времени, 6 цифр, шаг 30 секунд.</small></li>
+        <li><strong>Введите код из приложения</strong><small>Так проверяется, что ключ записан без ошибки.</small></li>
+      </ol>
+      <p class="secret-key num">{{ secret }}</p>
+      <details class="theory-summary">
+        <summary><strong>Ссылка для приложения</strong><span>Открыть</span></summary>
+        <p class="otpauth-url">{{ otpauth_url }}</p>
+      </details>
+      {% if form.errors %}<p class="form-error">{{ form.code.errors|join:" " }}{{ form.non_field_errors|join:" " }}</p>{% endif %}
+      <form method="post" class="stack-form">
+        {% csrf_token %}
+        <label for="id_code">Код из приложения</label>
+        {{ form.code }}
+        <button class="button button-primary" type="submit">Подтвердить</button>
+      </form>
+    {% endif %}
+    <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="button" type="submit">Выйти</button></form>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="afractalb" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#FFA8C0" stop-opacity="1"/><stop offset="0.52" stop-color="#E0507A" stop-opacity="1"/><stop offset="1" stop-color="#7A1030" stop-opacity="1"/></radialGradient>
+<radialGradient id="afractals" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#7A1030" stop-opacity="0"/><stop offset="0.88" stop-color="#7A1030" stop-opacity="0.18"/><stop offset="1" stop-color="#7A1030" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="afractalg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="afractalr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<g transform="translate(64,64) scale(1.03) translate(-64,-64)">
+<circle cx="64" cy="64" r="60" fill="url(#afractalb)"/>
+<g>
+<polygon points="64,12 12,110 116,110" fill="none" stroke="#FFFFFF" stroke-opacity=".35" stroke-width="3"/>
+<polygon class="frc-tri" style="--i:0" points="64.0,16.0 52.0,38.5 76.0,38.5" fill="#FFFFFF" fill-opacity=".92"/><polygon class="frc-tri" style="--i:1" points="52.0,38.5 40.0,61.0 64.0,61.0" fill="#FFFFFF" fill-opacity=".92"/><polygon class="frc-tri" style="--i:2" points="76.0,38.5 64.0,61.0 88.0,61.0" fill="#FFFFFF" fill-opacity=".92"/><polygon class="frc-tri" style="--i:3" points="40.0,61.0 28.0,83.5 52.0,83.5" fill="#FFFFFF" fill-opacity=".92"/><polygon class="frc-tri" style="--i:4" points="28.0,83.5 16.0,106.0 40.0,106.0" fill="#FFFFFF" fill-opacity=".92"/><polygon class="frc-tri" style="--i:5" points="52.0,83.5 40.0,106.0 64.0,106.0" fill="#FFFFFF" fill-opacity=".92"/><polygon class="frc-tri" style="--i:6" points="88.0,61.0 76.0,83.5 100.0,83.5" fill="#FFFFFF" fill-opacity=".92"/><polygon class="frc-tri" style="--i:7" points="76.0,83.5 64.0,106.0 88.0,106.0" fill="#FFFFFF" fill-opacity=".92"/><polygon class="frc-tri" style="--i:8" points="100.0,83.5 88.0,106.0 112.0,106.0" fill="#FFFFFF" fill-opacity=".92"/>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#afractals)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#afractalg)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#afractalr)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#7A1030" stroke-opacity="0.14" stroke-width="3"/>
+</g>
+</svg>

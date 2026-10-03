@@ -1,0 +1,21 @@
+{% load cosmetics %}{% comment %}
+Сторона партии: аватар с надетой рамкой, имя и счёт.
+
+Соперник виден так же, как видит себя сам: купленная рамка иначе не имеет
+смысла. Счёт живой — это табло, а не подсказка.
+{% endcomment %}
+<div class="match-side{% if you %} is-me{% endif %}" data-side="{% if you %}me{% else %}rival{% endif %}">
+  <span class="avatar-badge avatar-badge--lg">
+    {% if side.avatar %}
+      <span class="avatar-art">{% cosmetic "avatar" side.avatar %}</span>
+    {% else %}
+      <span class="avatar-letter" aria-hidden="true">{{ side.letter|default:"?" }}</span>
+    {% endif %}
+    {% if side.frame %}<span class="frame-art">{% cosmetic "frame" side.frame %}</span>{% endif %}
+  </span>
+  <span class="match-side-body">
+    <b data-side-title>{% if you %}Вы{% else %}{{ side.title|default:"Соперник" }}{% endif %}</b>
+    <small class="muted" data-side-note>ответов: {{ side.answered|default:0 }}</small>
+  </span>
+  <strong class="num match-side-score" data-side-score>{{ side.score|default:0 }}</strong>
+</div>

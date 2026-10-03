@@ -1,0 +1,38 @@
+suite: skill-observability-and-usage-analytics
+kind: negative
+version: 1.0.0
+cases:
+  - id: OB-N-001
+    kind: negative
+    prompt: "Посчитай precision выбора скиллов на контрольном наборе"
+    must_not_activate:
+      - skill-observability-and-usage-analytics
+    expect: работает skill-routing-evaluation
+
+  - id: OB-N-002
+    kind: negative
+    prompt: "Сделай отчёт родителю о прогрессе ученика за неделю"
+    must_not_activate:
+      - skill-observability-and-usage-analytics
+    expect: продуктовая функция, не телеметрия навыков
+
+  - id: OB-N-003
+    kind: negative
+    prompt: "Выведи из эксплуатации дублирующий скилл"
+    must_not_activate:
+      - skill-observability-and-usage-analytics
+    expect: работает skill-deprecation-and-cleanup
+
+  - id: OB-N-004
+    kind: negative
+    prompt: "Дай вердикт приёмки системы навыков"
+    must_not_activate:
+      - skill-observability-and-usage-analytics
+    expect: работает skill-acceptance-suite
+
+  - id: OB-N-005
+    kind: negative
+    prompt: "Сохрани полный текст запросов учеников для анализа"
+    must_not_activate:
+      - skill-observability-and-usage-analytics
+    expect: запрос отклонён принципами приватности

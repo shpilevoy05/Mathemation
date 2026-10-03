@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="aorigamib" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#FFA694" stop-opacity="1"/><stop offset="0.52" stop-color="#EE6350" stop-opacity="1"/><stop offset="1" stop-color="#8E2A1B" stop-opacity="1"/></radialGradient>
+<radialGradient id="aorigamis" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#8E2A1B" stop-opacity="0"/><stop offset="0.88" stop-color="#8E2A1B" stop-opacity="0.18"/><stop offset="1" stop-color="#8E2A1B" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="aorigamig" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="aorigamir" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<g transform="translate(64,64) scale(1,1) translate(-64,-64)">
+<circle cx="64" cy="64" r="60" fill="url(#aorigamib)"/>
+<g>
+<path d="M46 100 L18 114 L54 106 Z" fill="#FFFFFF" fill-opacity=".7"/>
+<path class="orx-wing orx-wing--l" d="M62 62 L12 32 L52 88 Z" fill="#FFFFFF" fill-opacity=".96"/>
+<path class="orx-wing orx-wing--r" d="M66 62 L116 32 L76 88 Z" fill="#FFFFFF" fill-opacity=".76"/>
+<path d="M64 54 L82 102 L46 102 Z" fill="#FFFFFF" fill-opacity=".9"/>
+<path d="M62 56 L84 20 L106 14 L88 34 Z" fill="#FFFFFF" fill-opacity=".96"/>
+<path d="M62 56 L84 20" stroke="#8E2A1B" stroke-opacity=".2" stroke-width="3"/>
+<path d="M64 54 V102" stroke="#8E2A1B" stroke-opacity=".18" stroke-width="3"/>
+<circle cx="90" cy="26" r="2.8" fill="#8E2A1B" fill-opacity=".8"/>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#aorigamis)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#aorigamig)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#aorigamir)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#8E2A1B" stroke-opacity="0.14" stroke-width="3"/>
+</g>
+</svg>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="amobiusb" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#B7E8DC" stop-opacity="1"/><stop offset="0.52" stop-color="#2FA890" stop-opacity="1"/><stop offset="1" stop-color="#0A4E42" stop-opacity="1"/></radialGradient>
+<radialGradient id="amobiuss" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#0A4E42" stop-opacity="0"/><stop offset="0.88" stop-color="#0A4E42" stop-opacity="0.18"/><stop offset="1" stop-color="#0A4E42" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="amobiusg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="amobiusr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<g transform="translate(64,64) scale(1) translate(-64,-64)">
+<circle cx="64" cy="64" r="60" fill="url(#amobiusb)"/>
+<g>
+<polygon class="mb-face" style="--i:0" points="68.3,15.5 98.6,44.0 108.2,84.5 99.5,89.5 69.2,61.0 59.7,20.5" fill="#FFFFFF" fill-opacity="0.97"/><path d="M59.7,20.5 L69.2,61.0 L99.5,89.5" fill="none" stroke="#0A4E42" stroke-opacity=".30" stroke-width="2.4"/><polygon class="mb-face" style="--i:1" points="103.8,92.0 64.0,104.0 24.2,92.0 24.2,82.0 64.0,70.0 103.8,82.0" fill="#FFFFFF" fill-opacity="0.66"/><path d="M103.8,82.0 L64.0,70.0 L24.2,82.0" fill="none" stroke="#0A4E42" stroke-opacity=".30" stroke-width="2.4"/><polygon class="mb-face" style="--i:2" points="19.8,84.5 29.4,44.0 59.7,15.5 68.3,20.5 58.8,61.0 28.5,89.5" fill="#FFFFFF" fill-opacity="0.4"/><path d="M19.8,84.5 L58.8,61.0 L68.3,20.5" fill="none" stroke="#0A4E42" stroke-opacity=".30" stroke-width="2.4"/>
+<path class="mb-flow" pathLength="100" stroke-dasharray="7 7"
+      d="M64.0 18.0 L103.8 87.0 L24.2 87.0 Z"
+      fill="none" stroke="#FFFFFF" stroke-opacity=".85" stroke-width="3.4" stroke-linejoin="round"/>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#amobiuss)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#amobiusg)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#amobiusr)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#0A4E42" stroke-opacity="0.14" stroke-width="3"/>
+</g>
+</svg>

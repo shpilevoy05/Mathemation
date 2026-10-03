@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="aninjab" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#6C7896" stop-opacity="1"/><stop offset="0.52" stop-color="#3A4460" stop-opacity="1"/><stop offset="1" stop-color="#0D1223" stop-opacity="1"/></radialGradient>
+<radialGradient id="aninjas" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#0D1223" stop-opacity="0"/><stop offset="0.88" stop-color="#0D1223" stop-opacity="0.18"/><stop offset="1" stop-color="#0D1223" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="aninjag" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="aninjar" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<circle cx="64" cy="64" r="60" fill="url(#aninjab)"/>
+<g>
+<path d="M96 50 C108 44 120 44 126 48 C118 52 110 56 104 60 C114 62 122 68 126 74 C116 74 106 70 98 66 Z" fill="#FFFFFF" fill-opacity=".6"/>
+<circle cx="64" cy="64" r="35" fill="#FFFFFF" fill-opacity=".95"/>
+<path d="M30 56 C42 47 86 47 98 56 L98 76 C86 85 42 85 30 76 Z" fill="#0D1223" fill-opacity=".84"/>
+<path d="M42 66 C47 61 56 60 61 65 C56 70 47 71 42 66 Z" fill="#FFFFFF"/>
+<path d="M67 65 C72 60 81 61 86 66 C81 71 72 70 67 65 Z" fill="#FFFFFF"/>
+<circle cx="52" cy="65.5" r="2.6" fill="#0D1223"/>
+<circle cx="76" cy="65.5" r="2.6" fill="#0D1223"/>
+<path d="M40 55 L60 60 M88 55 L68 60" stroke="#FFFFFF" stroke-opacity=".45" stroke-width="2.6" stroke-linecap="round"/>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#aninjas)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#aninjag)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#aninjar)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#0D1223" stroke-opacity="0.14" stroke-width="3"/>
+</svg>
