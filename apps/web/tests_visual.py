@@ -78,15 +78,15 @@ class RenderedArtworkTests(TestCase):
     def setUp(self):
         self.client.force_login(self.user)
 
-    def test_student_page_contains_brand_and_arena_rank_symbols(self):
+    def test_student_page_contains_brand_mark_and_arena_rank_symbols(self):
         # Аватары, рамки и знаки месячных лиг едут спрайтом cosmetics.svg,
-        # в разметке страницы остаются только знак бренда и ранги арены.
+        # знак бренда — растровым mark.png, в разметке остаются ранги арены.
         response = self.client.get(reverse("dashboard"))
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'id="avatar-owl"')
+        self.assertContains(response, "img/mark.png")
         for symbol_id in (
-            "brand-mark",
             "rank-bronze",
             "rank-silver",
             "rank-gold",
@@ -113,7 +113,10 @@ class RenderedArtworkTests(TestCase):
 
 
 class LogoTemplateTests(SimpleTestCase):
-    def test_logo_uses_no_removed_raster_mark(self):
+    def test_logo_uses_the_raster_mark_that_exists(self):
+        # Знак бренда — mark.png (пламя над сигмой): решение владельца
+        # продукта, векторная плашка-замена отменена.
         logo = Path(settings.BASE_DIR, "templates", "partials", "logo.html")
 
-        self.assertNotIn("img/mark.png", logo.read_text(encoding="utf-8"))
+        self.assertIn("img/mark.png", logo.read_text(encoding="utf-8"))
+        self.assertTrue(Path(settings.BASE_DIR, "static", "img", "mark.png").is_file())
