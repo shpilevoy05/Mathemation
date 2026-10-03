@@ -177,7 +177,7 @@ def check_hint(text: str) -> GuardrailResult:
         elif verdict is None:
             unverified.append(claim)
     return GuardrailResult(
-        passed=not failed,
+        passed=not failed and not unverified,
         failed_claims=failed,
         unverified_claims=unverified,
     )
@@ -193,11 +193,16 @@ def contains_final_answer(text: str, answer: str, statement: str) -> bool:
         return False
 
     statement_values = _numeric_values(statement, include_coefficients=True)
+    # A number in the statement may be referenced, but never labelled as the answer.
+    explicit_answer = bool(re.search(
+        r"ответ\s*(?:равен|будет|получается|это|[:=—-])|(?:получ(?:им|ается)|значит|итог)\s*[:=—-]?|\b[a-z]\s*=",
+        text, re.IGNORECASE,
+    ))
     try:
         for value in _numeric_values(text):
             if simplify(value - expected) != 0:
                 continue
-            if any(simplify(value - stated) == 0 for stated in statement_values):
+            if not explicit_answer and any(simplify(value - stated) == 0 for stated in statement_values):
                 continue
             return True
     except Exception:

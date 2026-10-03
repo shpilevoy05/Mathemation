@@ -57,23 +57,23 @@ class GuardrailUnitTests(TestCase):
     def test_new_symbol_definition_is_not_extracted(self):
         self.assertEqual(extract_math_claims("пусть t = x+1"), [])
 
-    def test_unverified_claim_does_not_block(self):
+    def test_unverified_claim_is_blocked(self):
         result = check_hint("Для неизвестного ограничения x > 0.")
-        self.assertTrue(result.passed)
+        self.assertFalse(result.passed)
         self.assertEqual(result.unverified_claims, ["x > 0"])
 
     def test_malformed_provider_text_never_breaks_guardrail(self):
-        malformed_hints = (
-            "().__class__ = 0",
-            "((( = )))",
-            "a!!! = ///",
-            "😀 кириллица слева = кириллица справа 🧮",
-        )
+        malformed_hints = {
+            "().__class__ = 0": True,
+            "((( = )))": False,
+            "a!!! = ///": True,
+            "😀 кириллица слева = кириллица справа 🧮": True,
+        }
 
-        for hint in malformed_hints:
+        for hint, expected in malformed_hints.items():
             with self.subTest(hint=hint):
                 result = check_hint(hint)
-                self.assertTrue(result.passed)
+                self.assertEqual(result.passed, expected)
                 self.assertEqual(result.failed_claims, [])
 
 
@@ -380,7 +380,7 @@ class AiMentorTests(TestCase):
 
 
 class DemoMentorGuardrailTests(TestCase):
-    def test_seed_demo_reference_solution_hint_passes_guardrail(self):
+    def test_seed_demo_unverified_step_is_safely_escalated(self):
         call_command("seed_demo", verbosity=0)
         user = User.objects.get(username="student")
         assignment = Assignment.objects.get(
@@ -396,5 +396,5 @@ class DemoMentorGuardrailTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotEqual(response.data["hint"], GUARDRAIL_BLOCK_TEXT)
-        self.assertFalse(response.data["escalated_to_expert"])
+        self.assertEqual(response.data["hint"], GUARDRAIL_BLOCK_TEXT)
+        self.assertTrue(response.data["escalated_to_expert"])

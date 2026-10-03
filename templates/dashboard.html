@@ -19,11 +19,7 @@
         {% if today_items %}Сегодня {{ today_items|length }} пункт(а) плана — и серия продлится.{% else %}На сегодня пунктов плана нет.{% endif %}
       </p>
       <div class="hero-actions">
-        {% if has_diagnostic %}
-          <a class="button hero-button" href="{% url 'track' %}"><svg aria-hidden="true"><use href="#i-bolt"></use></svg>Продолжить занятие</a>
-        {% else %}
-          <a class="button hero-button" href="{% url 'diagnostics' %}"><svg aria-hidden="true"><use href="#i-target"></use></svg>Пройти диагностику</a>
-        {% endif %}
+        <a class="button hero-button" href="{{ next_action.url }}"><svg aria-hidden="true"><use href="#i-bolt"></use></svg>{{ next_action.title }}</a>
         {% if week_items %}<button class="button hero-button-ghost" type="button" data-open-dialog="week-plan-dialog">План на неделю</button>{% endif %}
       </div>
     </div>
@@ -42,6 +38,7 @@
     </div>
   </section>
 
+  {% if offer_pvp %}<section class="card"><h2>План на сегодня выполнен</h2><p>Можно закончить занятие или сыграть партию по желанию.</p><a class="button" href="{% url 'arena' %}">Перейти к PvP</a></section>{% endif %}
   {% if daily %}
     <a class="daily-banner" href="{% url 'daily_challenge' %}">
       <span class="daily-icon"><svg aria-hidden="true"><use href="#i-star"></use></svg></span>

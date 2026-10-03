@@ -5,13 +5,7 @@
 """
 
 from apps.billing.access import is_enforced, subscription_state
-from apps.economy.services import equipped_items
-
-# Темы оформления, которые умеет отрисовать CSS. Купленная тема с неизвестным
-# кодом не должна ломать страницу — она просто игнорируется.
-KNOWN_THEMES = {"dark", "sunrise", "forest", "graphite"}
-KNOWN_AVATARS = {"owl", "fox", "rocket", "sigma"}
-KNOWN_FRAMES = {"coordinates", "flame", "integral", "gold"}
+from apps.economy.services import cosmetic_codes
 
 
 def cosmetics(request):
@@ -19,16 +13,11 @@ def cosmetics(request):
     if student is None:
         return {"ui_theme": "", "ui_avatar": "", "ui_frame": ""}
 
-    equipped = equipped_items(student)
-    def code(slot: str, known: set[str]) -> str:
-        inventory = equipped.get(slot)
-        value = inventory.item.code if inventory else ""
-        return value if value in known else ""
-
+    codes = cosmetic_codes(student)
     return {
-        "ui_theme": code("theme", KNOWN_THEMES),
-        "ui_avatar": code("avatar", KNOWN_AVATARS),
-        "ui_frame": code("frame", KNOWN_FRAMES),
+        "ui_theme": codes["theme"],
+        "ui_avatar": codes["avatar"],
+        "ui_frame": codes["frame"],
     }
 
 

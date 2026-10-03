@@ -24,8 +24,12 @@ class ExamProfile(models.Model):
     year = models.PositiveSmallIntegerField(unique=True)
     title = models.CharField(max_length=200)
     max_primary_score = models.PositiveSmallIntegerField()
-    # Официальная таблица перевода: индекс — первичный балл, значение — тестовый.
+    # Таблица перевода: индекс — первичный балл, значение — тестовый.
     primary_to_scaled = models.JSONField(default=list)
+    # Официальная ли шкала. Рособрнадзор публикует её отдельно и позже
+    # спецификации, поэтому в начале года профиль живёт с приближением. Врать
+    # ученику о происхождении прогноза нельзя: интерфейс это показывает.
+    scale_is_official = models.BooleanField(default=True)
     # Активным может быть только один профиль: по нему считается прогноз.
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -80,6 +84,9 @@ class ExamTask(models.Model):
 
     profile = models.ForeignKey(ExamProfile, on_delete=models.CASCADE, related_name="tasks")
     number = models.PositiveSmallIntegerField()
+    # Тема задания из спецификации: по ней экзамен читается человеком, а не
+    # только номером.
+    title = models.CharField(max_length=200, blank=True)
     exam_part = models.PositiveSmallIntegerField(choices=Part.choices, default=Part.PART1)
     max_score = models.PositiveSmallIntegerField(default=1)
     # 1..5; задаёт порог логистической кривой P(верно) от mastery.

@@ -48,6 +48,11 @@ def accept_invite(code: str, *, username: str, password: str) -> User:
         profile = StudentProfile.objects.create(user=user)
         if invite.group is not None:
             invite.group.students.add(profile)
+        # Базовые аватары выдаются сразу: кабинет не должен встречать ученика
+        # пустым кружком с буквой.
+        from apps.economy.catalog import grant_base_avatars
+
+        grant_base_avatars(profile)
     elif invite.role == User.Role.PARENT:
         ParentProfile.objects.create(user=user)
 

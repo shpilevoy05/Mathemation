@@ -38,6 +38,7 @@ case "$role" in
         wait_for_db
         python manage.py migrate --noinput
         python manage.py check --deploy
+        python manage.py collectstatic --noinput
         ;;
     web)
         wait_for_db

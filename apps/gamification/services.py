@@ -74,6 +74,11 @@ def award_xp(student, amount: int, source: str, **event_payload) -> Gamification
     from apps.economy.services import reward_for_xp
 
     reward_for_xp(student, source=source, amount_xp=amount, total_xp=profile.xp)
+    # Тот же опыт идёт в зачёт лиги — если ученик в ней участвует. Отдельной
+    # валюты у соревнования нет: иначе появится способ фармить лигу вместо учёбы.
+    from .leagues import add_league_xp
+
+    add_league_xp(student, base_amount)
     return profile
 
 

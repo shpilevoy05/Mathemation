@@ -17,19 +17,14 @@ from django.conf import settings
 from apps.accounts.models import ParentProfile, StudentProfile, User
 
 # Профиль экзамена: (номер задания, часть, максимальный балл, сложность 1..5).
-# Первая часть — 12 заданий по 1 баллу, вторая — 20 баллов; итого 32.
-EXAM_TASKS = [
-    (1, 1, 1, 2), (2, 1, 1, 2), (3, 1, 1, 2), (4, 1, 1, 2),
-    (5, 1, 1, 3), (6, 1, 1, 3), (7, 1, 1, 2), (8, 1, 1, 3),
-    (9, 1, 1, 3), (10, 1, 1, 3), (11, 1, 1, 4), (12, 1, 1, 4),
-    (13, 2, 2, 4), (14, 2, 3, 4), (15, 2, 2, 4),
-    (16, 2, 2, 4), (17, 2, 3, 5), (18, 2, 4, 5), (19, 2, 4, 5),
-]
-EXAM_YEAR = 2027
+# Структура ЕГЭ (номера, баллы, шкала) описана в `apps/exams/blueprint.py`.
+# Структура экзамена живёт в `apps/exams/blueprint.py`: демо-данные её только
+# раскладывают, чтобы профиль в демо и в продакшене был один и тот же.
 from apps.content.models import Assignment, AssignmentSkillTag, Lesson, TheoryBlock
 from apps.diagnostics.models import DiagnosticTest
 from apps.expert_review.models import ExpertReviewRequest
 from apps.gamification.services import generate_weekly_quests
+from apps.content.theory_bank import load_theory_bank
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.mocks.models import MockExam
 from apps.planning.models import Trajectory
@@ -50,36 +45,44 @@ CLUSTERS = [
 ]
 
 # (code, title, cluster_idx, part, ege_tasks, weight, prerequisites)
+# Номера заданий — по структуре 2027 года (см. apps/exams/blueprint.py).
 NODES = [
-    ("frac-powers", "Действия с дробями и степенями", 0, 1, [7], 1.0, []),
-    ("roots-logs", "Корни и логарифмы", 0, 1, [7], 1.0, ["frac-powers"]),
-    ("trig-values", "Тригонометрические выражения", 0, 1, [7], 1.0, ["frac-powers"]),
-    ("linear-quadratic", "Линейные и квадратные уравнения", 1, 1, [6], 1.2, ["frac-powers"]),
-    ("exp-log-eq", "Показательные и логарифмические уравнения", 1, 1, [6, 13], 1.2,
+    ("frac-powers", "Действия с дробями и степенями", 0, 1, [8], 1.0, []),
+    ("roots-logs", "Корни и логарифмы", 0, 1, [8], 1.0, ["frac-powers"]),
+    ("trig-values", "Тригонометрические выражения", 0, 1, [8], 1.0, ["frac-powers"]),
+    ("linear-quadratic", "Линейные и квадратные уравнения", 1, 1, [7], 1.2, ["frac-powers"]),
+    ("exp-log-eq", "Показательные и логарифмические уравнения", 1, 1, [7, 14], 1.2,
      ["roots-logs", "linear-quadratic"]),
-    ("trig-eq", "Тригонометрические уравнения", 1, 2, [13], 1.3,
+    ("trig-eq", "Тригонометрические уравнения", 1, 2, [14], 1.3,
      ["trig-values", "linear-quadratic"]),
-    ("log-ineq", "Логарифмические неравенства", 1, 2, [15], 1.3, ["exp-log-eq"]),
+    ("log-ineq", "Логарифмические неравенства", 1, 2, [16], 1.3, ["exp-log-eq"]),
     ("triangles", "Треугольники и их элементы", 2, 1, [1], 1.0, []),
-    ("circles", "Окружности и вписанные углы", 2, 1, [1, 17], 1.0, ["triangles"]),
+    ("circles", "Окружности и вписанные углы", 2, 1, [1, 18], 1.0, ["triangles"]),
     ("polyhedra", "Объёмы многогранников", 3, 1, [3], 1.0, []),
-    ("plane-angles", "Угол между плоскостями", 3, 2, [14], 1.2, ["polyhedra"]),
+    ("plane-angles", "Угол между плоскостями", 3, 2, [15], 1.2, ["polyhedra"]),
     ("classic-prob", "Классическая вероятность", 4, 1, [4], 0.8, []),
     ("compound-prob", "Сложная вероятность", 4, 1, [5], 0.9, ["classic-prob"]),
-    ("deriv-graph", "Производная по графику", 5, 1, [8], 1.1, []),
-    ("extrema", "Экстремумы и исследование функций", 5, 1, [12], 1.2, ["deriv-graph"]),
-    ("parameter", "Задачи с параметром", 5, 2, [18], 1.4, ["extrema", "exp-log-eq"]),
-    # Узлы ниже закрывают оставшиеся номера профиля (2, 9, 10, 11, 16, 19):
-    # незамапленное задание даёт нулевой вклад и занижает прогноз.
+    # Новое задание 6: случайная величина и её характеристики.
+    ("random-variables", "Случайная величина: ожидание и дисперсия", 4, 1, [6], 1.0,
+     ["compound-prob"]),
+    ("deriv-graph", "Производная по графику", 5, 1, [9], 1.1, []),
+    ("extrema", "Экстремумы и исследование функций", 5, 1, [9], 1.2, ["deriv-graph"]),
+    ("parameter", "Задачи с параметром", 5, 2, [19], 1.4, ["extrema", "exp-log-eq"]),
+    # Узлы ниже закрывают оставшиеся номера профиля: незамапленное задание даёт
+    # нулевой вклад и занижает прогноз.
     ("vectors", "Векторы и действия с ними", 6, 1, [2], 0.9, ["triangles"]),
-    ("applied-formulas", "Прикладные задачи с формулами", 7, 1, [9], 1.0,
+    ("applied-formulas", "Прикладные задачи с формулами", 7, 1, [10], 1.0,
      ["linear-quadratic"]),
-    ("graph-formula", "Графики функций и их формулы", 7, 1, [11], 1.1,
+    ("graph-formula", "Графики функций и их формулы", 7, 1, [12], 1.1,
      ["linear-quadratic"]),
-    ("word-problems", "Текстовые задачи на движение и работу", 8, 1, [10], 1.2,
+    ("word-problems", "Текстовые задачи на движение и работу", 8, 1, [11], 1.2,
      ["linear-quadratic"]),
-    ("economics", "Экономическая задача", 8, 2, [16], 1.3, ["word-problems"]),
-    ("number-theory", "Числа и их свойства", 9, 2, [19], 1.2, []),
+    # Новое задание 13: задачи о личных и семейных финансах.
+    ("personal-finance", "Личные и семейные финансы", 8, 1, [13], 1.2,
+     ["word-problems"]),
+    ("economics", "Экономическая задача", 8, 2, [17], 1.3,
+     ["word-problems", "personal-finance"]),
+    ("number-theory", "Числа и их свойства", 9, 2, [20], 1.2, []),
 ]
 
 # (node_code, title, statement, answer, difficulty)
@@ -120,6 +123,16 @@ PART1_TASKS = [
      "Из городов, расстояние между которыми 300 км, навстречу выехали два "
      "автомобиля со скоростями 60 и 90 км/ч. Через сколько часов они встретятся?",
      "2", 2),
+    ("random-variables", "Математическое ожидание",
+     "Случайная величина принимает значения 1, 2 и 5 с вероятностями 0.2, 0.5 "
+     "и 0.3. Найдите её математическое ожидание.", "2.7", 3),
+    ("random-variables", "Дисперсия набора",
+     "Случайная величина принимает значения 0 и 10 с вероятностями 0.5 и 0.5. "
+     "Найдите её дисперсию.", "25", 3),
+    ("personal-finance", "Семейный бюджет",
+     "Доход семьи 90 000 рублей в месяц, обязательные расходы — 65 000 рублей. "
+     "Сколько месяцев нужно откладывать остаток, чтобы накопить 150 000 рублей?",
+     "6", 3),
 ]
 
 # (node_code, title, statement, reference_solution (по строке на шаг), max_score)
@@ -358,12 +371,16 @@ class Command(BaseCommand):
         profile = self._seed_exam_profile(nodes)
         self._seed_engagement(nodes, part1, student)
         self._seed_pricing()
+        # Банк теории живёт разметкой в коде: демо-данные его просто раскладывают.
+        theory = load_theory_bank()
 
         if options.get("verbosity", 1) < 1:
             return
         self.stdout.write(self.style.SUCCESS(
             f"Демо-данные готовы: {KnowledgeNode.objects.count()} узлов, "
-            f"{Assignment.objects.count()} задач, профиль экзамена {profile.year} "
+            f"{Assignment.objects.count()} задач, "
+            f"{theory['created'] + theory['updated']} вопросов по теории, "
+            f"профиль экзамена {profile.year} "
             f"({profile.tasks.count()} заданий). "
             "Пользователи: student / parent / expert / methodist (пароль demo12345)."
         ))
@@ -376,7 +393,6 @@ class Command(BaseCommand):
         """
         from apps.content.models import DailyChallenge, Homework
         from apps.content.services import assign_homework
-        from apps.economy.models import ShopCategory, ShopItem
 
         homework, _ = Homework.objects.get_or_create(
             title="Домашка: вычисления и уравнения",
@@ -401,56 +417,15 @@ class Command(BaseCommand):
             },
         )
 
-        cosmetics, _ = ShopCategory.objects.update_or_create(
-            title="Косметика", defaults={"order": 0}
-        )
-        boosters, _ = ShopCategory.objects.update_or_create(
-            title="Ускорители", defaults={"order": 1}
-        )
-        # Косметика: код нужен интерфейсу, чтобы знать, что рисовать.
-        for title, slot, code, price, description in [
-            ("Аватар «Сова»", ShopItem.Slot.AVATAR, "owl", 40, ""),
-            ("Аватар «Лис»", ShopItem.Slot.AVATAR, "fox", 60, ""),
-            ("Аватар «Ракета»", ShopItem.Slot.AVATAR, "rocket", 90, ""),
-            ("Аватар «Сигма»", ShopItem.Slot.AVATAR, "sigma", 70, ""),
-            ("Рамка «Координаты»", ShopItem.Slot.FRAME, "coordinates", 80, ""),
-            ("Рамка «Пламя»", ShopItem.Slot.FRAME, "flame", 110, "Открывается стриком от 7 дней."),
-            ("Рамка «Интеграл»", ShopItem.Slot.FRAME, "integral", 140, ""),
-            ("Тема «Ночь»", ShopItem.Slot.THEME, "dark", 120, "Тёмная тема кабинета."),
-            ("Тема «Рассвет»", ShopItem.Slot.THEME, "sunrise", 150, "Тёплая охра вместо индиго."),
-            ("Тема «Лес»", ShopItem.Slot.THEME, "forest", 150, "Зелёная палитра, спокойный фон."),
-            ("Тема «Графит»", ShopItem.Slot.THEME, "graphite", 180, "Тёмно-серая, без синевы."),
-            ("Значок «Стрик 7»", ShopItem.Slot.BADGE, "streak7", 30, ""),
-        ]:
-            ShopItem.objects.update_or_create(
-                title=title,
-                defaults={
-                    "category": cosmetics, "slot": slot, "code": code,
-                    "description": description,
-                    "price_coins": price, "is_active": True,
-                    "effect": ShopItem.Effect.NONE,
-                },
-            )
-        # Расходники: покупаются повторно и срабатывают сразу.
-        for title, effect, value, hours, price, description in [
-            ("Заморозка стрика", ShopItem.Effect.STREAK_FREEZE, 1, 0, 100,
-             "Один пропущенный день не сбрасывает серию."),
-            ("Заморозка стрика ×3", ShopItem.Effect.STREAK_FREEZE, 3, 0, 260,
-             "Три пропуска про запас: болезнь, поездка, форс-мажор."),
-            ("Ускоритель опыта +50 % на сутки", ShopItem.Effect.XP_BOOST, 50, 24, 150,
-             "XP за занятия начисляется в полтора раза быстрее."),
-            ("Ускоритель опыта +100 % на 3 часа", ShopItem.Effect.XP_BOOST, 100, 3, 120,
-             "Двойной опыт на один плотный подход."),
-        ]:
-            ShopItem.objects.update_or_create(
-                title=title,
-                defaults={
-                    "category": boosters, "slot": ShopItem.Slot.BOOST,
-                    "description": description, "price_coins": price,
-                    "is_active": True, "effect": effect,
-                    "effect_value": value, "duration_hours": hours,
-                },
-            )
+        # Витрину раскладывает общий каталог: коды косметики совпадают с
+        # именами файлов дизайна, а расходники — те же, что выдаёт лига.
+        from apps.accounts.models import StudentProfile
+        from apps.economy.catalog import grant_base_avatars, load_cosmetics
+
+        load_cosmetics()
+        # Базовые аватары есть у каждого ученика с первой минуты.
+        for profile in StudentProfile.objects.all():
+            grant_base_avatars(profile)
 
     def _seed_pricing(self):
         """Тарифы, способы оплаты и одна акция — чтобы страница оплаты не была пустой.
@@ -527,31 +502,11 @@ class Command(BaseCommand):
     def _seed_exam_profile(self, nodes: dict[str, KnowledgeNode]):
         """Профиль экзамена: по нему считается прогноз.
 
-        Без профиля прогноз считался бы по банку задач и зависел от того, что
-        загрузил методист.
+        Структуру раскладывает общий загрузчик, тот же, что и в продакшене:
+        демо не должно расходиться с боевой конфигурацией экзамена.
         """
-        from apps.exams.models import ExamProfile, ExamTask, ExamTaskSkill
+        from apps.exams.blueprint import load_blueprint
+        from apps.exams.models import ExamProfile
 
-        max_primary = sum(max_score for _n, _p, max_score, _d in EXAM_TASKS)
-        profile, _ = ExamProfile.objects.update_or_create(
-            year=EXAM_YEAR,
-            defaults={
-                "title": "ЕГЭ, профильная математика",
-                "max_primary_score": max_primary,
-                "primary_to_scaled": settings.PRIMARY_TO_SCALED[: max_primary + 1],
-                "is_active": True,
-            },
-        )
-        ExamProfile.objects.exclude(pk=profile.pk).update(is_active=False)
-
-        for number, part, max_score, difficulty in EXAM_TASKS:
-            task, _ = ExamTask.objects.update_or_create(
-                profile=profile, number=number,
-                defaults={
-                    "exam_part": part, "max_score": max_score, "difficulty": difficulty
-                },
-            )
-            for node in nodes.values():
-                if number in (node.ege_task_numbers or []):
-                    ExamTaskSkill.objects.get_or_create(task=task, node=node)
-        return profile
+        load_blueprint()
+        return ExamProfile.active()

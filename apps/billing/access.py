@@ -138,10 +138,16 @@ def feature_access(user, feature: str) -> Access:
 
     student = getattr(user, "student_profile", None)
     if student is None:
-        # Не ученик — либо сотрудник, либо родитель: гейт не про них.
-        return Access(True, "staff", feature)
+        staff = user.is_superuser or user.role in ("methodist", "expert")
+        return Access(staff, "staff" if staff else LOCKED_NO_SUBSCRIPTION, feature)
 
-    subscription = _active_subscription(student)
+    from .models import Subscription
+    subscriptions = student.subscriptions.filter(
+        status=Subscription.Status.ACTIVE, ends_at__gt=timezone.now()
+    ).select_related("tariff").order_by("-ends_at")
+    # Missing keys preserve older all-inclusive tariffs. Explicit exclusions
+    # are effective even while the user is still inside their trial period.
+    subscription = next((s for s in subscriptions if s.tariff.features.get(feature, True)), None)
     if subscription is not None:
         now = timezone.now()
         return Access(
@@ -149,6 +155,8 @@ def feature_access(user, feature: str) -> Access:
             ends_at=subscription.ends_at,
             days_left=max(0, (subscription.ends_at - now).days),
         )
+    if subscriptions:
+        return Access(False, "not_in_tariff", feature)
 
     trial_left = _trial_left(student, timezone.now())
     if trial_left > 0:

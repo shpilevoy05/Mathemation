@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<linearGradient id="Lgammarhombuslogo0p" x1="12%" y1="0%" x2="88%" y2="100%"><stop offset="0" stop-color="#A8D8F0" stop-opacity="1"/><stop offset="0.35" stop-color="#3E9AD0" stop-opacity="1"/><stop offset="0.72" stop-color="#0C4468" stop-opacity="1"/><stop offset="1" stop-color="#0C4468" stop-opacity="1"/></linearGradient>
+<linearGradient id="Lgammarhombuslogo0i" x1="0%" y1="0%" x2="60%" y2="100%"><stop offset="0" stop-color="#3E9AD0" stop-opacity="1"/><stop offset="0.55" stop-color="#0C4468" stop-opacity="1"/><stop offset="1" stop-color="#0C4468" stop-opacity="1"/></linearGradient>
+<linearGradient id="Lgammarhombuslogo0g" x1="0%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.1"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<radialGradient id="Lgammarhombuslogo0c" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#A8D8F0" stop-opacity="1"/><stop offset="1" stop-color="#3E9AD0" stop-opacity="1"/></radialGradient>
+</defs>
+<path d="M58 12 C61 9 67 9 70 12 L116 58 C119 61 119 67 116 70 L70 116 C67 119 61 119 58 116 L12 70 C9 67 9 61 12 58 Z" fill="url(#Lgammarhombuslogo0p)"/>
+<g transform="translate(64,64) scale(.86) translate(-64,-64)"><path d="M58 12 C61 9 67 9 70 12 L116 58 C119 61 119 67 116 70 L70 116 C67 119 61 119 58 116 L12 70 C9 67 9 61 12 58 Z" fill="url(#Lgammarhombuslogo0i)" opacity=".55"/></g>
+<g transform="translate(64,64) scale(.74) translate(-64,-64)"><path d="M58 12 C61 9 67 9 70 12 L116 58 C119 61 119 67 116 70 L70 116 C67 119 61 119 58 116 L12 70 C9 67 9 61 12 58 Z" fill="url(#Lgammarhombuslogo0c)"/></g>
+<defs><linearGradient id="gLgammarhombuslogo0logo" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#A8D8F0"/></linearGradient></defs><g transform="translate(64.00 64.00) scale(0.4809) translate(-69.00 -71.00)"><path d="M38 30 L62 56 M108 22 L62 56 L48 90 L30 120" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="2" stroke="#0C4468" stroke-opacity=".34" stroke-width="28.66" transform="translate(4.99 6.49)"/><path d="M38 30 L62 56 M108 22 L62 56 L48 90 L30 120" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="2" stroke="url(#gLgammarhombuslogo0logo)" stroke-width="27.04"/></g>
+<path d="M58 12 C61 9 67 9 70 12 L116 58 C119 61 119 67 116 70 L70 116 C67 119 61 119 58 116 L12 70 C9 67 9 61 12 58 Z" fill="url(#Lgammarhombuslogo0g)"/>
+<path d="M58 12 C61 9 67 9 70 12 L116 58 C119 61 119 67 116 70 L70 116 C67 119 61 119 58 116 L12 70 C9 67 9 61 12 58 Z" fill="none" stroke="#0C4468" stroke-opacity=".45" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

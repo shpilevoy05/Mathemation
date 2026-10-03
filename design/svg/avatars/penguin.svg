@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="apenguinb" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#9DB6D6" stop-opacity="1"/><stop offset="0.52" stop-color="#3E5170" stop-opacity="1"/><stop offset="1" stop-color="#101A2C" stop-opacity="1"/></radialGradient>
+<radialGradient id="apenguins" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#101A2C" stop-opacity="0"/><stop offset="0.88" stop-color="#101A2C" stop-opacity="0.18"/><stop offset="1" stop-color="#101A2C" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="apenguing" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="apenguinr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<circle cx="64" cy="64" r="60" fill="url(#apenguinb)"/>
+<g>
+<path d="M28 66 L10 96 L30 98 Z" fill="#FFFFFF" fill-opacity=".7"/>
+<path d="M100 66 L118 96 L98 98 Z" fill="#FFFFFF" fill-opacity=".7"/>
+<path d="M64 20 C86 20 100 40 100 70 C100 98 84 114 64 114 C44 114 28 98 28 70 C28 40 42 20 64 20 Z" fill="#FFFFFF" fill-opacity=".55"/>
+<path d="M64 56 C80 56 90 70 90 88 C90 105 79 114 64 114 C49 114 38 105 38 88 C38 70 48 56 64 56 Z" fill="#FFFFFF" fill-opacity=".98"/>
+<circle cx="52" cy="46" r="7.5" fill="#FFFFFF" fill-opacity=".95"/>
+<circle cx="76" cy="46" r="7.5" fill="#FFFFFF" fill-opacity=".95"/>
+<circle cx="53" cy="47" r="3.6" fill="#101A2C" fill-opacity=".9"/>
+<circle cx="77" cy="47" r="3.6" fill="#101A2C" fill-opacity=".9"/>
+<path d="M64 54 L53 62 L64 70 L75 62 Z" fill="#101A2C" fill-opacity=".5"/>
+<path d="M50 114 L38 122 H60 Z M78 114 L90 122 H68 Z" fill="#101A2C" fill-opacity=".5"/>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#apenguins)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#apenguing)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#apenguinr)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#101A2C" stroke-opacity="0.14" stroke-width="3"/>
+</svg>

@@ -30,6 +30,10 @@ class MockExamResult(models.Model):
     part2_primary_score = models.PositiveSmallIntegerField(default=0)  # по вердиктам экспертов
     scaled_score = models.PositiveSmallIntegerField(null=True, blank=True)  # 0-100
     time_expired = models.BooleanField(default=False)  # сдан после дедлайна таймера
+    draft_answers = models.JSONField(default=dict, blank=True)
+    draft_saved_at = models.DateTimeField(null=True, blank=True)
+    draft_revision = models.PositiveIntegerField(default=0)
+    forecast_at_start = models.JSONField(default=dict, blank=True)
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 

@@ -10,6 +10,7 @@ from apps.accounts import views as account_views
 from apps.accounts.api import MeView, TargetScoreView
 from apps.ai_mentor.api import HintView, ParentAiLogView
 from apps.arena.api import (
+    BoardAnswerView,
     BotFallbackView,
     CreateMatchView,
     FriendAnswerView,
@@ -17,8 +18,13 @@ from apps.arena.api import (
     FriendRequestView,
     MatchAnswerView,
     MatchInviteView,
+    MatchCancelView,
+    MatchJoinView,
+    MatchLeaveView,
     MatchView,
+    PickCellView,
     QueueView,
+    QuizAnswerView,
 )
 from apps.billing import pages as billing_pages
 from apps.billing.api import PaymentWebhookView, SubscriptionView
@@ -45,9 +51,9 @@ from apps.expert_review.api import (
     SolutionFileView,
     SubmitSolutionView,
 )
-from apps.gamification.api import GamificationView
+from apps.gamification.api import GamificationView, LeagueOptInView, LeagueView
 from apps.knowledge.api import KnowledgeMapView, NodeDetailView
-from apps.mocks.api import MockListView, StartMockView, SubmitMockView
+from apps.mocks.api import MockDraftView, MockListView, StartMockView, SubmitMockView
 from apps.planning.api import (
     AcknowledgeChangeView,
     MoveItemView,
@@ -66,7 +72,12 @@ from apps.practice.api import (
     NodePracticeView,
     SubmitAttemptView,
 )
-from apps.progress.api import ForecastView, ParentReportView, ProgressView
+from apps.progress.api import (
+    ApplyForecastView,
+    ForecastView,
+    ParentReportView,
+    ProgressView,
+)
 from apps.web import views as web_views
 
 router = DefaultRouter()
@@ -102,6 +113,7 @@ api_urls = [
     path("diagnostics/<int:test_id>/start/", StartDiagnosticView.as_view()),
     path("diagnostics/results/<int:result_id>/submit/", SubmitDiagnosticView.as_view()),
     path("mocks/", MockListView.as_view()),
+    path("mocks/results/<int:result_id>/draft/", MockDraftView.as_view()),
     path("mocks/<int:exam_id>/start/", StartMockView.as_view()),
     path("mocks/results/<int:result_id>/submit/", SubmitMockView.as_view()),
     path("expert-reviews/", ExpertReviewListView.as_view()),
@@ -126,9 +138,12 @@ api_urls = [
     path("shop/reset-look/", ResetLookView.as_view()),
     path("progress/", ProgressView.as_view()),
     path("forecast/", ForecastView.as_view()),
+    path("forecast/apply/", ApplyForecastView.as_view()),
     path("parent/report/", ParentReportView.as_view()),
     path("parent/ai-log/", ParentAiLogView.as_view()),
     path("gamification/", GamificationView.as_view()),
+    path("leagues/", LeagueView.as_view()),
+    path("leagues/participation/", LeagueOptInView.as_view()),
     path("arena/friends/", FriendListView.as_view()),
     path("arena/friends/request/", FriendRequestView.as_view()),
     path("arena/friends/<int:link_id>/<str:action>/", FriendAnswerView.as_view()),
@@ -137,6 +152,14 @@ api_urls = [
     path("arena/matches/", CreateMatchView.as_view()),
     path("arena/matches/<int:match_id>/", MatchView.as_view()),
     path("arena/matches/<int:match_id>/answer/", MatchAnswerView.as_view()),
+    path("arena/matches/<int:match_id>/quiz/", QuizAnswerView.as_view()),
+    path("arena/matches/<int:match_id>/pick/", PickCellView.as_view()),
+    path("arena/matches/<int:match_id>/board/", BoardAnswerView.as_view()),
+    path("arena/matches/<int:match_id>/join/", MatchJoinView.as_view()),
+    path("arena/matches/<int:match_id>/cancel/", MatchCancelView.as_view()),
+    path("arena/matches/<int:match_id>/leave/", MatchLeaveView.as_view()),
+    # Общий маршрут идёт последним: иначе «quiz» и «pick» попали бы в него
+    # как названия действий над приглашением.
     path("arena/matches/<int:match_id>/<str:action>/", MatchInviteView.as_view()),
     path("billing/subscription/", SubscriptionView.as_view()),
     # Колбэк эквайринга: без сессии, проверяется подписью тела.
@@ -175,6 +198,7 @@ urlpatterns = [
     path("map/node/<int:node_id>/", web_views.knowledge_node, name="knowledge_node"),
     path("track/", web_views.track, name="track"),
     path("schedule/", web_views.schedule, name="schedule"),
+    path("leagues/", web_views.leagues, name="leagues"),
     path("arena/", web_views.arena, name="arena"),
     path("arena/match/<int:match_id>/", web_views.arena_match, name="arena_match"),
     path("lesson/<int:node_id>/", web_views.lesson, name="lesson"),

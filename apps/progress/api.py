@@ -1,6 +1,6 @@
 from datetime import date
 
-from rest_framework import views
+from rest_framework import serializers, views
 from rest_framework.response import Response
 
 from apps.accounts.api import get_student
@@ -51,7 +51,9 @@ class ForecastView(views.APIView):
         # процентов она оставалась в исходном положении и выглядела сломанной.
         from apps.web.services import primary_gauge
 
-        gauge = primary_gauge(student)
+        # Шкалу считаем по выбранному сценарию, а не по сохранённому: иначе
+        # ползунок двигает число в плитке, а линейка под ним остаётся прежней.
+        gauge = primary_gauge(student, forecast)
         forecast["gauge"] = {
             "now_percent": gauge["now_percent"],
             "target_percent": gauge["target_percent"],
@@ -62,6 +64,46 @@ class ForecastView(views.APIView):
             "primary": gauge["primary"],
         }
         return Response(forecast)
+
+
+class ApplyForecastSerializer(serializers.Serializer):
+    weekly_hours = serializers.IntegerField(min_value=1, max_value=24)
+    exam_date = serializers.DateField(required=False, allow_null=True)
+
+
+class ApplyForecastView(views.APIView):
+    """POST /api/forecast/apply/ — сделать сценарий рычагов настоящим.
+
+    Рычаги сами по себе ничего не меняют: это «а что если». Но сценарий, в
+    котором ученик решил заниматься больше, должен доезжать до плана и
+    расписания, иначе прогноз и календарь начинают жить разной жизнью.
+    """
+
+    def post(self, request):
+        from apps.planning.services import build_study_plan
+        from apps.progress.services import ceiling_forecast
+
+        student = get_student(request)
+        serializer = ApplyForecastSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        student.weekly_hours = data["weekly_hours"]
+        if data.get("exam_date"):
+            student.exam_date = data["exam_date"]
+        student.save(update_fields=["weekly_hours", "exam_date"])
+        # План строится под новую нагрузку и дату — расписание берётся из него.
+        plan = build_study_plan(student, reason="lever")
+        forecast = ceiling_forecast(student)
+        return Response({
+            "weekly_hours": student.weekly_hours,
+            "exam_date": student.exam_date,
+            "current_score": forecast["current_score"],
+            "ceiling_score": forecast["ceiling_score"],
+            "limited_by": forecast["limited_by"],
+            "plan_items": plan.items.count() if plan else 0,
+            "unplanned_nodes": plan.unplanned_nodes if plan else 0,
+        })
 
 
 def _ceiling_primary(forecast: dict) -> float | None:

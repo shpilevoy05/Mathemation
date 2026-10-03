@@ -73,6 +73,9 @@ def _candidates(ticket: MatchmakingTicket):
             status=MatchmakingTicket.Status.WAITING,
             mode=ticket.mode,
             ege_task_number=ticket.ege_task_number,
+            limit_kind=ticket.limit_kind,
+            time_limit_seconds=ticket.time_limit_seconds,
+            question_count=ticket.question_count,
         )
         .exclude(student=ticket.student)
         .exclude(pk=ticket.pk)
@@ -81,9 +84,16 @@ def _candidates(ticket: MatchmakingTicket):
 
 
 @transaction.atomic
-def join_queue(student, *, mode: str, ege_task_number: int | None = None) -> MatchmakingTicket:
+def join_queue(student, *, mode: str, ege_task_number: int | None = None,
+               limit_kind: str = Match.Limit.QUESTIONS,
+               time_limit_seconds: int = 0,
+               question_count: int = 0) -> MatchmakingTicket:
     """Встать в очередь и сразу попробовать найти пару."""
-    from .services import create_match
+    from .services import create_match, open_lobby
+
+    if mode in (Match.Mode.QUIZ, Match.Mode.BOARD):
+        # У теории ни лимита «на время», ни выбора длины: набор задан режимом.
+        limit_kind, time_limit_seconds, question_count = Match.Limit.QUESTIONS, 0, 0
 
     expire_stale()
     profile = get_profile(student)
@@ -93,8 +103,12 @@ def join_queue(student, *, mode: str, ege_task_number: int | None = None) -> Mat
     existing = MatchmakingTicket.objects.filter(
         student=student, status=MatchmakingTicket.Status.WAITING
     ).first()
+    # Партии разной длины — разные игры: «до восьми» и «до шестнадцати» в одну
+    # пару сводить нельзя.
+    fingerprint = (mode, ege_task_number, limit_kind, time_limit_seconds, question_count)
     if existing is not None:
-        if existing.mode == mode and existing.ege_task_number == ege_task_number:
+        if (existing.mode, existing.ege_task_number, existing.limit_kind,
+                existing.time_limit_seconds, existing.question_count) == fingerprint:
             ticket = existing
         else:
             existing.status = MatchmakingTicket.Status.CANCELLED
@@ -102,12 +116,14 @@ def join_queue(student, *, mode: str, ege_task_number: int | None = None) -> Mat
             existing.save(update_fields=["status", "resolved_at"])
             ticket = MatchmakingTicket.objects.create(
                 student=student, mode=mode, ege_task_number=ege_task_number,
-                rating=profile.rating,
+                limit_kind=limit_kind, time_limit_seconds=time_limit_seconds,
+                question_count=question_count, rating=profile.rating,
             )
     else:
         ticket = MatchmakingTicket.objects.create(
             student=student, mode=mode, ege_task_number=ege_task_number,
-            rating=profile.rating,
+            limit_kind=limit_kind, time_limit_seconds=time_limit_seconds,
+            question_count=question_count, rating=profile.rating,
         )
 
     rival = find_rival(ticket)
@@ -117,10 +133,12 @@ def join_queue(student, *, mode: str, ege_task_number: int | None = None) -> Mat
     match = create_match(
         student, mode=mode, opponent=rival.student,
         ege_task_number=ege_task_number, ranked=True,
+        limit_kind=limit_kind, time_limit_seconds=time_limit_seconds,
+        question_count=question_count,
     )
-    # Случайная партия начинается сразу: оба уже согласились игрой в очередь.
-    match.status = Match.Status.ACTIVE
-    match.save(update_fields=["status"])
+    # Очередь — это согласие, но не присутствие: партия ждёт, пока оба
+    # откроют её экран, и только тогда пойдут таймеры.
+    open_lobby(match)
     for row in (ticket, rival):
         row.status = MatchmakingTicket.Status.MATCHED
         row.match = match

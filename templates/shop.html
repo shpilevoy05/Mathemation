@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load cosmetics %}
 {% block title %}Магазин — Матемация{% endblock %}
 {% block content %}
 {% if not student %}
@@ -47,18 +48,29 @@
       <article class="shop-card {% if row.equipped %}is-equipped{% endif %} {% if not row.available %}is-locked{% endif %}"
                data-shop-item="{{ row.item.id }}" data-shop-slot="{{ row.item.slot }}" data-shop-group="{{ row.group }}">
         <div class="shop-card-top">
-          <span class="shop-card-icon shop-card-icon--{{ row.tone }}">
-            <svg aria-hidden="true"><use href="#{{ row.icon }}"></use></svg>
+          <span class="shop-card-icon shop-card-icon--{{ row.tone }}{% if row.art_kind %} shop-card-icon--art{% endif %}">
+            {% if row.art_kind %}
+              {% cosmetic row.art_kind row.code %}
+            {% else %}
+              <svg aria-hidden="true"><use href="#{{ row.icon }}"></use></svg>
+            {% endif %}
             {% if row.frosted %}<svg class="frost frost-a" aria-hidden="true"><use href="#i-snow"></use></svg><svg class="frost frost-b" aria-hidden="true"><use href="#i-snow"></use></svg>{% endif %}
           </span>
-          <span class="chip {{ row.tag_class }}">{{ row.tag }}</span>
+          <span class="shop-card-tags">
+            {% if row.tier_label %}<span class="chip chip-brand">{{ row.tier_label }}</span>{% endif %}
+            <span class="chip {{ row.tag_class }}">{{ row.tag }}</span>
+          </span>
         </div>
         <div class="shop-card-copy">
           <h2>{{ row.item.title }}</h2>
           <p>{{ row.description }}</p>
         </div>
         <div class="shop-card-foot">
-          <b class="price num"><svg aria-hidden="true"><use href="#i-sigma"></use></svg>{{ row.item.price_coins }}</b>
+          {% if row.show_price %}
+            <b class="price num" data-shop-price><svg aria-hidden="true"><use href="#i-sigma"></use></svg>{{ row.item.price_coins }}</b>
+          {% else %}
+            <span class="price-owned" data-shop-price>в инвентаре</span>
+          {% endif %}
           <div class="shop-actions">
             {% if row.previewable %}
               <button class="button button-small button-ghost" type="button"

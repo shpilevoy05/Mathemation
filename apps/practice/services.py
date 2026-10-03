@@ -49,6 +49,9 @@ def submit_attempt(student, assignment: Assignment, answer: str, context: str,
     именно решал ученик.
     """
     from apps.content.services import current_version
+    from apps.accounts.models import StudentProfile
+    StudentProfile.objects.select_for_update().get(pk=student.pk)
+    version = current_version(assignment)
 
     is_correct = None
     if assignment.exam_part == Assignment.Part.PART1:
@@ -66,10 +69,20 @@ def submit_attempt(student, assignment: Assignment, answer: str, context: str,
             # как на экзамене. Сам текст остаётся в попытке для разбора.
             is_correct = False
 
+    previous = Attempt.objects.filter(student=student, assignment_version=version).exclude(context=Attempt.Context.ARENA)
+    # Repeating a known correct answer is not new learning evidence. Repeated
+    # mistakes still matter: their count drives the remediation threshold.
+    repeated = is_correct is True and previous.filter(is_correct=True).exists()
+    reward_eligible = not previous.filter(is_correct=is_correct).exists()
+    # Assessments remain independent measurements; repeated lesson submissions
+    # stay in history without being additional evidence or additional rewards.
+    count_evidence = context in (
+        Attempt.Context.MOCK, Attempt.Context.DIAGNOSTIC, Attempt.Context.REVIEW
+    ) or not repeated
     attempt = Attempt.objects.create(
         student=student, assignment=assignment,
-        assignment_version=current_version(assignment), context=context,
-        submitted_answer=answer, is_correct=is_correct,
+        assignment_version=version, context=context,
+        submitted_answer=answer.strip(), is_correct=is_correct,
         diagnostic_result=diagnostic_result, mock_result=mock_result,
     )
     from apps.events.models import Event
@@ -91,15 +104,24 @@ def submit_attempt(student, assignment: Assignment, answer: str, context: str,
         is_correct=is_correct,
         submitted_answer=answer,
     )
-    if is_correct is not None:
-        process_attempt_result(attempt)
+    if is_correct is not None and count_evidence:
+        process_attempt_result(
+            attempt, register_backlog=context != Attempt.Context.REVIEW
+        )
+    elif is_correct:
+        # A duplicate correct submission is not fresh evidence, but it can
+        # reconcile a plan item after an independent mastery update.
+        from apps.planning.services import autocomplete_items_for_node
+        for tag in assignment.skill_tags.select_related("node"):
+            autocomplete_items_for_node(student, tag.node)
     from apps.gamification.services import record_attempt_activity
 
-    record_attempt_activity(student, is_correct)
+    if reward_eligible and context != Attempt.Context.REVIEW:
+        record_attempt_activity(student, is_correct)
     return attempt
 
 
-def process_attempt_result(attempt: Attempt) -> None:
+def process_attempt_result(attempt: Attempt, *, register_backlog: bool = True) -> None:
     """Update mastery for tagged nodes; on mistakes feed the backlog.
 
     Also called by expert review once a part-2 verdict arrives.
@@ -108,7 +130,7 @@ def process_attempt_result(attempt: Attempt) -> None:
 
     for tag in attempt.assignment.skill_tags.select_related("node"):
         update_mastery(attempt.student, tag.node, bool(attempt.is_correct), tag.weight)
-        if attempt.is_correct is False:
+        if attempt.is_correct is False and register_backlog:
             register_mistake(attempt.student, attempt.assignment, tag.node)
         else:
             # Верная задача закрывает соответствующие пункты плана сама:
@@ -190,9 +212,10 @@ def _maybe_reinsert_topic(student, node) -> None:
 
 
 @transaction.atomic
-def complete_review(review: ReviewSchedule, success: bool) -> None:
+def complete_review(review: ReviewSchedule, success: bool) -> ReviewSchedule:
+    review = ReviewSchedule.objects.select_for_update().select_related("backlog_item").get(pk=review.pk)
     if review.status == ReviewSchedule.Status.COMPLETED:
-        return
+        return review
     review.status = ReviewSchedule.Status.COMPLETED
     review.save(update_fields=["status"])
     item = review.backlog_item
@@ -242,6 +265,7 @@ def complete_review(review: ReviewSchedule, success: bool) -> None:
         from apps.planning.services import autocomplete_review_items
 
         autocomplete_review_items(item.student, item.node)
+    return review
 
 
 def practice_queue(student, node) -> dict:
@@ -251,9 +275,8 @@ def practice_queue(student, node) -> dict:
         r.backlog_item.assignment
         for r in due_reviews(student).exclude(backlog_item__node=node)[:2]
     ]
-    new_tasks = list(
-        Assignment.objects.filter(skill_tags__node=node).distinct()
-    )
+    from apps.content.visibility import visible_assignments
+    new_tasks = list(visible_assignments().filter(skill_tags__node=node).distinct())
     return {"warmup": warmup, "new": new_tasks}
 
 
@@ -265,6 +288,7 @@ def due_reviews(student, on_date=None):
             backlog_item__student=student,
             status=ReviewSchedule.Status.PENDING,
             due_date__lte=on_date,
+            backlog_item__assignment__exam_part=Assignment.Part.PART1,
         )
         .select_related("backlog_item__assignment", "backlog_item__node")
     )

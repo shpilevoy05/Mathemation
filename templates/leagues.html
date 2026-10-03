@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% load l10n cosmetics %}
+{% block title %}Лига — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Лига</h1><p>Раздел доступен ученику.</p></section>
+{% else %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Соревнование месяца</p>
+      <h1>{% if enabled %}Лига {{ league_label }}{% else %}Лиги{% endif %}</h1>
+      <p>
+        {% if enabled %}
+          Когорта №{{ cohort_index|unlocalize }} · до конца сезона
+          <b class="num">{{ days_left|unlocalize }}</b> дн.
+        {% else %}
+          Двадцать учеников, месяц и общий счёт опыта. Участие — по желанию.
+        {% endif %}
+      </p>
+    </div>
+    {% if enabled %}
+      <div class="league-badge">
+        {% league_mark league place %}
+        <div><small>Ваше место</small><br><b class="num">{{ place|default:"—" }} · {{ xp|unlocalize }} XP</b></div>
+      </div>
+    {% endif %}
+  </div>
+
+  <ol class="league-ladder">
+    {% for step in ladder %}
+      <li class="{% if step.is_current %}is-current{% elif step.is_passed %}is-passed{% else %}is-locked{% endif %}">
+        {% if step.is_locked %}
+          <span class="ladder-mark ladder-locked" aria-hidden="true">?</span>
+          <span class="visually-hidden">Лига ещё не открыта</span>
+          <span>—</span>
+        {% else %}
+          {% league_mark step.code css_class="ladder-mark" %}
+          <span>{{ step.label }}</span>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ol>
+
+  {% if not enabled %}
+    <section class="card league-invite" data-league-invite>
+      <div class="section-heading"><h2>Участвовать в лиге?</h2></div>
+      <p>Опыт, который вы и так набираете за уроки, задачи и повторы, идёт
+        в зачёт месячного соревнования. Двадцать участников в когорте, топ-10
+        поднимаются в следующую лигу, топ-5 получают сигмы.</p>
+      <p class="muted">Соревнование помогает не всем: если чужие результаты
+        мешают, а не подгоняют, лигу можно не включать или выйти в любой момент.
+        Ни на план, ни на прогноз балла это не влияет.</p>
+      <p class="form-error" data-league-error hidden></p>
+      <button class="button button-primary" type="button" data-league-join>Участвовать</button>
+    </section>
+  {% else %}
+    <section class="card card-wide">
+      <div class="section-heading">
+        <h2>Таблица когорты</h2>
+        <span class="chip chip-brand">{{ promotion_note }}</span>
+      </div>
+      <ol class="league-table" data-league-table>
+        {% for row in rows %}
+          <li class="{% if row.is_me %}is-me{% endif %}{% if row.promotes %} is-promoting{% endif %}{% if row.is_filler %} is-filler{% endif %}">
+            <b class="num league-place">{{ row.place|unlocalize }}</b>
+            <span class="league-name">
+              {{ row.title }}
+              {% if row.is_filler %}<small class="muted">свободное место</small>{% endif %}
+            </span>
+            {% if row.coins %}<span class="chip warning-soft">+{{ row.coins|unlocalize }} сигм</span>{% endif %}
+            <b class="num league-xp">{{ row.xp|unlocalize }}</b>
+          </li>
+          {% if row.place == promotion_places %}
+            <li class="league-cut"><span>Граница повышения</span></li>
+          {% endif %}
+        {% endfor %}
+      </ol>
+      <p class="disclaimer">Свободные места держат боты — они всегда ниже самого
+        слабого участника и нужны только чтобы таблица не выглядела пустой.
+        Как только приходит живой ученик, бот уступает ему место.</p>
+    </section>
+
+    <div class="content-grid">
+      <section class="card">
+        <div class="section-heading"><h2>Сигмы за место</h2></div>
+        <ul class="plain-list">
+          {% for place, coins in coin_prizes.items %}
+            <li class="arena-row"><strong>{{ place|unlocalize }} место</strong><span class="chip warning-soft">{{ coins|unlocalize }} сигм</span></li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <aside class="card">
+        <div class="section-heading"><h2>Награды</h2><span class="count-badge">{{ trophies|length }}</span></div>
+        <h3 class="arena-subhead">Что даёт лига {{ league_label }}</h3>
+        <ul class="plain-list">
+          {% for prize in place_prizes %}
+            <li class="arena-row"><strong>{{ prize.place|unlocalize }} место</strong><span class="chip chip-brand">{{ prize.title }}</span></li>
+          {% endfor %}
+        </ul>
+        <h3 class="arena-subhead">Полученные</h3>
+        {% if trophies %}
+          <ul class="plain-list">
+            {% for trophy in trophies %}
+              <li class="trophy-row">
+                {% league_mark trophy.league trophy.place css_class="trophy-mark" %}
+                <span>
+                  <strong>{{ trophy.get_league_display }} · {{ trophy.place|unlocalize }} место</strong>
+                  <small>{{ trophy.season.starts_on|date:"m.Y" }} · {{ trophy.prize }}</small>
+                </span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="empty-copy">Пока пусто: награда достаётся призовой тройке сезона.</p>
+        {% endif %}
+      </aside>
+    </div>
+
+    <section class="card">
+      <p class="form-error" data-league-error hidden></p>
+      <button class="button" type="button" data-league-leave>Выйти из лиги</button>
+    </section>
+  {% endif %}
+{% endif %}
+{% endblock %}

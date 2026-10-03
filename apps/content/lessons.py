@@ -10,6 +10,7 @@ from __future__ import annotations
 from django.utils import timezone
 
 from .models import LessonProgress, TheoryBlock
+from .visibility import visible_assignments, visible_theory
 
 STAGE_MATERIAL = "material"
 STAGE_TASKS = "tasks"
@@ -43,7 +44,7 @@ def task_stats(student, node) -> dict:
     from apps.content.models import Assignment
     from apps.practice.models import Attempt
 
-    total = Assignment.objects.filter(skill_tags__node=node).distinct().count()
+    total = visible_assignments().filter(skill_tags__node=node).distinct().count()
     solved = (
         Attempt.objects.filter(
             student=student, assignment__skill_tags__node=node, is_correct=True
@@ -83,7 +84,7 @@ def lesson_stages(student, node) -> list[dict]:
     progress = get_progress(student, node)
     tasks = task_stats(student, node)
     review = review_stats(student, node)
-    has_theory = TheoryBlock.objects.filter(lesson__node=node).exists()
+    has_theory = visible_theory().filter(lesson__node=node).exists()
 
     stages = [
         {
@@ -132,7 +133,7 @@ def lesson_summary_text(node) -> str:
     if node.ege_task_numbers:
         numbers = ", ".join(str(number) for number in node.ege_task_numbers)
         lines += [f"Задания ЕГЭ: {numbers}", ""]
-    blocks = TheoryBlock.objects.filter(lesson__node=node).select_related("lesson").order_by(
+    blocks = visible_theory().filter(lesson__node=node).select_related("lesson").order_by(
         "lesson__order", "order"
     )
     for block in blocks:
@@ -142,7 +143,7 @@ def lesson_summary_text(node) -> str:
 
     from apps.content.models import Assignment
 
-    assignments = Assignment.objects.filter(skill_tags__node=node).distinct()
+    assignments = visible_assignments().filter(skill_tags__node=node).distinct()
     if assignments:
         lines += ["## Задачи занятия", ""]
         for index, assignment in enumerate(assignments, start=1):

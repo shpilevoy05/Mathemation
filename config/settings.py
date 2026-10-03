@@ -208,6 +208,11 @@ REST_FRAMEWORK = {
         "hint": os.environ.get("THROTTLE_HINT") or "30/hour",
         "purchase": os.environ.get("THROTTLE_PURCHASE") or "30/hour",
         "upload": os.environ.get("THROTTLE_UPLOAD") or "40/hour",
+        # Партия в арене живая: экран опрашивает состояние каждые пару секунд,
+        # иначе счёт соперника и его ход приходят с опозданием. Общий лимит
+        # пользователя под это не рассчитан, поэтому у арены свои два.
+        "arena_state": os.environ.get("THROTTLE_ARENA_STATE") or "2400/hour",
+        "arena_move": os.environ.get("THROTTLE_ARENA_MOVE") or "600/hour",
         # Колбэк приходит без сессии: лимит держим широким (провайдер повторяет
         # доставку), но конечным — иначе это открытая точка входа.
         "webhook": os.environ.get("THROTTLE_WEBHOOK") or "600/hour",
@@ -428,8 +433,11 @@ DECAY_GRACE_DAYS = 14
 DECAY_RATE_PER_DAY = 0.02
 
 # --- Score forecast ---
-# Maximum primary score of the profile EGE (12 задач части 1 + 20 баллов части 2).
-MAX_PRIMARY_SCORE = 32
+# Запасные значения на случай, когда профиль экзамена ещё не загружен в базу:
+# структура живёт в `apps/exams/blueprint.py`, и тест следит, чтобы эти два
+# места не разъезжались. Считает прогноз всегда профиль, а не настройки.
+# 13 заданий части 1 по баллу плюс 20 баллов части 2.
+MAX_PRIMARY_SCORE = 33
 # EMA weight of the latest mock when calibrating a forecast.
 FORECAST_CALIBRATION_ALPHA = 0.3
 # Bootstrap IRT 2PL parameters; real attempt logs can calibrate them later.
@@ -437,11 +445,14 @@ IRT_THETA_SCALE = 6.0
 IRT_DIFFICULTY_STEP = 1.2
 IRT_DEFAULT_DISCRIMINATION = 1.0
 IRT_GUESS = 0.0
-# Официальная таблица перевода первичных баллов в тестовые (кладётся конфигом
-# на каждый год; ниже — приближение шкалы профильной математики).
+# Таблица перевода первичных баллов в тестовые. Официальную публикует
+# Рособрнадзор отдельным документом и позже спецификации; пока её нет, здесь
+# приближение, полученное из прежней шкалы по структуре экзамена (часть 1
+# растянута с 12 заданий на 13, часть 2 сдвинута на балл).
 PRIMARY_TO_SCALED = [
-    0, 5, 9, 14, 18, 22, 27, 33, 39, 45, 50, 56, 62, 68, 70, 72, 74,
-    76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 99, 100, 100, 100,
+    0, 5, 8, 13, 17, 20, 25, 30, 35, 41, 46, 51, 56, 62,
+    68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 99,
+    100, 100, 100,
 ]
 # Ceiling simulation: сколько часов нужно на освоение одного узла и до какого
 # уровня mastery реалистично довести узел до экзамена.
@@ -462,6 +473,10 @@ PLAN_CHANGE_LOG_DEDUP_HOURS = 24
 from celery.schedules import crontab  # noqa: E402
 
 CELERY_BEAT_SCHEDULE = {
+    "finalize-expired-mocks": {
+        "task": "apps.mocks.tasks.finalize_expired_mocks",
+        "schedule": 60.0,
+    },
     "generate-weekly-quests": {
         "task": "apps.gamification.tasks.generate_weekly_quests_all",
         "schedule": crontab(day_of_week="mon", hour=5, minute=0),
@@ -487,6 +502,18 @@ CELERY_BEAT_SCHEDULE = {
     "expire-subscriptions-daily": {
         "task": "apps.billing.tasks.expire_subscriptions_task",
         "schedule": crontab(hour=2, minute=0),
+    },
+    # Партии, которые никто не открыл, снимает уборка: обращаться к ним
+    # некому, а в списке «идут сейчас» они висеть не должны.
+    "sweep-arena": {
+        "task": "apps.arena.tasks.sweep_arena",
+        "schedule": crontab(minute="*/5"),
+    },
+    # Сезон лиги — календарный месяц: первого числа итоги прошлого должны
+    # быть подведены до того, как кто-то откроет экран.
+    "rotate-leagues-daily": {
+        "task": "apps.gamification.tasks.rotate_leagues",
+        "schedule": crontab(hour=0, minute=10),
     },
     "weekly-parent-reports": {
         "task": "apps.progress.tasks.generate_weekly_parent_reports",

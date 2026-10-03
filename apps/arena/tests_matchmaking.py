@@ -24,7 +24,7 @@ from .services import (
     participant_for,
     submit_answer,
 )
-from .tests import make_pool
+from .tests import make_pool, sit_down
 
 
 class ReviewTests(TestCase):
@@ -33,12 +33,16 @@ class ReviewTests(TestCase):
     def setUp(self):
         self.student = make_student("review-player")
         make_pool()
-        self.match = create_match(self.student, mode=Match.Mode.QUIZ, bot_level=1)
+        self.match = create_match(self.student, mode=Match.Mode.SPEED, bot_level=1)
+        sit_down(self.match, self.student)
         self.me = participant_for(self.match, self.student)
         self.client.force_login(self.student.user)
 
     def play(self, *, correct: bool):
         while True:
+            self.match.refresh_from_db()
+            if self.match.is_over:
+                break
             question = next_question(self.match, self.me)
             if question is None:
                 break
@@ -68,7 +72,12 @@ class ReviewTests(TestCase):
     def test_review_marks_what_was_solved(self):
         self.play(correct=True)
 
-        self.assertTrue(all(row["is_correct"] for row in self.state()["review"]))
+        review = self.state()["review"]
+
+        # Партия могла закончиться раньше последней задачи: до чего дошли —
+        # решено верно, остальное честно помечено как неотвеченное.
+        self.assertTrue(all(row["is_correct"] for row in review if row["answered"]))
+        self.assertTrue(any(row["answered"] for row in review))
 
     def test_mistakes_still_stay_off_the_rework_shelf(self):
         self.play(correct=False)
@@ -91,7 +100,7 @@ class MatchmakingTests(TestCase):
         return profile
 
     def test_first_player_waits(self):
-        ticket = join_queue(self.first, mode=Match.Mode.QUIZ)
+        ticket = join_queue(self.first, mode=Match.Mode.SPEED)
 
         self.assertEqual(ticket.status, MatchmakingTicket.Status.WAITING)
         self.assertIsNone(ticket.match_id)
@@ -99,13 +108,14 @@ class MatchmakingTests(TestCase):
     def test_close_ratings_are_paired(self):
         self.rate(self.first, 1200)
         self.rate(self.second, 1240)
-        join_queue(self.first, mode=Match.Mode.QUIZ)
+        join_queue(self.first, mode=Match.Mode.SPEED)
 
-        ticket = join_queue(self.second, mode=Match.Mode.QUIZ)
+        ticket = join_queue(self.second, mode=Match.Mode.SPEED)
 
         self.assertIsNotNone(ticket.match_id)
         self.assertTrue(ticket.match.is_ranked)
-        self.assertEqual(ticket.match.status, Match.Status.ACTIVE)
+        # Очередь свела игроков, но партия ждёт, пока оба откроют её экран.
+        self.assertEqual(ticket.match.status, Match.Status.LOBBY)
         self.assertEqual(
             ticket.match.participants.filter(student__isnull=False).count(), 2
         )
@@ -113,17 +123,17 @@ class MatchmakingTests(TestCase):
     def test_strangers_can_be_paired_without_friendship(self):
         self.rate(self.first, 1100)
         self.rate(self.second, 1120)
-        join_queue(self.first, mode=Match.Mode.QUIZ)
+        join_queue(self.first, mode=Match.Mode.SPEED)
 
         # Случайная партия не требует знакомства: это и есть её смысл.
-        self.assertIsNotNone(join_queue(self.second, mode=Match.Mode.QUIZ).match_id)
+        self.assertIsNotNone(join_queue(self.second, mode=Match.Mode.SPEED).match_id)
 
     def test_distant_rating_waits_for_the_window_to_widen(self):
         self.rate(self.first, 900)
         self.rate(self.second, 1800)
-        join_queue(self.first, mode=Match.Mode.QUIZ)
+        join_queue(self.first, mode=Match.Mode.SPEED)
 
-        ticket = join_queue(self.second, mode=Match.Mode.QUIZ)
+        ticket = join_queue(self.second, mode=Match.Mode.SPEED)
         self.assertIsNone(ticket.match_id)
 
         # Через пять минут ожидания окно шире, и соперник уже подходит.
@@ -138,10 +148,10 @@ class MatchmakingTests(TestCase):
         self.rate(far, 1000)
         self.rate(near, 1180)
         self.rate(self.first, 1200)
-        join_queue(far, mode=Match.Mode.QUIZ)
-        join_queue(near, mode=Match.Mode.QUIZ)
+        join_queue(far, mode=Match.Mode.SPEED)
+        join_queue(near, mode=Match.Mode.SPEED)
 
-        ticket = join_queue(self.first, mode=Match.Mode.QUIZ)
+        ticket = join_queue(self.first, mode=Match.Mode.SPEED)
 
         rivals = {
             participant.student_id for participant in ticket.match.participants.all()
@@ -150,18 +160,18 @@ class MatchmakingTests(TestCase):
         self.assertNotIn(far.pk, rivals)
 
     def test_modes_do_not_mix(self):
-        join_queue(self.first, mode=Match.Mode.QUIZ)
+        join_queue(self.first, mode=Match.Mode.SPEED)
 
-        self.assertIsNone(join_queue(self.second, mode=Match.Mode.SPEED).match_id)
+        self.assertIsNone(join_queue(self.second, mode=Match.Mode.BOARD).match_id)
 
     def test_prototypes_do_not_mix(self):
-        join_queue(self.first, mode=Match.Mode.QUIZ, ege_task_number=13)
+        join_queue(self.first, mode=Match.Mode.SPEED, ege_task_number=13)
 
-        self.assertIsNone(join_queue(self.second, mode=Match.Mode.QUIZ).match_id)
+        self.assertIsNone(join_queue(self.second, mode=Match.Mode.BOARD).match_id)
 
     def test_repeat_join_keeps_one_ticket(self):
-        join_queue(self.first, mode=Match.Mode.QUIZ)
-        join_queue(self.first, mode=Match.Mode.QUIZ)
+        join_queue(self.first, mode=Match.Mode.SPEED)
+        join_queue(self.first, mode=Match.Mode.SPEED)
 
         self.assertEqual(
             MatchmakingTicket.objects.filter(
@@ -171,7 +181,7 @@ class MatchmakingTests(TestCase):
         )
 
     def test_stale_ticket_is_dropped(self):
-        join_queue(self.first, mode=Match.Mode.QUIZ)
+        join_queue(self.first, mode=Match.Mode.SPEED)
         MatchmakingTicket.objects.filter(student=self.first).update(
             created_at=timezone.now() - timedelta(minutes=10)
         )
@@ -207,8 +217,9 @@ class RatingTests(TestCase):
             profile = get_profile(student)
             profile.rating = 1200
             profile.save(update_fields=["rating"])
-        join_queue(self.first, mode=Match.Mode.QUIZ)
-        self.match = join_queue(self.second, mode=Match.Mode.QUIZ).match
+        join_queue(self.first, mode=Match.Mode.SPEED)
+        self.match = join_queue(self.second, mode=Match.Mode.SPEED).match
+        sit_down(self.match, self.first, self.second)
 
     def finish(self, winner, loser):
         MatchParticipant.objects.filter(match=self.match, student=winner).update(
@@ -234,7 +245,8 @@ class RatingTests(TestCase):
 
     def test_bot_match_leaves_the_rating_alone(self):
         before = get_profile(self.first).rating
-        bot_match = create_match(self.first, mode=Match.Mode.QUIZ, bot_level=3)
+        bot_match = create_match(self.first, mode=Match.Mode.SPEED, bot_level=3)
+        sit_down(bot_match, self.first)
         me = participant_for(bot_match, self.first)
         MatchParticipant.objects.filter(pk=me.pk).update(
             score=500, finished_at=timezone.now()
@@ -255,7 +267,7 @@ class QueueApiTests(TestCase):
 
     def test_join_poll_and_cancel(self):
         joined = self.client.post(
-            "/api/arena/queue/", {"mode": "quiz"}, content_type="application/json"
+            "/api/arena/queue/", {"mode": "speed"}, content_type="application/json"
         )
         self.assertEqual(joined.status_code, 201)
         self.assertEqual(joined.json()["status"], "waiting")
@@ -267,11 +279,11 @@ class QueueApiTests(TestCase):
 
     def test_bot_fallback_starts_a_match_at_the_player_level(self):
         self.client.post(
-            "/api/arena/queue/", {"mode": "quiz"}, content_type="application/json"
+            "/api/arena/queue/", {"mode": "speed"}, content_type="application/json"
         )
 
         response = self.client.post(
-            "/api/arena/queue/bot/", {"mode": "quiz"}, content_type="application/json"
+            "/api/arena/queue/bot/", {"mode": "speed"}, content_type="application/json"
         )
 
         self.assertEqual(response.status_code, 201)

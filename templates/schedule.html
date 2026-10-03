@@ -24,6 +24,12 @@
       <div>
         <h2>{{ month_label|capfirst }} {{ schedule.year }}</h2>
         <p class="muted">Запланировано в этом месяце: <b class="num">{{ schedule.planned_count }}</b></p>
+        {% if unplanned_nodes %}
+          <p class="muted">При нагрузке {{ weekly_hours|unlocalize }} ч в неделю до экзамена
+            не помещается <b class="num">{{ unplanned_nodes|unlocalize }}</b> тем.
+            Их нет в расписании: план должен быть выполнимым.
+            <a href="{% url 'forecast' %}">Изменить нагрузку или дату</a>.</p>
+        {% endif %}
       </div>
       <div class="month-nav">
         <a class="button button-small" href="?year={{ schedule.previous.year|unlocalize }}&amp;month={{ schedule.previous.month|unlocalize }}">← Раньше</a>

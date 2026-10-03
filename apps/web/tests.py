@@ -393,7 +393,10 @@ class DesignSystemTests(TestCase):
     def test_dashboard_gauge_uses_primary_points_with_target_and_interval(self):
         gauge = self.client.get(reverse("dashboard")).context["gauge"]
 
-        self.assertEqual(gauge["max_primary"], 32)
+        # Максимум берётся из структуры экзамена, а не из константы в тесте.
+        from apps.progress.services import max_primary_score
+
+        self.assertEqual(gauge["max_primary"], max_primary_score())
         self.assertEqual(gauge["target_scaled"], self.user.student_profile.target_score)
         self.assertLessEqual(gauge["now_percent"], 100)
         self.assertGreaterEqual(gauge["target_percent"], gauge["now_percent"])

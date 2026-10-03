@@ -79,9 +79,15 @@ def _student_groups() -> list[NavGroup]:
         ]),
         NavGroup("Игры", "i-cup", [
             NavItem("Арена", reverse("arena"), "i-cup", ("arena", "arena_match")),
+            NavItem("Лига", reverse("leagues"), "i-medal", ("leagues",)),
         ]),
-        NavGroup("Награды", "i-sigma", [
+        # Магазин и тарифы — разные разговоры: один про сигмы, другой про
+        # деньги родителя. В одной группе они путались, поэтому остаются
+        # отдельными вкладками.
+        NavGroup("Магазин", "i-sigma", [
             NavItem("Магазин", reverse("shop"), "i-sigma", ("shop",)),
+        ]),
+        NavGroup("Тарифы", "i-ruble", [
             NavItem("Тарифы", reverse("pricing"), "i-ruble", ("pricing",)),
         ]),
     ]

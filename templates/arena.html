@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load l10n %}
 {% block title %}Арена — Матемация{% endblock %}
 {% block content %}
 {% if not student %}
@@ -8,7 +9,7 @@
     <div>
       <p class="eyebrow">Соревнование</p>
       <h1>Арена</h1>
-      <p>Короткие партии против друга или бота. Задачи те же, что в тренировке, — меняется только азарт.</p>
+      <p>Короткие партии против друга, случайного соперника или бота. Задачи те же, что в тренировке, теория — та же, что в уроках; меняется только азарт.</p>
     </div>
     <div class="daily-clock">
       <svg aria-hidden="true"><use href="#i-cup"></use></svg>
@@ -22,11 +23,36 @@
       <form class="arena-form" data-match-form>
         <label for="match-mode">Режим</label>
         <select id="match-mode" name="mode">
-          <option value="speed">Нарешивание на скорость · 8 задач</option>
-          <option value="quiz">Квиз · 5 задач</option>
-          <option value="board">Своя игра · 6 клеток разной цены</option>
+          <option value="speed">Нарешивание задач</option>
+          <option value="quiz">Квиз по теории · 4 варианта</option>
+          <option value="board">Своя игра · 5 тем по 100–500</option>
         </select>
         <p class="muted" data-mode-hint>{{ mode_hints.speed }}</p>
+
+        <div data-speed-rules>
+          <label for="match-limit">Правило</label>
+          <select id="match-limit" name="limit_kind">
+            <option value="questions">Кто быстрее решит набор задач</option>
+            <option value="time">Кто больше решит за отведённое время</option>
+          </select>
+          <div data-question-count>
+            <label for="match-count">Сколько задач</label>
+            <select id="match-count" name="question_count">
+              <option value="5">5 — на пять минут</option>
+              <option value="8" selected>8 — обычная партия</option>
+              <option value="12">12 — длинная</option>
+              <option value="16">16 — на выносливость</option>
+            </select>
+          </div>
+          <div data-time-limit hidden>
+            <label for="match-time">Время на партию</label>
+            <select id="match-time" name="time_limit_seconds">
+              <option value="120">2 минуты</option>
+              <option value="180" selected>3 минуты</option>
+              <option value="300">5 минут</option>
+            </select>
+          </div>
+        </div>
 
         <label for="match-opponent">Соперник</label>
         <select id="match-opponent" name="opponent">
@@ -37,16 +63,18 @@
         </select>
 
         <div data-bot-level>
-          <label for="match-level">Уровень бота</label>
+          <label for="match-level">Сложность бота</label>
           <input id="match-level" name="bot_level" type="range" min="1" max="5" value="3">
-          <p class="muted">Уровень <b class="num" data-level-output>3</b> из 5 — как соперник, который решает уверенно, но ошибается.</p>
+          <p class="muted">Уровень <b class="num" data-level-output>3</b> из 5 — <span data-level-note>решает уверенно, но ошибается</span>.</p>
         </div>
 
-        <label for="match-task">Прототип</label>
-        <select id="match-task" name="ege_task_number">
-          <option value="">Случайный набор</option>
-          {% for number in "123456789"|make_list %}<option value="{{ number }}">Задание {{ number }}</option>{% endfor %}
-        </select>
+        <div data-task-block>
+          <label for="match-task">Прототип</label>
+          <select id="match-task" name="ege_task_number">
+            <option value="">Случайный набор</option>
+            {% for number in part1_numbers %}<option value="{{ number|unlocalize }}">Задание {{ number|unlocalize }}</option>{% endfor %}
+          </select>
+        </div>
 
         <p class="form-error" data-match-error hidden></p>
         <div class="arena-actions">
@@ -60,7 +88,7 @@
         <p class="muted">Ваш рейтинг <b class="num" data-queue-rating>{{ arena_rating }}</b>. Сначала ищем равного, затем — ближайшего по уровню.</p>
         <div class="arena-actions">
           <button class="button button-small" type="button" data-queue-cancel>Отменить поиск</button>
-          <button class="button button-small button-primary" type="button" data-queue-bot hidden>Сыграть с ботом своего уровня</button>
+          <button class="button button-small button-primary" type="button" data-queue-bot hidden>Сыграть с ботом выбранной сложности</button>
         </div>
       </div>
     </section>
@@ -126,9 +154,14 @@
           <li class="arena-row">
             <span>
               <strong>{{ row.match.get_mode_display }} · против {{ row.opponent }}</strong>
-              <small>{% if row.mine_done %}вы закончили, ждём соперника{% else %}ваш ход{% endif %}</small>
+              <small>
+                {% if row.waiting %}ждём игроков
+                {% elif row.mine_done %}вы закончили, ждём соперника
+                {% elif row.match.mode == 'board' %}{% if row.my_turn %}ваш ход{% else %}ход соперника{% endif %}
+                {% else %}ваш ход{% endif %}
+              </small>
             </span>
-            <a class="button button-small button-primary" href="{% url 'arena_match' row.match.id %}">{% if row.mine_done %}Посмотреть{% else %}Играть{% endif %}</a>
+            <a class="button button-small button-primary" href="{% url 'arena_match' row.match.id %}">{% if row.waiting %}Открыть{% elif row.mine_done %}Посмотреть{% else %}Играть{% endif %}</a>
           </li>
         {% endfor %}
       </ul>

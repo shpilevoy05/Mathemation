@@ -303,7 +303,8 @@ def calibrate_forecast(student, actual_primary: float, mock_result=None) -> Fore
     как EMA квадрата остаточной ошибки — по нему строится интервал.
     """
     alpha = settings.FORECAST_CALIBRATION_ALPHA
-    raw_predicted = expected_primary(student)
+    snapshot = mock_result.forecast_at_start if mock_result is not None else {}
+    raw_predicted = snapshot["raw_primary"] if "raw_primary" in snapshot else expected_primary(student)
     error = float(actual_primary) - raw_predicted
 
     student.primary_calibration = round(
@@ -379,16 +380,29 @@ def ceiling_forecast(student, weekly_hours: int | None = None, exam_date=None) -
         if exam_date is None
         else max((exam_date - timezone.localdate()).days, 0)
     )
+    from apps.planning.services import recommended_weekly_hours
+
+    recommended_hours = recommended_weekly_hours(student, exam_date)
     result = simulate_ceiling(states, edges, days_left, weekly_hours, _engine_params())
     ceiling_score, _ = predict_score(student, mastery_override=result.mastery_profile)
 
+    unreachable = list(result.unreachable_node_ids)
     return {
         "current_score": current_score,
         "ceiling_score": max(ceiling_score, current_score),
         "weekly_hours": weekly_hours,
         "exam_date": exam_date,
         "reachable_node_ids": list(result.reachable_node_ids),
-        "unreachable_node_ids": list(result.unreachable_node_ids),
+        "unreachable_node_ids": unreachable,
+        # Чем именно ограничен потолок. Без этого ползунок выглядит сломанным:
+        # ученик двигает нагрузку, число стоит, и непонятно, что времени уже
+        # хватает на весь материал, а упирается всё в объём программы.
+        "limited_by": "scope" if not unreachable else "time",
+        "unreachable_count": len(unreachable),
+        "days_left": days_left,
+        # Сколько часов в неделю нужно, чтобы успеть всё к этой дате. Ученик
+        # двигает ползунок наугад, пока ему не сказали, куда его двигать.
+        "recommended_hours": recommended_hours,
     }
 
 

@@ -1,13 +1,20 @@
-{% comment %}
-Аватар ученика с надетой рамкой. Пока аватар не куплен, показывается буква
-имени — интерфейс не должен выглядеть сломанным до первой покупки.
+{% load cosmetics %}{% comment %}
+Аватар ученика с надетой рамкой.
+
+Рамка — отдельный слой поверх аватара, а не тень вокруг него: у дизайна это
+кольцо 160×160 с отверстием Ø104 в центре, и аватар внутри должен оставаться
+неподвижным, когда кольцо вращается.
+
+Параметры: `size` — sm/md/lg, `motion` — разрешено ли движение. В списках и
+таблицах движение выключено: там аватар работает как данные.
 {% endcomment %}
-<span class="avatar-badge avatar-badge--{{ size|default:'sm' }}{% if ui_frame %} frame-{{ ui_frame }}{% endif %}"
+<span class="avatar-badge avatar-badge--{{ size|default:'sm' }}{% if motion %} motion{% endif %}"
       title="{{ user.get_full_name|default:user.username }}">
   {% if ui_avatar %}
-    <svg class="avatar-art" viewBox="0 0 60 60" aria-hidden="true"><use href="#avatar-{{ ui_avatar }}"></use></svg>
+    <span class="avatar-art">{% cosmetic "avatar" ui_avatar %}</span>
   {% else %}
     <span class="avatar-letter" aria-hidden="true">{{ user.get_full_name|default:user.username|first|upper }}</span>
   {% endif %}
+  {% if ui_frame %}<span class="frame-art">{% cosmetic "frame" ui_frame %}</span>{% endif %}
   <span class="visually-hidden">{{ user.get_full_name|default:user.username }}</span>
 </span>

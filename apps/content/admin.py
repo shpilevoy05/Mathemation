@@ -7,6 +7,7 @@ from .models import (
     SolutionPath,
     SolutionStep,
     TheoryBlock,
+    TheoryQuestion,
 )
 
 
@@ -69,3 +70,24 @@ class SolutionPathAdmin(admin.ModelAdmin):
     search_fields = ["code", "title", "assignment__title"]
     autocomplete_fields = ["assignment"]
     inlines = [SolutionStepInline]
+
+
+@admin.register(TheoryQuestion)
+class TheoryQuestionAdmin(admin.ModelAdmin):
+    """Банк вопросов арены. Основная часть приходит из `theory_bank.py`,
+    здесь методист добавляет точечные вопросы и снимает неудачные с публикации.
+    """
+
+    list_display = ["short_prompt", "cluster", "difficulty", "answer_format",
+                    "correct_answer", "in_quiz", "is_active"]
+    list_filter = ["cluster", "difficulty", "answer_format", "is_active"]
+    search_fields = ["prompt", "correct_answer"]
+    autocomplete_fields = ["node"]
+
+    @admin.display(description="Вопрос")
+    def short_prompt(self, obj):
+        return obj.prompt[:70]
+
+    @admin.display(boolean=True, description="В квизе")
+    def in_quiz(self, obj):
+        return len(obj.options or []) == 4

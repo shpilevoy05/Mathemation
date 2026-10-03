@@ -46,6 +46,24 @@ class NavigationTests(TestCase):
         self.assertIn("Расписание", labels)
         self.assertLess(labels.index("Дорожка"), labels.index("Карта навыков"))
 
+    def test_games_hold_arena_and_league(self):
+        student = make_student("nav-games-student")
+
+        labels = [item.label for item in self.groups(student.user)["Игры"].items]
+
+        self.assertEqual(labels, ["Арена", "Лига"])
+
+    def test_shop_and_pricing_are_separate_tabs(self):
+        student = make_student("nav-shop-student")
+
+        groups = self.groups(student.user)
+
+        # Разговор про сигмы и разговор про деньги родителя — разные вкладки:
+        # под общим ярлыком «Награды» ученик искал магазин в тарифах.
+        self.assertTrue(groups["Магазин"].is_single)
+        self.assertTrue(groups["Тарифы"].is_single)
+        self.assertNotIn("Награды", groups)
+
     def test_single_item_group_is_a_plain_link(self):
         student = make_student("nav-single-student")
 

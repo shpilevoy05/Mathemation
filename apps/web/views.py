@@ -36,6 +36,7 @@ def knowledge_map(request):
 
 
 @login_required
+@require_feature(Feature.LESSONS)
 def knowledge_node(request, node_id):
     return _render_student_page(
         request, "knowledge_node.html", services.knowledge_node_context, node_id=node_id
@@ -78,6 +79,13 @@ def schedule(request):
 def arena(request):
     """Арена: друзья, вызовы и партии."""
     return _render_student_page(request, "arena.html", services.arena_context)
+
+
+@login_required
+def leagues(request):
+    """Лига: своя когорта и таблица месяца. Не гейтим: соревнование —
+    не платная функция, а способ вернуть ученика к занятиям."""
+    return _render_student_page(request, "leagues.html", services.leagues_context)
 
 
 @login_required

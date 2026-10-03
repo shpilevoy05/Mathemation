@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="atesseractb" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#A9B0FF" stop-opacity="1"/><stop offset="0.52" stop-color="#4A50C8" stop-opacity="1"/><stop offset="1" stop-color="#171B52" stop-opacity="1"/></radialGradient>
+<radialGradient id="atesseracts" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#171B52" stop-opacity="0"/><stop offset="0.88" stop-color="#171B52" stop-opacity="0.18"/><stop offset="1" stop-color="#171B52" stop-opacity="0.42"/></radialGradient>
+<radialGradient id="atesseractg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+<linearGradient id="atesseractr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+</defs>
+<g transform="rotate(30 64 64)">
+<circle cx="64" cy="64" r="60" fill="url(#atesseractb)"/>
+<g>
+<path class="tsr-link" style="--i:0" d="M22 22 L48 48" stroke="#FFFFFF" stroke-opacity=".55" stroke-width="3"/><path class="tsr-link" style="--i:1" d="M106 22 L80 48" stroke="#FFFFFF" stroke-opacity=".55" stroke-width="3"/><path class="tsr-link" style="--i:2" d="M106 106 L80 80" stroke="#FFFFFF" stroke-opacity=".55" stroke-width="3"/><path class="tsr-link" style="--i:3" d="M22 106 L48 80" stroke="#FFFFFF" stroke-opacity=".55" stroke-width="3"/>
+<polygon class="tsr-outer" points="22,22 106,22 106,106 22,106" fill="none" stroke="#FFFFFF" stroke-opacity=".95" stroke-width="4.5"/>
+<polygon class="tsr-inner" points="48,48 80,48 80,80 48,80" fill="#FFFFFF" fill-opacity=".10" stroke="#FFFFFF" stroke-opacity=".9" stroke-width="4"/>
+<circle cx="22" cy="22" r="3.2" fill="#FFFFFF" fill-opacity=".9"/><circle cx="106" cy="22" r="3.2" fill="#FFFFFF" fill-opacity=".9"/><circle cx="106" cy="106" r="3.2" fill="#FFFFFF" fill-opacity=".9"/><circle cx="22" cy="106" r="3.2" fill="#FFFFFF" fill-opacity=".9"/>
+</g>
+<circle cx="64" cy="64" r="60" fill="url(#atesseracts)"/>
+<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#atesseractg)"/>
+<circle cx="64" cy="64" r="59" stroke="url(#atesseractr)" stroke-width="2" opacity="0.75"/>
+<circle cx="64" cy="64" r="62.5" stroke="#171B52" stroke-opacity="0.14" stroke-width="3"/>
+</g>
+</svg>

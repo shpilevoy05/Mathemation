@@ -429,3 +429,147 @@ class AssignmentSkillTag(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["assignment", "node"], name="uniq_assignment_node")
         ]
+
+
+class TheoryQuestion(models.Model):
+    """Вопрос по теории для арены: определения, формулы, свойства.
+
+    Зачем отдельная сущность, а не `Assignment`: в квизе и «своей игре»
+    спрашивают не «реши», а «знаешь ли ты» — название, формулу, условие
+    существования. Такой вопрос не имеет решения, не даёт свидетельства
+    владения навыком и не должен попадать ни в план, ни в домашнюю работу.
+
+    Формат ответа сознательно сужен до одного слова или одного числа. Под
+    таймером человек не должен проигрывать из-за пробела или падежа: если
+    ответ нельзя записать однозначно, вопрос не годится для арены.
+    """
+
+    class Format(models.TextChoices):
+        WORD = "word", "Одно слово"
+        NUMBER = "number", "Число"
+
+    cluster = models.ForeignKey(
+        "knowledge.TopicCluster", on_delete=models.CASCADE, related_name="theory_questions"
+    )
+    # Навык нужен для аналитики и подбора: сам вопрос освоение не двигает.
+    node = models.ForeignKey(
+        "knowledge.KnowledgeNode", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="theory_questions",
+    )
+    prompt = models.TextField()
+    answer_format = models.CharField(max_length=8, choices=Format.choices, default=Format.WORD)
+    correct_answer = models.CharField(max_length=120)
+    # Синонимы, которые засчитываются: «дискриминант» и «d» — один ответ.
+    accepted_answers = models.JSONField(default=list, blank=True)
+    # Подсказка формата видна игроку до ответа: «одно слово», «целое число».
+    format_hint = models.CharField(max_length=120, blank=True)
+    # 1..5 → цена клетки 100..500 в «своей игре».
+    difficulty = models.PositiveSmallIntegerField(default=1)
+    # Четыре варианта для квиза. Пусто — вопрос в квиз не попадает.
+    options = models.JSONField(default=list, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["cluster__order", "difficulty", "id"]
+        indexes = [
+            models.Index(fields=["cluster", "difficulty"], name="theory_cluster_diff"),
+        ]
+
+    def __str__(self):
+        return f"{self.cluster_id}/{self.difficulty}: {self.prompt[:40]}"
+
+    @property
+    def price(self) -> int:
+        return min(max(int(self.difficulty), 1), 5) * 100
+
+    @property
+    def hint(self) -> str:
+        if self.format_hint:
+            return self.format_hint
+        return "Число" if self.answer_format == self.Format.NUMBER else "Одно слово"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        answers = [self.correct_answer, *(self.accepted_answers or [])]
+        for value in answers:
+            if not str(value).strip():
+                raise ValidationError({"correct_answer": "Ответ не может быть пустым."})
+            if self.answer_format == self.Format.NUMBER:
+                if _as_number(value) is None:
+                    raise ValidationError(
+                        {"correct_answer": f"«{value}» не читается как число."}
+                    )
+            elif len(str(value).split()) > 1:
+                raise ValidationError(
+                    {"correct_answer": f"«{value}» — не одно слово. Под таймером "
+                                       "разночтения в записи стоят балла."}
+                )
+        options = list(self.options or [])
+        if options:
+            if len(options) != 4:
+                raise ValidationError({"options": "Для квиза нужно ровно четыре варианта."})
+            if len(set(options)) != 4:
+                raise ValidationError({"options": "Варианты должны различаться."})
+            if not any(self.check_answer(str(option)) for option in options):
+                raise ValidationError(
+                    {"options": "Среди вариантов нет правильного ответа."}
+                )
+
+    def check_answer(self, value: str) -> bool:
+        """Верен ли ответ. Сравнение по смыслу записи, а не по символам."""
+        if self.answer_format == self.Format.NUMBER:
+            given = _as_number(value)
+            if given is None:
+                return False
+            return any(
+                abs(given - number) < 1e-9
+                for number in (
+                    _as_number(candidate)
+                    for candidate in [self.correct_answer, *(self.accepted_answers or [])]
+                )
+                if number is not None
+            )
+        given = _as_word(value)
+        if not given:
+            return False
+        return given in {
+            _as_word(candidate)
+            for candidate in [self.correct_answer, *(self.accepted_answers or [])]
+        }
+
+    def correct_option(self) -> int | None:
+        """Номер верного варианта в квизе."""
+        for index, option in enumerate(self.options or []):
+            if self.check_answer(str(option)):
+                return index
+        return None
+
+
+def _as_word(value) -> str:
+    """Нормализованное слово: регистр, ё, дефисы и знаки не считаются."""
+    import re
+
+    text = str(value or "").strip().lower().replace("ё", "е")
+    text = re.sub(r"[\s\-—_]+", "", text)
+    return re.sub(r"[.,;:!?«»\"'()]+", "", text)
+
+
+def _as_number(value):
+    """Число из записи ученика: запятая как разделитель, дробь — как деление.
+
+    «0,375», «0.375» и «3/8» — одно и то же число. Требовать конкретную форму
+    записи значило бы проверять аккуратность, а не знание.
+    """
+    text = str(value or "").strip().replace(" ", "").replace("\u00a0", "").replace(",", ".")
+    if text.count("/") == 1:
+        top, _, bottom = text.partition("/")
+        try:
+            return float(top) / float(bottom)
+        except (ValueError, ZeroDivisionError):
+            return None
+    try:
+        return float(text)
+    except ValueError:
+        return None

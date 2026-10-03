@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<defs>
+<linearGradient id="Lalphapentagonmono0p" x1="12%" y1="0%" x2="88%" y2="100%"><stop offset="0" stop-color="#FFB765" stop-opacity="1"/><stop offset="0.35" stop-color="#F58A1E" stop-opacity="1"/><stop offset="0.72" stop-color="#8A4A06" stop-opacity="1"/><stop offset="1" stop-color="#8A4A06" stop-opacity="1"/></linearGradient>
+<linearGradient id="Lalphapentagonmono0i" x1="0%" y1="0%" x2="60%" y2="100%"><stop offset="0" stop-color="#F58A1E" stop-opacity="1"/><stop offset="0.55" stop-color="#8A4A06" stop-opacity="1"/><stop offset="1" stop-color="#8A4A06" stop-opacity="1"/></linearGradient>
+<linearGradient id="Lalphapentagonmono0g" x1="0%" y1="0%" x2="70%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.1"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<radialGradient id="Lalphapentagonmono0c" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#FFB765" stop-opacity="1"/><stop offset="1" stop-color="#F58A1E" stop-opacity="1"/></radialGradient>
+</defs>
+<path d="M64 8 L118 47 L97 116 H31 L10 47 Z" fill="url(#Lalphapentagonmono0p)"/>
+<g transform="translate(64,64) scale(.86) translate(-64,-64)"><path d="M64 8 L118 47 L97 116 H31 L10 47 Z" fill="url(#Lalphapentagonmono0i)" opacity=".55"/></g>
+<g transform="translate(64,64) scale(.74) translate(-64,-64)"><path d="M64 8 L118 47 L97 116 H31 L10 47 Z" fill="url(#Lalphapentagonmono0c)"/></g>
+<g transform="translate(64.00 64.00) scale(0.7124) translate(-64 -64)"><path d="M82 48 C60 40 36 53 36 76 C36 99 60 110 79 99 M82 48 C72 65 70 84 80 99 L93 110" fill="none" stroke="#8A4A06" stroke-opacity=".3" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" transform="translate(1.5 2.5)"/><path d="M82 48 C60 40 36 53 36 76 C36 99 60 110 79 99 M82 48 C72 65 70 84 80 99 L93 110" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M64 8 L118 47 L97 116 H31 L10 47 Z" fill="url(#Lalphapentagonmono0g)"/>
+<path d="M64 8 L118 47 L97 116 H31 L10 47 Z" fill="none" stroke="#8A4A06" stroke-opacity=".45" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>
