@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 from django.urls import reverse
 
-from .permissions import is_expert, is_methodist
+from .permissions import is_expert, is_methodist, is_smm
 
 
 @dataclass
@@ -108,6 +108,36 @@ def _parent_groups() -> list[NavGroup]:
 
 def _staff_groups(user) -> list[NavGroup]:
     groups: list[NavGroup] = []
+    if is_smm(user):
+        groups.append(NavGroup("Соцсети", "i-megaphone", [
+            NavItem(
+                "Публикации", reverse("admin:social_agent_post_changelist"),
+                "i-send", ("social_agent_post_changelist",),
+            ),
+            NavItem(
+                "Рубрики и расписание",
+                reverse("admin:social_agent_rubric_changelist"),
+                "i-clock", ("social_agent_rubric_changelist",),
+            ),
+            NavItem(
+                "Каналы", reverse("admin:social_agent_channel_changelist"),
+                "i-chat", ("social_agent_channel_changelist",),
+            ),
+            NavItem(
+                "Идеи", reverse("admin:social_agent_contentidea_changelist"),
+                "i-bulb", ("social_agent_contentidea_changelist",),
+            ),
+            NavItem(
+                "Профиль бренда",
+                reverse("admin:social_agent_brandprofile_changelist"),
+                "i-flame", ("social_agent_brandprofile_changelist",),
+            ),
+            NavItem(
+                "Разрешения",
+                reverse("admin:social_agent_socialtaskpermission_changelist"),
+                "i-lock", ("social_agent_socialtaskpermission_changelist",),
+            ),
+        ]))
     if is_expert(user):
         groups.append(NavGroup("Проверка", "i-doc", [
             NavItem(

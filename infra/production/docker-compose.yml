@@ -48,6 +48,23 @@ services:
   worker:
     <<: *app
     command: ["/app/infra/production/entrypoint.sh", "worker"]
+    environment:
+      CELERY_QUEUES: celery
+    healthcheck:
+      disable: true
+
+  social-worker:
+    <<: *app
+    command: ["/app/infra/production/entrypoint.sh", "worker"]
+    environment:
+      CELERY_QUEUES: social
+      CELERY_CONCURRENCY: "1"
+    healthcheck:
+      disable: true
+
+  social-bot:
+    <<: *app
+    command: ["/app/infra/production/entrypoint.sh", "social-bot"]
     healthcheck:
       disable: true
 

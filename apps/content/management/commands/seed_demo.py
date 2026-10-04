@@ -334,6 +334,17 @@ class Command(BaseCommand):
         methodist_user.save()
         methodist_user.groups.add(Group.objects.get(name="Методисты"))
 
+        smm_user, created = User.objects.get_or_create(
+            username="smm",
+            defaults={"role": User.Role.SMM, "is_staff": True},
+        )
+        if created:
+            smm_user.set_password("demo12345")
+        smm_user.role = User.Role.SMM
+        smm_user.is_staff = True
+        smm_user.save()
+        smm_user.groups.add(Group.objects.get(name="SMM"))
+
         ExpertReviewRequest.objects.get_or_create(
             student=student,
             assignment=part2[0],
@@ -358,7 +369,8 @@ class Command(BaseCommand):
             f"{theory['created'] + theory['updated']} вопросов по теории, "
             f"профиль экзамена {profile.year} "
             f"({profile.tasks.count()} заданий). "
-            "Пользователи: student / parent / expert / methodist (пароль demo12345)."
+            "Пользователи: student / parent / expert / methodist / smm "
+            "(пароль demo12345)."
         ))
 
     def _seed_engagement(self, nodes, part1, student):

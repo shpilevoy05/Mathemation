@@ -20,7 +20,7 @@ class ModelValidationTests(TestCase):
             rubric.clean()
 
     def test_channel_requires_registered_adapter(self):
-        channel = Channel(platform="telegram", title="Канал", external_id="@test", is_active=True)
+        channel = Channel(platform="youtube", title="Канал", external_id="@test", is_active=True)
         with self.assertRaises(ValidationError):
             channel.clean()
 
@@ -30,12 +30,15 @@ class ModelValidationTests(TestCase):
             def publish(self, post):
                 return PublishResult("1")
 
-        adapters.register_adapter("telegram", FakeAdapter)
+        adapters.register_adapter("youtube", FakeAdapter)
         try:
             channel.clean()
-            self.assertIs(adapters.get_adapter("telegram"), FakeAdapter)
+            self.assertIs(adapters.get_adapter("youtube"), FakeAdapter)
         finally:
-            adapters._ADAPTERS.pop("telegram", None)
+            adapters._ADAPTERS.pop("youtube", None)
+
+    def test_telegram_adapter_is_registered_by_app_startup(self):
+        self.assertIsNotNone(adapters.get_adapter("telegram"))
 
 
 class TransitionTests(TestCase):

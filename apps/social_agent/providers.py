@@ -33,6 +33,13 @@ class Provider(ABC):
 
 class MockProvider(Provider):
     def generate(self, messages: list[dict], *, purpose: str, post=None) -> LlmResult:
+        marker_start = "<safe-draft>"
+        marker_end = "</safe-draft>"
+        for message in reversed(messages):
+            content = message.get("content", "")
+            if marker_start in content and marker_end in content:
+                text = content.split(marker_start, 1)[1].split(marker_end, 1)[0].strip()
+                return LlmResult(text=text, model="mock")
         return LlmResult(text=f"mock:{purpose}", model="mock")
 
 

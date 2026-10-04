@@ -1,6 +1,6 @@
 #!/bin/sh
 # Точка входа контейнера. Роль передаётся аргументом: web, worker, beat,
-# release. Один образ — четыре режима.
+# social-bot, release. Один образ — несколько режимов.
 set -eu
 
 role="${1:-web}"
@@ -58,7 +58,8 @@ case "$role" in
         wait_for_db
         exec celery -A config worker \
             --loglevel "${CELERY_LOG_LEVEL:-info}" \
-            --concurrency "${CELERY_CONCURRENCY:-4}"
+            --concurrency "${CELERY_CONCURRENCY:-4}" \
+            --queues "${CELERY_QUEUES:-celery}"
         ;;
     beat)
         wait_for_db
@@ -66,8 +67,12 @@ case "$role" in
         # две ночные пересборки плана и двойные начисления.
         exec celery -A config beat --loglevel "${CELERY_LOG_LEVEL:-info}"
         ;;
+    social-bot)
+        wait_for_db
+        exec python manage.py run_social_bot
+        ;;
     *)
-        echo "Неизвестная роль: $role (ожидались web, worker, beat, release)" >&2
+        echo "Неизвестная роль: $role (ожидались web, worker, beat, social-bot, release)" >&2
         exit 2
         ;;
 esac

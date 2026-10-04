@@ -437,7 +437,6 @@ SOCIAL_AGENT_TELEGRAM_BOT_TOKEN = os.environ.get("SOCIAL_AGENT_TELEGRAM_BOT_TOKE
 SOCIAL_AGENT_REVIEW_CHAT_IDS = [int(value.strip()) for value in os.environ.get("SOCIAL_AGENT_REVIEW_CHAT_IDS", "").split(",") if value.strip()]
 SOCIAL_AGENT_REVIEWER_USER_IDS = [int(value.strip()) for value in os.environ.get("SOCIAL_AGENT_REVIEWER_USER_IDS", "").split(",") if value.strip()]
 SOCIAL_AGENT_MAX_REWRITES = int(os.environ.get("SOCIAL_AGENT_MAX_REWRITES") or "2")
-# TODO(session 2): add Celery beat entries and route social-agent tasks to the social queue.
 
 # --- Внутренняя валюта и магазин ---
 # Монеты идут за тем же событием, что и XP: XP отвечает за прогресс, монеты —
@@ -485,7 +484,7 @@ TWO_FACTOR_ENFORCED = _env_bool("TWO_FACTOR_ENFORCED", default=not DEBUG)
 TWO_FACTOR_REQUIRED_ROLES = [
     role.strip()
     for role in (
-        os.environ.get("TWO_FACTOR_REQUIRED_ROLES") or "methodist,expert"
+        os.environ.get("TWO_FACTOR_REQUIRED_ROLES") or "methodist,expert,smm"
     ).split(",")
     if role.strip()
 ]
@@ -563,6 +562,14 @@ PLAN_CHANGE_LOG_DEDUP_HOURS = 24
 from celery.schedules import crontab  # noqa: E402
 
 CELERY_BEAT_SCHEDULE = {
+    "social-agent-plan-week": {
+        "task": "apps.social_agent.tasks.plan_week_task",
+        "schedule": crontab(day_of_week="sun", hour=20, minute=0),
+    },
+    "social-agent-publish-due": {
+        "task": "apps.social_agent.tasks.publish_due_posts",
+        "schedule": 60.0,
+    },
     "finalize-expired-mocks": {
         "task": "apps.mocks.tasks.finalize_expired_mocks",
         "schedule": 60.0,
@@ -609,6 +616,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.progress.tasks.generate_weekly_parent_reports",
         "schedule": crontab(day_of_week="mon", hour=8, minute=0),
     },
+}
+
+CELERY_TASK_ROUTES = {
+    "apps.social_agent.tasks.plan_week_task": {"queue": "social"},
+    "apps.social_agent.tasks.publish_due_posts": {"queue": "social"},
 }
 
 # --- Security ---

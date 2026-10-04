@@ -82,10 +82,10 @@ class AiOutboundRequestAdmin(admin.ModelAdmin):
         return False
 
     def has_view_permission(self, request, obj=None):
-        return bool(request.user.is_active and request.user.is_staff)
+        return super().has_view_permission(request, obj)
 
     def has_module_permission(self, request):
-        return bool(request.user.is_active and request.user.is_staff)
+        return super().has_module_permission(request)
 
     def has_change_permission(self, request, obj=None):
         return False

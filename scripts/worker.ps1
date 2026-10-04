@@ -17,4 +17,4 @@ Write-Host "Starting Celery worker with beat..."
 Write-Host "Redis must be running and reachable through REDIS_URL."
 Write-Host "Using --pool=solo for Windows compatibility."
 
-& $Python -m celery -A config worker -B --loglevel=info --pool=solo
+& $Python -m celery -A config worker -B --loglevel=info --pool=solo -Q celery,social

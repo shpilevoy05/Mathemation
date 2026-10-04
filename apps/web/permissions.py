@@ -17,3 +17,7 @@ def is_expert(user):
 
 def is_methodist(user):
     return _has_access(user, role=User.Role.METHODIST, group_name="Методисты")
+
+
+def is_smm(user):
+    return _has_access(user, role=User.Role.SMM, group_name="SMM")

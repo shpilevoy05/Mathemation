@@ -1,7 +1,8 @@
 """Server-rendered student cabinet views."""
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import redirect, render
 
 from apps.billing.access import Feature
 from apps.billing.gate import require_feature
@@ -9,7 +10,7 @@ from apps.billing.gate import require_feature
 from apps.practice.models import Attempt
 
 from . import services
-from .permissions import is_expert, is_methodist
+from .permissions import is_expert, is_methodist, is_smm
 
 
 def _render_student_page(request, template_name, context_factory, *args, **kwargs):
@@ -22,6 +23,10 @@ def _render_student_page(request, template_name, context_factory, *args, **kwarg
 
 @login_required
 def dashboard(request):
+    if is_smm(request.user) and not (
+        is_methodist(request.user) or is_expert(request.user)
+    ):
+        return redirect("admin:social_agent_post_changelist")
     return _render_student_page(request, "dashboard.html", services.dashboard_context)
 
 
@@ -167,6 +172,8 @@ def parent_dashboard(request):
 @login_required
 def expert_queue(request):
     allowed = is_expert(request.user)
+    if is_smm(request.user) and not allowed:
+        raise PermissionDenied
     context = {"allowed": allowed}
     if allowed:
         context.update(services.expert_queue_context(request.user))
@@ -176,6 +183,8 @@ def expert_queue(request):
 @login_required
 def expert_review(request, review_id):
     allowed = is_expert(request.user)
+    if is_smm(request.user) and not allowed:
+        raise PermissionDenied
     context = {"allowed": allowed}
     if allowed:
         context.update(services.expert_review_context(review_id))
@@ -185,6 +194,8 @@ def expert_review(request, review_id):
 @login_required
 def methodist_dashboard(request):
     allowed = is_methodist(request.user)
+    if is_smm(request.user) and not allowed:
+        raise PermissionDenied
     context = {"allowed": allowed}
     if allowed:
         context.update(services.methodist_context())

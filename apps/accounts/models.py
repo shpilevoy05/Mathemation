@@ -8,6 +8,7 @@ class User(AbstractUser):
         PARENT = "parent"
         EXPERT = "expert"
         METHODIST = "methodist"
+        SMM = "smm", "SMM"
 
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.STUDENT)
     must_change_password = models.BooleanField(default=False)
