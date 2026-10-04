@@ -188,21 +188,13 @@ h3 { margin-bottom: 6px; font-size: 1rem; font-weight: 600; }
 .site-header { position: fixed; z-index: 20; inset: 0 auto 0 0; width: var(--rail); border-right: 0; background: var(--night); color: var(--night-ink); }
 .header-inner { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: auto; height: 100%; padding: 22px 14px; margin: 0; overflow-y: auto; }
 .brand { flex: 0 0 auto; padding: 2px 8px 22px; color: #fff; }
-/* Знак стоит на той же линии, что и написание: по центру он «висел» выше
-   строки и разъезжался с ней на разных кеглях. */
-.logo { display: inline-flex; align-items: baseline; gap: 10px; color: #fff; }
-/* Высота — по самому знаку: в файле обрезаны прозрачные поля, поэтому
-   34px рамки превратились бы в 34px рисунка и знак вырос бы на треть. */
-.logo-mark { flex: 0 0 auto; width: auto; height: 26px; object-fit: contain; }
-.logo-word {
-  font-family: var(--display); font-weight: 800; font-size: 15px;
-  letter-spacing: .13em; line-height: 1; text-transform: uppercase; color: #fff;
-}
-/* Коробка сигмы обрезана по самой букве, поэтому её высота — это высота
-   прописной, а низ стоит на базовой линии, как у соседних букв. */
-.logo-e { display: inline-block; width: auto; height: .72em; margin: 0 .04em; color: var(--sigma); vertical-align: baseline; }
-.logo--lg .logo-mark { height: 41px; }
-.logo--lg .logo-word { font-size: 1.5rem; }
+/* Логотип — один рисунок (brand-art): слово с пламенем над Σ. Высота задаёт
+   размер, ширина — по пропорции рисунка. Эмблема (Σ с пламенем) — тот же
+   рисунок, обрезанный viewBox; она заменяет слово там, где ему тесно. */
+.logo { display: inline-flex; align-items: center; color: #fff; line-height: 0; }
+.logo .logo-word { display: block; width: auto; height: 38px; aspect-ratio: 3854 / 912; overflow: hidden; }
+.logo .logo-mark { display: none; width: auto; height: 34px; aspect-ratio: 316 / 712; overflow: hidden; }
+.logo.logo--lg .logo-word { height: 58px; }
 .main-nav { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
 .main-nav a {
   position: relative; display: flex; align-items: center; gap: 11px;
@@ -1077,8 +1069,7 @@ a.track-node-link:hover { transform: translateY(-3px); }
 .track-unit-banner .unit-progress small { display: block; font-size: .74rem; }
 
 /* Логотип на светлом фоне (вход, регистрация) должен быть чернильным. */
-body.no-rail .logo-word, .auth-card .logo-word { color: var(--ink); }
-body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
+body.no-rail .logo, .auth-card .logo { color: var(--ink); }
 
 /* — Этапы занятия — */
 .step-dot { width: 54px; height: 54px; border: 0; box-shadow: 0 5px 0 var(--line-strong); background: var(--card); color: var(--muted-2); }
@@ -1583,7 +1574,7 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
   body { padding-bottom: 72px; }
   .site-header { position: sticky; }
   .header-inner { width: calc(100% - 22px); min-height: 58px; }
-  .logo-word { display: inline; font-size: .85rem; }
+  .logo .logo-word { height: 30px; }
   .main-nav { display: none; }
   .mobile-tabs { position: fixed; z-index: 30; right: 0; bottom: 0; left: 0; display: flex; flex-direction: row; gap: 0; height: 66px; overflow-x: auto; overflow-y: hidden; border-top: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow); scroll-snap-type: x proximity; scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior-x: contain; }
   .mobile-tabs::-webkit-scrollbar { display: none; }
@@ -1650,7 +1641,8 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 }
 
 @media (max-width: 460px) {
-  .logo-word { display: none; }
+  .logo .logo-word { display: none; }
+  .logo .logo-mark { display: block; }
   .settings-form .field-row { grid-template-columns: minmax(0, 1fr); }
   .account-menu > span:not(.streak-chip) { max-width: 76px; }
   .stat-tile { align-items: center; flex-direction: column; padding: 15px; text-align: center; }

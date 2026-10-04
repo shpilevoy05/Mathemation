@@ -1,16 +1,9 @@
-{% load static %}
 {% comment %}
-Знак из макета: растровый mark.png (пламя над Σ) и написание, где «Е» заменена
-сигмой. Сигма нарисована как буква: её коробка равна высоте прописных и стоит
-на базовой линии, поэтому она не зависит от того, есть ли греческий алфавит в
-подключённом шрифте.
-
-У знака обрезаны прозрачные поля: с ними по базовой линии вставала рамка
-картинки, а сам знак висел выше надписи. Если файл заменят экспортом с полями,
-он снова уедет — поля должны быть обрезаны в самом файле.
+Логотип — фирменный вордмарк «МАТΣМАЦИЯ» с пламенем над Σ, один рисунок
+(группа brand-art в partials/art.html). Эмблема — тот же рисунок, обрезанный
+по Σ с пламенем: на узком экране вместо слова показывается она.
 {% endcomment %}
 <span class="logo logo--{{ size|default:'sm' }}">
-  <img class="logo-mark" src="{% static 'img/mark.png' %}" alt="" aria-hidden="true">
-  <span class="logo-word">МАТ<svg class="logo-e" viewBox="0 0 16 18" aria-hidden="true"><use href="#i-sigma-letter"></use></svg>МАЦИЯ</span>
-  <span class="visually-hidden">Матемация</span>
+  <svg class="logo-word" viewBox="0 0 3854 912" role="img" aria-label="Матемация"><use href="#brand-art"></use></svg>
+  <svg class="logo-mark" viewBox="1330 0 316 712" aria-hidden="true"><use href="#brand-art"></use></svg>
 </span>

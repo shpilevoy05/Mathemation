@@ -1,23 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
 <defs>
-<radialGradient id="aorigamib" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#FFA694" stop-opacity="1"/><stop offset="0.52" stop-color="#EE6350" stop-opacity="1"/><stop offset="1" stop-color="#8E2A1B" stop-opacity="1"/></radialGradient>
-<radialGradient id="aorigamis" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#8E2A1B" stop-opacity="0"/><stop offset="0.88" stop-color="#8E2A1B" stop-opacity="0.18"/><stop offset="1" stop-color="#8E2A1B" stop-opacity="0.42"/></radialGradient>
-<radialGradient id="aorigamig" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
-<linearGradient id="aorigamir" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<radialGradient id="orbg" cx=".35" cy=".28" r=".85"><stop offset="0" stop-color="#B8F3E6"/><stop offset=".5" stop-color="#2BA68C"/><stop offset="1" stop-color="#0A4A40"/></radialGradient><linearGradient id="orpa" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E3ECF5"/></linearGradient><linearGradient id="orpb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#DCE6F2"/><stop offset="1" stop-color="#AFC0D6"/></linearGradient><linearGradient id="orpc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF8A7A"/><stop offset="1" stop-color="#E0453A"/></linearGradient>
+<clipPath id="orclip"><circle cx="64" cy="64" r="60"/></clipPath>
+<linearGradient id="orgloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<radialGradient id="orvig" cx=".5" cy=".5" r=".5"><stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></radialGradient>
 </defs>
-<circle cx="64" cy="64" r="60" fill="url(#aorigamib)"/>
-<g>
-<path d="M46 100 L18 114 L54 106 Z" fill="#FFFFFF" fill-opacity=".7"/>
-<path class="orx-wing orx-wing--l" d="M62 62 L12 32 L52 88 Z" fill="#FFFFFF" fill-opacity=".96"/>
-<path class="orx-wing orx-wing--r" d="M66 62 L116 32 L76 88 Z" fill="#FFFFFF" fill-opacity=".76"/>
-<path d="M64 54 L82 102 L46 102 Z" fill="#FFFFFF" fill-opacity=".9"/>
-<path d="M62 56 L84 20 L106 14 L88 34 Z" fill="#FFFFFF" fill-opacity=".96"/>
-<path d="M62 56 L84 20" stroke="#8E2A1B" stroke-opacity=".2" stroke-width="3"/>
-<path d="M64 54 V102" stroke="#8E2A1B" stroke-opacity=".18" stroke-width="3"/>
-<circle cx="90" cy="26" r="2.8" fill="#8E2A1B" fill-opacity=".8"/>
-</g>
-<circle cx="64" cy="64" r="60" fill="url(#aorigamis)"/>
-<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#aorigamig)"/>
-<circle cx="64" cy="64" r="59" stroke="url(#aorigamir)" stroke-width="2" opacity="0.75"/>
-<circle cx="64" cy="64" r="62.5" stroke="#8E2A1B" stroke-opacity="0.14" stroke-width="3"/>
+<circle cx="64" cy="64" r="60" fill="url(#orbg)"/>
+<g clip-path="url(#orclip)"><g opacity=".25" fill="#fff"><circle cx="20" cy="40" r="9"/><circle cx="30" cy="36" r="11"/><circle cx="104" cy="96" r="8"/><circle cx="96" cy="100" r="10"/></g><g class="orx-wing orx-wing--l"><path d="M64.0 70.0 L4.2 23.2 L51.0 59.6 Z" fill="url(#orpa)"/><path d="M64.0 70.0 L4.2 23.2 L32.8 64.8 Z" fill="url(#orpb)"/></g><g class="orx-wing orx-wing--r"><path d="M64.0 70.0 L123.8 23.2 L77.0 59.6 Z" fill="url(#orpa)"/><path d="M64.0 70.0 L123.8 23.2 L95.2 64.8 Z" fill="url(#orpb)"/></g><path d="M64.0 54.4 L82.2 80.4 L64.0 109.0 L45.8 80.4 Z" fill="url(#orpa)" stroke="#8EA3BF" stroke-width="1"/><path d="M64.0 54.4 L64.0 109.0 L45.8 80.4 Z" fill="url(#orpb)"/><path d="M45.8 80.4 L19.8 98.6 L32.8 103.8 L53.6 88.2 Z" fill="url(#orpb)"/><path d="M82.2 80.4 L105.6 49.2 L110.8 54.4 L90.0 85.6 Z" fill="url(#orpa)"/><path d="M105.6 49.2 L116.0 44.0 L110.8 54.4 Z" fill="url(#orpc)"/><path d="M64.0 54.4 L64.0 109.0" stroke="#8EA3BF" stroke-width="1"/><circle cx="64" cy="64" r="60" fill="url(#orvig)"/></g>
+<path d="M22 46 C30 22 52 10 74 12 C58 18 40 30 30 50 Z" fill="url(#orgloss)"/>
+<circle cx="64" cy="64" r="59.2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.6"/>
+<circle cx="64" cy="64" r="61" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1.2"/>
 </svg>

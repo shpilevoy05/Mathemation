@@ -79,13 +79,14 @@ class RenderedArtworkTests(TestCase):
         self.client.force_login(self.user)
 
     def test_student_page_contains_brand_mark_and_arena_rank_symbols(self):
-        # Аватары, рамки и знаки месячных лиг едут спрайтом cosmetics.svg,
-        # знак бренда — растровым mark.png, в разметке остаются ранги арены.
+        # Аватары, рамки и знаки месячных лиг едут спрайтом cosmetics.svg;
+        # в разметке страницы — рисунок логотипа (brand-art) и ранги арены.
         response = self.client.get(reverse("dashboard"))
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'id="avatar-owl"')
-        self.assertContains(response, "img/mark.png")
+        self.assertContains(response, 'id="brand-art"')
+        self.assertContains(response, "img/logo-flame.png")
         for symbol_id in (
             "rank-bronze",
             "rank-silver",
@@ -113,10 +114,12 @@ class RenderedArtworkTests(TestCase):
 
 
 class LogoTemplateTests(SimpleTestCase):
-    def test_logo_uses_the_raster_mark_that_exists(self):
-        # Знак бренда — mark.png (пламя над сигмой): решение владельца
-        # продукта, векторная плашка-замена отменена.
-        logo = Path(settings.BASE_DIR, "templates", "partials", "logo.html")
+    def test_logo_is_one_wordmark_drawing(self):
+        # Логотип — фирменный вордмарк 1:1 одним рисунком: и слово, и эмблема
+        # ссылаются на brand-art, отдельного растрового знака больше нет.
+        logo = Path(settings.BASE_DIR, "templates", "partials", "logo.html").read_text(encoding="utf-8")
 
-        self.assertIn("img/mark.png", logo.read_text(encoding="utf-8"))
-        self.assertTrue(Path(settings.BASE_DIR, "static", "img", "mark.png").is_file())
+        self.assertEqual(logo.count('href="#brand-art"'), 2)
+        self.assertNotIn("mark.png", logo)
+        self.assertTrue(Path(settings.BASE_DIR, "static", "img", "logo-flame.png").is_file())
+        self.assertTrue(Path(settings.BASE_DIR, "static", "img", "favicon.svg").is_file())

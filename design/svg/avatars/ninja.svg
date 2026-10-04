@@ -1,23 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
 <defs>
-<radialGradient id="aninjab" cx="34%" cy="26%" r="82%"><stop offset="0" stop-color="#6C7896" stop-opacity="1"/><stop offset="0.52" stop-color="#3A4460" stop-opacity="1"/><stop offset="1" stop-color="#0D1223" stop-opacity="1"/></radialGradient>
-<radialGradient id="aninjas" cx="50%" cy="50%" r="50%"><stop offset="0.62" stop-color="#0D1223" stop-opacity="0"/><stop offset="0.88" stop-color="#0D1223" stop-opacity="0.18"/><stop offset="1" stop-color="#0D1223" stop-opacity="0.42"/></radialGradient>
-<radialGradient id="aninjag" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.62"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
-<linearGradient id="aninjar" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<radialGradient id="njbg" cx=".35" cy=".28" r=".85"><stop offset="0" stop-color="#FFB1A0"/><stop offset=".5" stop-color="#E0402E"/><stop offset="1" stop-color="#5E0E0A"/></radialGradient><linearGradient id="njcloth" x1=".3" y1="0" x2=".7" y2="1"><stop offset="0" stop-color="#3A3F55"/><stop offset="1" stop-color="#14161F"/></linearGradient><linearGradient id="njskin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE2C6"/><stop offset="1" stop-color="#F2C49A"/></linearGradient><linearGradient id="njband" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4C6CF0"/><stop offset="1" stop-color="#2433A8"/></linearGradient><linearGradient id="njsteel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#8A95A8"/></linearGradient>
+<clipPath id="njclip"><circle cx="64" cy="64" r="60"/></clipPath>
+<linearGradient id="njgloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<radialGradient id="njvig" cx=".5" cy=".5" r=".5"><stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></radialGradient>
 </defs>
-<circle cx="64" cy="64" r="60" fill="url(#aninjab)"/>
-<g>
-<path d="M96 50 C108 44 120 44 126 48 C118 52 110 56 104 60 C114 62 122 68 126 74 C116 74 106 70 98 66 Z" fill="#FFFFFF" fill-opacity=".6"/>
-<circle cx="64" cy="64" r="35" fill="#FFFFFF" fill-opacity=".95"/>
-<path d="M30 56 C42 47 86 47 98 56 L98 76 C86 85 42 85 30 76 Z" fill="#0D1223" fill-opacity=".84"/>
-<path d="M42 66 C47 61 56 60 61 65 C56 70 47 71 42 66 Z" fill="#FFFFFF"/>
-<path d="M67 65 C72 60 81 61 86 66 C81 71 72 70 67 65 Z" fill="#FFFFFF"/>
-<circle cx="52" cy="65.5" r="2.6" fill="#0D1223"/>
-<circle cx="76" cy="65.5" r="2.6" fill="#0D1223"/>
-<path d="M40 55 L60 60 M88 55 L68 60" stroke="#FFFFFF" stroke-opacity=".45" stroke-width="2.6" stroke-linecap="round"/>
-</g>
-<circle cx="64" cy="64" r="60" fill="url(#aninjas)"/>
-<ellipse cx="60" cy="33" rx="40" ry="23" fill="url(#aninjag)"/>
-<circle cx="64" cy="64" r="59" stroke="url(#aninjar)" stroke-width="2" opacity="0.75"/>
-<circle cx="64" cy="64" r="62.5" stroke="#0D1223" stroke-opacity="0.14" stroke-width="3"/>
+<circle cx="64" cy="64" r="60" fill="url(#njbg)"/>
+<g clip-path="url(#njclip)">
+<circle cx="64" cy="64" r="44" fill="#FFD6A0" opacity=".25"/>
+<path d="M64 98 C90 98 106 112 110 130 H18 C22 112 38 98 64 98 Z" fill="url(#njcloth)"/>
+<path d="M64 26 C90 26 104 46 104 68 C104 92 86 106 64 106 C42 106 24 92 24 68 C24 46 38 26 64 26 Z" fill="url(#njcloth)"/>
+<path d="M30 56 C42 50 86 50 98 56 L98 74 C86 80 42 80 30 74 Z" fill="url(#njskin)"/>
+<path d="M26 44 C40 36 88 36 102 44 L102 52 C88 46 40 46 26 52 Z" fill="url(#njband)"/>
+<path d="M100 46 C108 46 116 40 120 34 C118 44 112 52 104 54 Z M100 50 C110 54 118 54 124 50 C118 58 110 60 102 56 Z" fill="url(#njband)"/>
+<circle cx="64" cy="47" r="4.5" fill="#FFD43B" stroke="#A87705"/>
+<path d="M40 64 Q50 58 58 64 Q50 69 40 64 Z M88 64 Q78 58 70 64 Q78 69 88 64 Z" fill="#fff"/>
+<circle cx="50" cy="64" r="3.6" fill="#1B120E"/><circle cx="78" cy="64" r="3.6" fill="#1B120E"/>
+<circle cx="48.8" cy="62.8" r="1.2" fill="#fff"/><circle cx="76.8" cy="62.8" r="1.2" fill="#fff"/>
+<path d="M39 58 L58 61 M89 58 L70 61" stroke="#14161F" stroke-width="2.4" stroke-linecap="round"/>
+<path d="M50 84 C58 88 70 88 78 84" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="1.4"/>
+<g transform="translate(22 104) rotate(20)"><path d="M0 -9 L2.5 -2.5 L9 0 L2.5 2.5 L0 9 L-2.5 2.5 L-9 0 L-2.5 -2.5 Z" fill="url(#njsteel)" stroke="#5A6478" stroke-width=".6"/><circle r="1.6" fill="#3A3F55"/></g><circle cx="64" cy="64" r="60" fill="url(#njvig)"/></g>
+<path d="M22 46 C30 22 52 10 74 12 C58 18 40 30 30 50 Z" fill="url(#njgloss)"/>
+<circle cx="64" cy="64" r="59.2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.6"/>
+<circle cx="64" cy="64" r="61" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1.2"/>
 </svg>
