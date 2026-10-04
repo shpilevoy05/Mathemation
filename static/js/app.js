@@ -435,58 +435,132 @@
     }
     return body;
   };
+  // Очередь подбора объявлена ниже; форма зовёт её, когда выбран «Случайный».
+  let startQueue = null;
   if (matchForm) {
-    const hints = {
-      speed: "Задачи из тренировки. Правило выбираете сами: кто быстрее решит восемь или кто больше решит за отведённое время.",
-      quiz: "Вопросы по теории с четырьмя вариантами. Кто первым нажал верный — тот и забрал очки.",
-      board: "Пять тем, цены от 100 до 500. Ход по очереди, промах списывает цену клетки. Тридцать секунд на ответ.",
+    const field = name => matchForm.elements[name];
+    const value = name => field(name)?.value ?? "";
+    const show = (selector, visible) => {
+      const node = matchForm.querySelector(selector);
+      if (node) node.hidden = !visible;
     };
-    const opponent = matchForm.elements.opponent;
-    const level = matchForm.elements.bot_level;
-    const botBlock = matchForm.querySelector("[data-bot-level]");
-    const speedBlock = matchForm.querySelector("[data-speed-rules]");
-    const timeBlock = matchForm.querySelector("[data-time-limit]");
-    const syncOpponent = () => { botBlock.hidden = opponent.value !== "bot"; };
-    // Правило партии и прототип — только у нарешивания: теория спрашивается
-    // не по номеру задания и не на общее время.
-    const countBlock = matchForm.querySelector("[data-question-count]");
-    const syncMode = () => {
-      const speed = matchForm.elements.mode.value === "speed";
-      const onTime = matchForm.elements.limit_kind.value === "time";
-      speedBlock.hidden = !speed;
-      matchForm.querySelector("[data-task-block]").hidden = !speed;
-      timeBlock.hidden = !speed || !onTime;
-      countBlock.hidden = !speed || onTime;
-      matchForm.querySelector("[data-mode-hint]").textContent = hints[matchForm.elements.mode.value] || "";
+    // Таблица бота совпадает с apps/arena/bot.py: доля ошибок, время на задачу
+    // в нарешивании и на вопрос в квизе. «Своя игра» живёт по своей модели —
+    // там показываем только уровень.
+    const BOT = {
+      1: { errors: 25, speed: 60, quiz: 30, note: "ошибается в каждой четвёртой задаче, на задачу — около минуты" },
+      2: { errors: 15, speed: 40, quiz: 25, note: "ошибается в 15 % задач, на задачу — около 40 секунд" },
+      3: { errors: 15, speed: 30, quiz: 20, note: "ошибается в 15 % задач, на задачу — около 30 секунд" },
+      4: { errors: 10, speed: 25, quiz: 15, note: "ошибается в каждой десятой задаче, на задачу — около 25 секунд" },
+      5: { errors: 2, speed: 15, quiz: 12.5, note: "почти не ошибается, на задачу — около 15 секунд" },
     };
-    matchForm.elements.mode.addEventListener("change", syncMode);
-    matchForm.elements.limit_kind.addEventListener("change", syncMode);
-    syncMode();
-    opponent.addEventListener("change", syncOpponent);
-    // Подписи совпадают с таблицей бота (apps/arena/bot.py): доля ошибок и
-    // среднее время на задачу в нарешивании.
-    const levelNotes = {
-      1: "ошибается в каждой четвёртой задаче, на задачу — около минуты",
-      2: "ошибается в 15 % задач, на задачу — около 40 секунд",
-      3: "ошибается в 15 % задач, на задачу — около 30 секунд",
-      4: "ошибается в каждой десятой задаче, на задачу — около 25 секунд",
-      5: "почти не ошибается, на задачу — около 15 секунд",
+    const MODE_TITLES = { speed: "Нарешивание", quiz: "Квиз по теории", board: "Своя игра" };
+    const plural = (n, one, few, many) => {
+      const mod10 = n % 10, mod100 = n % 100;
+      if (mod10 === 1 && mod100 !== 11) return one;
+      if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+      return many;
     };
-    level.addEventListener("input", () => {
-      matchForm.querySelector("[data-level-output]").textContent = level.value;
-      const note = matchForm.querySelector("[data-level-note]");
-      if (note) note.textContent = levelNotes[level.value] || "";
-    });
-    syncOpponent();
+    const seconds = s => `≈${String(s).replace(".", ",")} ${plural(Math.round(s), "секунда", "секунды", "секунд")}`;
+    const setText = (selector, text) => {
+      const node = matchForm.querySelector(selector);
+      if (node) node.textContent = text;
+    };
+
+    const sync = () => {
+      const mode = value("mode");
+      const kind = value("opponent_kind");
+      const onTime = value("limit_kind") === "time";
+      const speed = mode === "speed";
+      const level = Number(value("bot_level")) || 3;
+      const bot = BOT[level];
+
+      // Поля: правило, количество и прототип есть только у нарешивания;
+      // квиз и «своя игра» настраиваются соперником и уровнем бота.
+      show("[data-speed-rules]", speed);
+      show("[data-question-count]", speed && !onTime);
+      show("[data-time-limit]", speed && onTime);
+      show("[data-friend-block]", kind === "friend");
+      show("[data-bot-level]", kind !== "friend");
+      setText("[data-level-prefix]", kind === "random" ? "Если за минуту никого не найдём — бот уровня" : "Уровень");
+      setText("[data-level-output]", String(level));
+      setText("[data-level-note]", mode === "board" ? "чем выше, тем увереннее отвечает и выбирает клетки" : bot.note);
+
+      // Соперник в карточке.
+      const face = matchForm.querySelector("[data-rival-face]");
+      const letter = matchForm.querySelector("[data-rival-letter]");
+      const art = matchForm.querySelector("[data-rival-bot]");
+      let name = `Бот · ${level}`;
+      let note = mode === "board" ? `уровень ${level} из 5` : `${bot.errors} % ошибок`;
+      let mark = "";
+      if (kind === "friend") {
+        const chosen = matchForm.querySelector("input[name=opponent]:checked");
+        name = chosen ? chosen.dataset.friendName : "Друг";
+        note = chosen ? "получит вызов" : "сначала позовите друга";
+        mark = name.charAt(0).toUpperCase();
+      } else if (kind === "random") {
+        name = "Случайный";
+        note = "равный по рейтингу";
+        mark = "?";
+      }
+      face?.classList.toggle("is-bot", kind === "bot");
+      if (art) art.hidden = kind !== "bot";
+      if (letter) { letter.hidden = kind === "bot"; letter.textContent = mark; }
+      setText("[data-rival-name]", name);
+      setText("[data-rival-note]", note);
+
+      // Что будет в партии.
+      setText("[data-fact-mode]", MODE_TITLES[mode] || "");
+      const task = value("ege_task_number");
+      const taskTitle = task ? `задание ${task}` : "случайный набор";
+      let setLabel = "Задачи", setValue = "", timeValue = "";
+      if (speed && onTime) {
+        const limit = Number(value("time_limit_seconds")) / 60;
+        setLabel = "Время";
+        setValue = `${limit} ${plural(limit, "минута", "минуты", "минут")} · ${taskTitle}`;
+        timeValue = `${limit} ${plural(limit, "минута", "минуты", "минут")}`;
+      } else if (speed) {
+        const count = Number(value("question_count"));
+        setValue = `${count} · ${taskTitle}`;
+        timeValue = `около ${count} ${plural(count, "минуты", "минут", "минут")}`;
+      } else if (mode === "quiz") {
+        setLabel = "Вопросы";
+        setValue = "6 по теории · 30 с на ответ";
+        timeValue = "до 3 минут";
+      } else {
+        setLabel = "Доска";
+        setValue = "5 тем × 5 клеток";
+      }
+      setText("[data-fact-set-label]", setLabel);
+      setText("[data-fact-set]", setValue);
+      setText("[data-fact-time]", timeValue);
+      show("[data-fact-time-row]", Boolean(timeValue));
+      const pace = kind === "bot" && mode !== "board" ? (speed ? bot.speed : bot.quiz) : null;
+      setText("[data-fact-pace]", pace ? seconds(pace) : "");
+      show("[data-fact-pace-row]", Boolean(pace));
+      matchForm.querySelector("[data-fact-pace-row] dt").textContent = speed ? "Бот на задачу" : "Бот на ответ";
+
+      const submit = matchForm.querySelector("[data-match-submit]");
+      submit.textContent = kind === "random" ? "Найти соперника" : kind === "friend" ? "Позвать на партию" : "Начать партию";
+      submit.disabled = kind === "friend" && !matchForm.querySelector("input[name=opponent]:checked");
+    };
+    matchForm.addEventListener("change", sync);
+    sync();
 
     matchForm.addEventListener("submit", async event => {
       event.preventDefault();
       const error = matchForm.querySelector("[data-match-error]");
-      const button = matchForm.querySelector("[type=submit]");
-      button.disabled = true; error.hidden = true;
+      const button = matchForm.querySelector("[data-match-submit]");
+      error.hidden = true;
+      const kind = value("opponent_kind");
+      if (kind === "random") {
+        if (startQueue) await startQueue();
+        return;
+      }
+      button.disabled = true;
       const payload = matchPayload();
-      if (opponent.value === "bot") payload.bot_level = Number(level.value);
-      else payload.opponent_id = Number(opponent.value);
+      if (kind === "bot") payload.bot_level = Number(value("bot_level"));
+      else payload.opponent_id = Number(value("opponent"));
       try {
         const data = await apiFetch("/api/arena/matches/", { method: "POST", body: JSON.stringify(payload) });
         window.location.assign(`/arena/match/${data.id}/`);
@@ -522,7 +596,7 @@
       botButton.hidden = waited < 60;
     };
 
-    document.querySelector("[data-queue-join]")?.addEventListener("click", async () => {
+    startQueue = async () => {
       queueBox.hidden = false;
       waited = 0;
       try {
@@ -534,7 +608,7 @@
         try { handle(await apiFetch("/api/arena/queue/")); }
         catch (_) { /* сеть подождёт до следующего тика */ }
       }, 4000);
-    });
+    };
 
     queueBox.querySelector("[data-queue-cancel]").addEventListener("click", async () => {
       stop();

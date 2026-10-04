@@ -296,6 +296,9 @@ body.no-rail { padding-left: 0; }
 .button-primary { border-color: transparent; color: var(--on-primary, #fff); background: var(--primary-button, var(--primary)); box-shadow: var(--press); }
 .button-primary:hover { color: var(--on-primary, #fff); background: var(--primary-button, var(--primary)); box-shadow: 0 6px 0 var(--primary-dark); transform: translateY(-1px); }
 .button-primary:active { box-shadow: 0 1px 0 var(--primary-dark); transform: translateY(3px); }
+/* Выключенная кнопка должна выглядеть выключенной: раньше она отличалась от
+   рабочей только тем, что не нажималась. */
+.button:disabled, .button[aria-disabled="true"] { opacity: .5; cursor: not-allowed; box-shadow: none; transform: none; }
 .button-flame { border-color: transparent; color: #3A1F02; background: linear-gradient(100deg, var(--flame-2), var(--flame-1)); box-shadow: 0 4px 0 #B96509; }
 .button-flame:hover { color: #3A1F02; background: linear-gradient(100deg, var(--flame-2), var(--flame-1)); box-shadow: 0 6px 0 #B96509; transform: translateY(-1px); }
 .button-flame:active { box-shadow: 0 1px 0 #B96509; transform: translateY(3px); }
@@ -1158,10 +1161,84 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
 .button-ghost:hover { border-color: var(--primary); color: var(--primary-dark); }
 
 /* — Арена — */
-.arena-form { display: grid; gap: 8px; }
-.arena-form label { color: var(--muted); font-size: .82rem; font-weight: 700; }
-.arena-form select, .arena-form input[type=range] { width: 100%; }
-.arena-form .button { justify-self: start; margin-top: 6px; }
+/* Новая партия: короткие наборы — видимыми вариантами, а не списками, справа
+   карточка «Вы против…». Подписи вариантов — label с радио внутри, поэтому
+   селекторы ниже сильнее общего label:has(> input[type=radio]). */
+.arena-setup-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
+.arena-setup-fields { min-width: 0; }
+.setup-group { min-width: 0; margin: 0 0 20px; padding: 0; border: 0; }
+.setup-group > legend, .setup-label { display: block; margin: 0 0 8px; padding: 0; color: var(--ink); font-family: var(--display); font-size: .82rem; font-weight: 700; }
+.setup-hint { margin: 8px 0 0; color: var(--muted); font-size: .86rem; }
+.setup-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+/* Соседние группы в строке одной высоты: сегменты растягиваются до самого
+   высокого соседа (с числами и подписью), а не стоят коротышкой рядом. */
+.setup-row > .setup-group { display: flex; flex-direction: column; }
+.setup-row .segmented { flex: 1; }
+.choice-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+.mode-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.arena-setup label.mode-tile { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: start; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); background: var(--card); cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
+.arena-setup label.mode-tile:hover { border-color: var(--line-strong); }
+.mode-tile .tile-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--primary); background: var(--primary-soft); }
+.mode-tile .tile-icon svg { width: 20px; height: 20px; }
+.mode-tile .tile-copy { display: grid; gap: 3px; padding-right: 18px; }
+.mode-tile b { font-family: var(--display); font-size: .95rem; }
+.mode-tile small { color: var(--muted); font-size: .8rem; line-height: 1.35; }
+.mode-tile .tile-check { position: absolute; top: 10px; right: 10px; display: none; width: 20px; height: 20px; border-radius: 50%; color: var(--on-primary, #fff); background: var(--primary-button, var(--primary)); }
+.mode-tile .tile-check svg { display: block; width: 12px; height: 12px; margin: 4px; }
+.arena-setup label.mode-tile:has(input:checked) { border-color: var(--primary); background: color-mix(in srgb, var(--primary-soft) 55%, var(--card)); box-shadow: 0 10px 22px -18px color-mix(in srgb, var(--primary) 80%, transparent); }
+.mode-tile:has(input:checked) .tile-check { display: block; }
+
+.segmented { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-2); }
+.segmented.is-wide { display: flex; }
+.arena-setup .segmented label { display: grid; flex: 1; justify-items: center; align-content: center; gap: 1px; min-width: 0; min-height: 40px; padding: 8px 10px; border-radius: 10px; color: var(--ink); font-size: .9rem; font-weight: 600; line-height: 1.25; text-align: center; cursor: pointer; transition: background .18s ease, color .18s ease, box-shadow .18s ease; }
+.arena-setup .segmented label:hover { background: color-mix(in srgb, var(--card) 70%, transparent); }
+.segmented label small { color: var(--muted); font-size: .72rem; font-weight: 500; }
+.segmented label .big { font-family: var(--data); font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.arena-setup .segmented label:has(input:checked) { color: var(--primary-dark); background: var(--card); box-shadow: 0 6px 14px -10px rgba(16, 22, 42, .55); }
+.segmented label:has(input:checked) small { color: var(--primary-dark); }
+
+.level-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.arena-setup .level-steps label { display: grid; justify-items: center; gap: 6px; padding: 10px 4px 8px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); background: var(--card); cursor: pointer; transition: border-color .18s ease, background .18s ease; }
+.level-steps .pips { display: flex; gap: 3px; }
+/* Пустое деление видно как деление: бледная заливка с контуром от основного
+   цвета темы, а не фон-невидимка. Заполненное — сплошное. */
+.level-steps .pips i { width: 6px; height: 14px; border-radius: 3px; background: color-mix(in srgb, var(--primary) 12%, var(--card)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent); }
+.level-steps .pips i.on { background: var(--primary); box-shadow: none; }
+.level-steps b { color: var(--ink); font-family: var(--data); font-size: 1rem; }
+.arena-setup .level-steps label:has(input:checked) { border-color: var(--primary); background: color-mix(in srgb, var(--primary-soft) 55%, var(--card)); }
+.level-steps label:has(input:checked) b { color: var(--primary-dark); }
+
+.friend-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.arena-setup .friend-chips label { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: var(--card); font-size: .88rem; font-weight: 600; cursor: pointer; }
+.arena-setup .friend-chips label:has(input:checked) { border-color: var(--primary); color: var(--primary-dark); background: color-mix(in srgb, var(--primary-soft) 60%, var(--card)); }
+.friend-dot { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; color: var(--on-primary, #fff); background: var(--primary-button, var(--primary)); font-size: .75rem; font-weight: 800; }
+
+/* Фокус с клавиатуры виден на самой плашке варианта. */
+.arena-setup label:has(> .choice-input:focus-visible) { outline: 3px solid var(--primary-soft); outline-offset: 2px; }
+
+.select-wrap { position: relative; }
+.select-wrap select { width: 100%; appearance: none; -webkit-appearance: none; padding-right: 44px; }
+.select-wrap > svg { position: absolute; top: 50%; right: 14px; width: 18px; height: 18px; color: var(--muted); transform: translateY(-50%); pointer-events: none; }
+
+/* Карточка партии: тёмная, как рельс, — это «табло» перед стартом. */
+.match-preview { position: sticky; top: 20px; display: grid; gap: 16px; padding: 20px; border-radius: var(--radius-lg); color: var(--night-ink); background: var(--night); box-shadow: var(--shadow); }
+.match-preview h3 { margin: 0; color: #fff; font-size: 1rem; }
+.versus { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; gap: 8px; text-align: center; }
+.versus-side { display: grid; justify-items: center; gap: 4px; min-width: 0; }
+.versus-side b { max-width: 100%; overflow: hidden; color: #fff; font-size: .9rem; text-overflow: ellipsis; white-space: nowrap; }
+.versus-side small { color: var(--night-muted); font-size: .78rem; }
+.versus-side .avatar-badge { margin-bottom: 4px; }
+.versus-mark { align-self: center; margin-top: -22px; color: var(--flame-1); font-family: var(--display); font-weight: 800; letter-spacing: .06em; }
+.rival-face { display: grid; place-items: center; width: 96px; height: 96px; margin-bottom: 4px; border-radius: 50%; color: #fff; background: linear-gradient(160deg, var(--primary-2), var(--primary-deep)); font-family: var(--display); font-size: 1.9rem; font-weight: 800; }
+.rival-face.is-bot { background: none; }
+.rival-art, .rival-art svg { display: block; width: 100%; height: 100%; border-radius: 50%; }
+.preview-facts { display: grid; gap: 8px; margin: 0; }
+.preview-facts > div { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--night-line); font-size: .86rem; }
+.preview-facts dt { color: var(--night-muted); }
+.preview-facts dd { margin: 0; color: #fff; font-weight: 700; text-align: right; }
+.match-preview .button-primary { width: 100%; justify-content: center; }
+.match-preview .form-error { margin: 0; }
 .arena-subhead { margin: 16px 0 6px; font-size: .95rem; }
 .arena-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .arena-row-actions { display: flex; gap: 6px; }
@@ -1566,6 +1643,10 @@ body.no-rail .logo-e, .auth-card .logo-e { color: var(--sigma); }
   .track-path > .track-node-row:nth-of-type(odd) .track-due { justify-self: start; }
   .track-path > .track-node-row:nth-of-type(even) .track-due { justify-self: end; }
   .track-node-copy { width: clamp(110px, calc(50vw - 46px), 184px); overflow-wrap: break-word; hyphens: auto; }
+  .arena-setup-grid { grid-template-columns: 1fr; gap: 4px; }
+  .match-preview { position: static; }
+  .mode-tiles, .setup-row { grid-template-columns: 1fr; }
+  .level-steps { gap: 4px; }
 }
 
 @media (max-width: 460px) {

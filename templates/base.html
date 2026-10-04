@@ -1,4 +1,4 @@
-{% load static web_permissions %}
+{% load static web_permissions assets %}
 <!doctype html>
 <html lang="ru"{% if ui_theme %} data-theme="{{ ui_theme }}"{% endif %}
       data-cosmetics-sprite="{% static 'img/cosmetics.svg' %}">
@@ -11,10 +11,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% asset 'css/app.css' %}">
   {% comment %}Анимации косметики собраны из спецификации дизайна отдельным файлом: их правит дизайнер, и мешать их с версткой кабинета не стоит.{% endcomment %}
-  <link rel="stylesheet" href="{% static 'css/cosmetics.css' %}">
-  <script src="{% static 'js/app.js' %}" defer></script>
+  <link rel="stylesheet" href="{% asset 'css/cosmetics.css' %}">
+  <script src="{% asset 'js/app.js' %}" defer></script>
 </head>
 <body{% if not user.is_authenticated or hide_nav %} class="no-rail"{% endif %}>
   {% include "partials/icons.html" %}
