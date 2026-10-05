@@ -149,7 +149,7 @@ OpenAI-совместимый DeepSeek:
 AI_MENTOR_LLM_FORMAT=openai
 AI_MENTOR_LLM_BASE_URL=https://api.deepseek.com/chat/completions
 AI_MENTOR_LLM_API_KEY=<секрет>
-AI_MENTOR_LLM_MODEL=deepseek-chat
+AI_MENTOR_LLM_MODEL=deepseek-flash
 ```
 
 Тайм-аут, максимум токенов и температура задаются переменными

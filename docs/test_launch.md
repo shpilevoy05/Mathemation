@@ -163,7 +163,7 @@ python -m venv .venv
    $env:AI_MENTOR_LLM_FORMAT = "openai"
    $env:AI_MENTOR_LLM_BASE_URL = "https://api.deepseek.com/chat/completions"
    $env:AI_MENTOR_LLM_API_KEY = "<ключ>"
-   $env:AI_MENTOR_LLM_MODEL = "deepseek-chat"
+   $env:AI_MENTOR_LLM_MODEL = "deepseek-flash"
    $env:AI_PRIVACY_PSEUDONYM_KEY = "<длинная случайная строка>"
    ```
 
@@ -586,7 +586,7 @@ Django-админка `/admin/` остаётся доступной для то�
 | Кто может нажимать кнопки | Telegram ID `836307330` и `5280709093` |
 | Включён ли агент | да (`SOCIAL_AGENT_ENABLED=1`) |
 | Публикация в канал | **выключена** (`SOCIAL_AGENT_PUBLISH_ENABLED=0`) до ответа юриста |
-| Тексты постов | пока заглушка (`MockProvider`) — шаблонные, без настоящей модели |
+| Тексты постов | DeepSeek (`LLMProvider`, модель `deepseek-flash`); пока баланс DeepSeek пуст — шаблонные |
 
 Всё это лежит в `.env` в корне `C:\Dev\Mathemation`. Файл не попадает в Git;
 токены и ключи в нём никому не показывайте.
@@ -628,15 +628,15 @@ Django-админка `/admin/` остаётся доступной для то�
 6. **Идеи** — темы для постов, которые вы хотите увидеть; агент возьмёт их
    по очереди.
 
-Настоящая модель для текстов подключается так же, как наставник, но со своим
-ключом (в `.env`):
+Модель для текстов подключена так же, как наставник, но со своим ключом
+(в `.env` и `.env.production`):
 
 ```text
 SOCIAL_AGENT_PROVIDER=apps.social_agent.providers.LLMProvider
 SOCIAL_AGENT_LLM_FORMAT=openai
 SOCIAL_AGENT_LLM_BASE_URL=https://api.deepseek.com/chat/completions
 SOCIAL_AGENT_LLM_API_KEY=<ключ>
-SOCIAL_AGENT_LLM_MODEL=deepseek-chat
+SOCIAL_AGENT_LLM_MODEL=deepseek-flash
 ```
 
 После правки `.env` перезапустите сайт, воркер и бота.
