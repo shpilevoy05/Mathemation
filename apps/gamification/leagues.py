@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import logging
 import random
 from calendar import monthrange
 from datetime import date
@@ -28,6 +29,9 @@ from datetime import date
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
+
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     GamificationProfile,
@@ -65,10 +69,6 @@ LEAGUE_PRIZE_SCALE: dict[str, tuple[int, int]] = {
     League.ALPHA: (48, 3),
     League.SIGMA: (48, 3),
 }
-# Трофей — знак в списке наград — дают начиная с Бетты: в младших лигах
-# призовое место стоит слишком дёшево, чтобы оставлять по нему память.
-TROPHY_FROM = League.BETA
-
 PRIZE_PLACES = [1, 2, 3]
 # Насколько заполнитель отстаёт от самого слабого живого участника.
 FILLER_STEP = 12
@@ -276,7 +276,8 @@ def league_state(student) -> dict:
         # Что дают за призовые места именно в этой лиге: обещание должно быть
         # видно до конца сезона, а не после.
         "place_prizes": [
-            {"place": place, "title": prize_title(profile.league, place)}
+            {"place": place, "title": prize_title(profile.league, place),
+             "pennant": f"pennant-{profile.league}-{place}"}
             for place in PRIZE_PLACES
         ],
     }
@@ -353,10 +354,8 @@ def prize_parts(league: str, place: int) -> list[tuple[str, int]]:
 
 
 def has_trophy(league: str) -> bool:
-    """Даёт ли лига трофей — память о призовом месте."""
-    from apps.gamification.models import LEAGUE_ORDER
-
-    return LEAGUE_ORDER.index(league) >= LEAGUE_ORDER.index(TROPHY_FROM)
+    """Даёт ли лига вымпел — память о призовом месте."""
+    return league in LEAGUE_PRIZE_SCALE
 
 
 def prize_title(league: str, place: int) -> str:
@@ -371,40 +370,59 @@ def prize_title(league: str, place: int) -> str:
             )
     if not names:
         return ""
-    if has_trophy(league):
-        names.append("трофей")
-    title = " и ".join(names)
+    names.extend(["рамка «Розетка»", "вымпел"])
+    if place == 1:
+        names.append("чемпионский аватар")
+    title = ", ".join(names[:-1]) + " и " + names[-1]
     return title[0].upper() + title[1:]
 
 
 def _place_prize(member: LeagueMember, cohort: LeagueCohort, season: LeagueSeason,
-                 place: int) -> str:
+                  place: int) -> str:
     """Выдать награду за призовое место и записать её в список наград."""
     parts = prize_parts(cohort.league, place)
     if not parts:
         return ""
 
-    for kind, value in parts:
-        if kind == FREEZE:
-            profile = _profile(member.student)
-            profile.streak_freezes += int(value)
-            profile.save(update_fields=["streak_freezes"])
-        elif kind == BOOST:
-            from datetime import timedelta
-
-            from apps.economy.models import XpBoost
-
-            now = timezone.now()
-            XpBoost.objects.create(
-                student=member.student, bonus_percent=BOOST_PERCENT,
-                starts_at=now, ends_at=now + timedelta(hours=int(value)),
-            )
-
     prize = prize_title(cohort.league, place)
-    LeagueTrophy.objects.get_or_create(
+    _award, created = LeagueTrophy.objects.get_or_create(
         student=member.student, season=season, league=cohort.league,
-        defaults={"place": place, "prize": prize, "trophy": has_trophy(cohort.league)},
+        defaults={"place": place, "prize": prize, "trophy": True},
     )
+
+    # Расходники начисляются только при первой фиксации результата сезона.
+    if created:
+        for kind, value in parts:
+            if kind == FREEZE:
+                profile = _profile(member.student)
+                profile.streak_freezes += int(value)
+                profile.save(update_fields=["streak_freezes"])
+            elif kind == BOOST:
+                from datetime import timedelta
+
+                from apps.economy.models import XpBoost
+
+                now = timezone.now()
+                XpBoost.objects.create(
+                    student=member.student, bonus_percent=BOOST_PERCENT,
+                    starts_at=now, ends_at=now + timedelta(hours=int(value)),
+                )
+
+    from apps.economy.catalog import ensure_cosmetic
+    from apps.economy.models import InventoryItem, ShopItem
+
+    reward_codes = [(ShopItem.Slot.FRAME, f"rosette-{cohort.league}-{place}")]
+    if place == 1:
+        reward_codes.append((ShopItem.Slot.AVATAR, f"champion-{cohort.league}"))
+    for slot, code in reward_codes:
+        item = ensure_cosmetic(slot, code)
+        if item is None or item.tier != ShopItem.Tier.REWARD:
+            logger.warning(
+                "Наградной предмет отсутствует в каталоге: slot=%s code=%s",
+                slot, code,
+            )
+            continue
+        InventoryItem.objects.get_or_create(student=member.student, item=item)
     return prize
 
 

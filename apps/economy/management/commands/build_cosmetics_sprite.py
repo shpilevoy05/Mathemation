@@ -12,5 +12,6 @@ class Command(BaseCommand):
         report = write_sprite()
         self.stdout.write(
             f"{report['path']}: аватаров {report['avatar']}, рамок {report['frame']}, "
-            f"знаков лиг {report['league']}, {report['bytes'] // 1024} КБ"
+            f"знаков лиг {report['league']}, вымпелов {report['pennant']}, "
+            f"{report['bytes'] // 1024} КБ"
         )

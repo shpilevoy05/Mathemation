@@ -25,10 +25,12 @@ SOURCES = (
     ("avatar", "avatars", "0 0 128 128"),
     ("frame", "frames", "0 0 160 160"),
     ("league", "leagues", "0 0 128 128"),
+    ("pennant", "pennants", "0 0 128 128"),
 )
 # Файлы знаков лиг названы `league-alpha.svg`: приставку в идентификаторе не
 # дублируем, иначе получится `league-league-alpha`.
 _LEAGUE_PREFIX = re.compile(r"^league-")
+_PENNANT_PREFIX = re.compile(r"^pennant-")
 
 
 def design_root() -> Path:
@@ -80,6 +82,8 @@ def _attributes_markup(attributes: dict[str, str]) -> str:
 def symbol_id(kind: str, name: str) -> str:
     if kind == "league":
         return f"league-{_LEAGUE_PREFIX.sub('', name)}"
+    if kind == "pennant":
+        return f"pennant-{_PENNANT_PREFIX.sub('', name)}"
     return f"{kind}-{name}"
 
 
@@ -131,7 +135,10 @@ def load_symbol(kind: str, code: str) -> tuple[dict[str, str], str]:
     заливается чёрным.
     """
     root = design_root()
-    folder = {"avatar": "avatars", "frame": "frames", "league": "leagues"}.get(kind)
+    folder = {
+        "avatar": "avatars", "frame": "frames", "league": "leagues",
+        "pennant": "pennants",
+    }.get(kind)
     if folder is None:
         return {}, ""
     name = code if kind != "league" else f"league-{code}"

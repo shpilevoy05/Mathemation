@@ -15,6 +15,7 @@ from .catalog import (
     AVATAR_CODES,
     BASE_AVATARS,
     FRAME_CODES,
+    PENNANT_CODES,
     grant_base_avatars,
     load_cosmetics,
 )
@@ -50,6 +51,11 @@ class CatalogMatchesDesignTests(TestCase):
 
         self.assertEqual(files, sorted(FRAME_CODES))
 
+    def test_every_pennant_file_has_a_trophy_code(self):
+        files = sorted(path.stem for path in (design_root() / "pennants").glob("*.svg"))
+
+        self.assertEqual(files, sorted(PENNANT_CODES))
+
     def test_known_codes_come_from_the_catalog(self):
         self.assertEqual(KNOWN_AVATARS, set(AVATAR_CODES))
         self.assertEqual(KNOWN_FRAMES, set(FRAME_CODES))
@@ -64,7 +70,11 @@ class CatalogMatchesDesignTests(TestCase):
         # разовая анимация при надевании в списке выглядит картинкой.
         for kind, codes in (("frame", ANIMATED_FRAMES), ("avatar", ANIMATED_AVATARS)):
             for code in codes:
-                rules = re.findall(rf"\.{kind}-{code} [^{{]*\{{[^}}]*\}}", css, re.S)
+                selector = (
+                    r'\[class\*="frame-rosette-"\]'
+                    if code.startswith("rosette-") else rf"\.{kind}-{code}"
+                )
+                rules = re.findall(rf"{selector} [^{{]*\{{[^}}]*\}}", css, re.S)
                 with self.subTest(item=f"{kind}-{code}"):
                     self.assertIn("infinite", " ".join(rules))
 
@@ -76,7 +86,11 @@ class CatalogMatchesDesignTests(TestCase):
         # Анимированная вещь без правил — это просто дорогая картинка.
         for code in ANIMATED_FRAMES:
             with self.subTest(frame=code):
-                self.assertIn(f".frame-{code} ", css)
+                selector = (
+                    '[class*="frame-rosette-"]'
+                    if code.startswith("rosette-") else f".frame-{code} "
+                )
+                self.assertIn(selector, css)
         for code in ANIMATED_AVATARS:
             with self.subTest(avatar=code):
                 self.assertIn(f".avatar-{code} ", css)
@@ -95,6 +109,10 @@ class SpriteTests(TestCase):
     def test_league_marks_are_in_the_sprite(self):
         self.assertIn('id="league-sigma"', self.markup)
         self.assertIn('id="league-sigma-1"', self.markup)
+
+    def test_pennants_are_in_the_sprite(self):
+        for code in PENNANT_CODES:
+            self.assertIn(f'id="{symbol_id("pennant", code)}"', self.markup)
 
     def test_symbols_keep_the_root_fill(self):
         import re
@@ -256,6 +274,12 @@ class RenderTests(TestCase):
         self.assertNotIn("cosmetics.svg#", markup)
         self.assertIn("st-r0", markup)
 
+    def test_pennant_uses_the_128_view_box(self):
+        markup = render('{% cosmetic "pennant" "pennant-delta-1" %}')
+
+        self.assertIn('viewBox="0 0 128 128"', markup)
+        self.assertIn("#pennant-delta-1", markup)
+
     def test_empty_code_renders_nothing(self):
         self.assertEqual(render('{% cosmetic "avatar" "" %}'), "")
 
@@ -283,6 +307,42 @@ class RenderTests(TestCase):
                         f"#league-{league}-{place}",
                         render("{% league_mark league place %}", league=league, place=place),
                     )
+
+
+class RewardOnlyTests(TestCase):
+    def setUp(self):
+        load_cosmetics()
+        self.student = make_student("league-reward-owner")
+        self.client.force_login(self.student.user)
+        self.reward = ShopItem.objects.get(slot="frame", code="rosette-delta-1")
+
+    def test_reward_cannot_be_bought(self):
+        response = self.client.post(
+            f"/api/shop/items/{self.reward.pk}/buy/", {}, "application/json"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Награду лиги нельзя купить.")
+
+    def test_unowned_reward_is_hidden_but_owned_reward_can_be_equipped(self):
+        item_ids = {row["id"] for row in self.client.get("/api/shop/").json()["items"]}
+        self.assertNotIn(self.reward.pk, item_ids)
+
+        InventoryItem.objects.create(student=self.student, item=self.reward)
+        item_ids = {row["id"] for row in self.client.get("/api/shop/").json()["items"]}
+        self.assertIn(self.reward.pk, item_ids)
+
+        response = self.client.post(
+            f"/api/shop/items/{self.reward.pk}/equip/", {}, "application/json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            InventoryItem.objects.get(student=self.student, item=self.reward).is_equipped
+        )
+
+        page = self.client.get("/shop/")
+        self.assertContains(page, "награда лиги")
+        self.assertContains(page, self.reward.title)
 
 
 class ConsumableTests(TestCase):

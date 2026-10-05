@@ -80,42 +80,41 @@
         Как только приходит живой ученик, бот уступает ему место.</p>
     </section>
 
-    <div class="content-grid">
-      <section class="card">
-        <div class="section-heading"><h2>Сигмы за место</h2></div>
-        <ul class="plain-list">
-          {% for place, coins in coin_prizes.items %}
-            <li class="arena-row"><strong>{{ place|unlocalize }} место</strong><span class="chip warning-soft">{{ coins|unlocalize }} сигм</span></li>
-          {% endfor %}
-        </ul>
-      </section>
+    <section class="card card-wide">
+      <div class="section-heading"><h2>Награды за место</h2><span class="chip chip-brand">Лига {{ league_label }}</span></div>
+      <ol class="prize-list">
+        {% for place, coins in coin_prizes.items %}
+          <li>
+            <span class="prize-slot">
+              {% for prize in place_prizes %}{% if prize.place == place %}{% cosmetic "pennant" prize.pennant css_class="prize-pennant" %}{% endif %}{% endfor %}
+            </span>
+            <span class="prize-copy">
+              <strong>{{ place|unlocalize }} место</strong>
+              {% for prize in place_prizes %}{% if prize.place == place %}<small>{{ prize.title }}</small>{% endif %}{% endfor %}
+            </span>
+            <span class="chip warning-soft">+{{ coins|unlocalize }} сигм</span>
+          </li>
+        {% endfor %}
+      </ol>
+    </section>
 
-      <aside class="card">
-        <div class="section-heading"><h2>Награды</h2><span class="count-badge">{{ trophies|length }}</span></div>
-        <h3 class="arena-subhead">Что даёт лига {{ league_label }}</h3>
-        <ul class="plain-list">
-          {% for prize in place_prizes %}
-            <li class="arena-row"><strong>{{ prize.place|unlocalize }} место</strong><span class="chip chip-brand">{{ prize.title }}</span></li>
+    <section class="card card-wide">
+      <div class="section-heading"><h2>Полка вымпелов</h2><span class="count-badge">{{ trophies|length }}</span></div>
+      {% if trophies %}
+        <ul class="pennant-shelf">
+          {% for trophy in trophies %}
+            <li title="{{ trophy.prize }}">
+              {% cosmetic "pennant" trophy.pennant_code css_class="shelf-pennant" %}
+              <strong>{{ trophy.get_league_display }}</strong>
+              <small>{{ trophy.place|unlocalize }} место</small>
+              <small class="num">{{ trophy.season.starts_on|date:"m.Y" }}</small>
+            </li>
           {% endfor %}
         </ul>
-        <h3 class="arena-subhead">Полученные</h3>
-        {% if trophies %}
-          <ul class="plain-list">
-            {% for trophy in trophies %}
-              <li class="trophy-row">
-                {% league_mark trophy.league trophy.place css_class="trophy-mark" %}
-                <span>
-                  <strong>{{ trophy.get_league_display }} · {{ trophy.place|unlocalize }} место</strong>
-                  <small>{{ trophy.season.starts_on|date:"m.Y" }} · {{ trophy.prize }}</small>
-                </span>
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="empty-copy">Пока пусто: награда достаётся призовой тройке сезона.</p>
-        {% endif %}
-      </aside>
-    </div>
+      {% else %}
+        <p class="empty-copy">Пока пусто: вымпел достаётся призовой тройке сезона в любой лиге.</p>
+      {% endif %}
+    </section>
 
     <section class="card">
       <p class="form-error" data-league-error hidden></p>

@@ -69,7 +69,8 @@ class ShopView(views.APIView):
         return Response({
             "balance": get_wallet(student).balance,
             "items": [
-                _item_payload(item, owned_ids, equipped_ids) for item in storefront()
+                _item_payload(item, owned_ids, equipped_ids)
+                for item in storefront(student=student)
             ],
         })
 

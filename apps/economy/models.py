@@ -111,6 +111,7 @@ class ShopItem(models.Model):
         BASE = "base", "Базовый"
         PAID = "paid", "Покупной"
         ANIMATED = "animated", "Анимированный"
+        REWARD = "reward", "Награда лиги"
 
     class Effect(models.TextChoices):
         NONE = "none", "Только внешний вид"

@@ -1,7 +1,7 @@
 /* Анимации косметики: аватары, рамки и событийные эффекты.
 
-   Источник — design/ANIMATIONS.md, файл собран из него скриптом: править надо
-   спецификацию, а не этот файл. Все анимации построены на transform и opacity,
+   Описание движения — design/ANIMATIONS.md; рисунки собирает design/brand/build.py.
+   Классы анимируемых элементов в рисунках должны совпадать с этим файлом. Все анимации построены на transform и opacity,
    единственное исключение — хвост кометы на stroke-dashoffset.
 
    Главное правило дизайна: у элементов внутри SVG центр вращения по умолчанию
@@ -129,6 +129,19 @@
 .avatar-mobius .mb-flow { animation: flow2 6s linear infinite; }
 .avatar-mobius .mb-face { animation: glow 6s ease-in-out infinite;
                           animation-delay: calc(var(--i) * -2s); }
+
+/* Рамки-розетки призёров лиг (rosette-<лига>-<место>): два набора лепестков
+   вращаются навстречу с разной скоростью — узор переливается, как гильош;
+   по ободу бежит блик, на кромке мерцают искры. */
+@keyframes rsx-twinkle { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+[class*="frame-rosette-"] .rsx-a,
+[class*="frame-rosette-"] .rsx-b,
+[class*="frame-rosette-"] .rsx-shine { transform-box: view-box; transform-origin: 80px 80px; }
+[class*="frame-rosette-"] .rsx-a     { animation: spin 48s linear infinite; }
+[class*="frame-rosette-"] .rsx-b     { animation: spin 72s linear infinite reverse; }
+[class*="frame-rosette-"] .rsx-shine { animation: spin 7s linear infinite; }
+[class*="frame-rosette-"] .rsx-spark { animation: rsx-twinkle 2.8s ease-in-out infinite;
+                                       animation-delay: calc(var(--i) * .35s); }
 
 .avatar-art { animation: appear 320ms cubic-bezier(.34,1.56,.64,1) 1; }
 

@@ -199,7 +199,7 @@ class LeagueTrophy(models.Model):
     season = models.ForeignKey(LeagueSeason, on_delete=models.CASCADE, related_name="trophies")
     league = models.CharField(max_length=16, choices=League.choices)
     place = models.PositiveSmallIntegerField(default=1)
-    # Трофей — память о призовом месте; в младших лигах его не дают.
+    # Сохранено для совместимости: теперь вымпел получают во всех лигах.
     trophy = models.BooleanField(default=False)
     prize = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -214,3 +214,7 @@ class LeagueTrophy(models.Model):
 
     def __str__(self):
         return f"{self.student}: {self.get_league_display()}, {self.place} место"
+
+    @property
+    def pennant_code(self) -> str:
+        return f"pennant-{self.league}-{self.place}"

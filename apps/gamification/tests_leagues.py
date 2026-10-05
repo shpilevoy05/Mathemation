@@ -3,6 +3,7 @@
 from datetime import date, timedelta
 
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.economy.models import InventoryItem, ShopItem, XpBoost
@@ -259,7 +260,8 @@ class SeasonCloseTests(TestCase):
         self.assertEqual(top.place, 1)
         self.assertIn("на 12 ч", top.prize)
         self.assertIn("заморозка", top.prize.lower())
-        self.assertFalse(top.trophy)
+        self.assertTrue(top.trophy)
+        self.assertIn("вымпел", top.prize.lower())
 
     def test_only_the_top_three_get_a_prize(self):
         students = self.build(League.DELTA, count=5)
@@ -297,14 +299,13 @@ class SeasonCloseTests(TestCase):
         self.assertIn("заморозки", prize_title(League.OMEGA, 3).lower())
         self.assertNotIn("ускоритель", prize_title(League.OMEGA, 3).lower())
 
-    def test_trophy_starts_at_beta(self):
+    def test_every_league_has_a_pennant(self):
         from .leagues import has_trophy, prize_title
 
-        # В младших лигах призовое место стоит слишком дёшево для памяти о нём.
-        self.assertFalse(has_trophy(League.OMEGA))
-        self.assertTrue(has_trophy(League.BETA))
-        self.assertTrue(has_trophy(League.SIGMA))
-        self.assertIn("трофей", prize_title(League.SIGMA, 1))
+        for league in League.values:
+            with self.subTest(league=league):
+                self.assertTrue(has_trophy(league))
+                self.assertIn("вымпел", prize_title(league, 1).lower())
 
     def test_beta_champion_gets_freezes_and_a_trophy(self):
         students = self.build(League.BETA, count=2)
@@ -328,7 +329,7 @@ class SeasonCloseTests(TestCase):
 
         award = LeagueTrophy.objects.get(student=students[0])
         self.assertTrue(award.trophy)
-        self.assertIn("трофей", award.prize)
+        self.assertIn("вымпел", award.prize)
 
     def test_sigma_champion_stays_in_sigma(self):
         students = self.build(League.SIGMA, count=2)
@@ -346,6 +347,70 @@ class SeasonCloseTests(TestCase):
         # Первое место — и ускоритель, и заморозки.
         self.assertTrue(XpBoost.objects.filter(student=students[0]).exists())
         self.assertEqual(profile_of(students[0]).streak_freezes, 3)
+
+    def test_cosmetic_prizes_are_idempotent_and_champion_is_first_only(self):
+        students = self.build(League.DELTA, count=3)
+        season = current_season()
+
+        close_season(season)
+        first_counts = [
+            InventoryItem.objects.filter(
+                student=student, item__tier=ShopItem.Tier.REWARD
+            ).count()
+            for student in students
+        ]
+        close_season(season)
+
+        self.assertEqual(first_counts, [2, 1, 1])
+        self.assertEqual(
+            [
+                InventoryItem.objects.filter(
+                    student=student, item__tier=ShopItem.Tier.REWARD
+                ).count()
+                for student in students
+            ],
+            first_counts,
+        )
+        self.assertTrue(
+            InventoryItem.objects.filter(
+                student=students[0], item__code="champion-delta"
+            ).exists()
+        )
+        for student in students[1:]:
+            self.assertFalse(
+                InventoryItem.objects.filter(
+                    student=student, item__code__startswith="champion-"
+                ).exists()
+            )
+        self.assertEqual(
+            LeagueTrophy.objects.filter(season=season, trophy=True).count(), 3
+        )
+
+    def test_missing_reward_cosmetics_are_created_for_the_champion(self):
+        students = self.build(League.DELTA, count=1)
+        self.assertFalse(ShopItem.objects.filter(tier=ShopItem.Tier.REWARD).exists())
+
+        close_season(current_season())
+
+        self.assertTrue(
+            InventoryItem.objects.filter(
+                student=students[0], item__code="rosette-delta-1"
+            ).exists()
+        )
+        self.assertTrue(
+            InventoryItem.objects.filter(
+                student=students[0], item__code="champion-delta"
+            ).exists()
+        )
+
+    def test_leagues_page_renders_the_pennant_for_a_trophy(self):
+        students = self.build(League.DELTA, count=1)
+        close_season(current_season())
+        self.client.force_login(students[0].user)
+
+        response = self.client.get(reverse("leagues"))
+
+        self.assertContains(response, "#pennant-delta-1")
 
 
 class RotationTests(TestCase):

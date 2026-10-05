@@ -1328,13 +1328,30 @@ body.no-rail .logo, .auth-card .logo { color: var(--ink); }
 .league-badge .league-mark { width: 56px; height: 56px; }
 .league-badge small { color: var(--muted); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; }
 .league-ladder li { display: grid; justify-items: center; gap: 4px; }
-.ladder-mark { width: 34px; height: 34px; }
+.league-ladder .ladder-mark { width: 40px; height: 40px; }
 /* Закрытая ступень: силуэт со знаком вопроса — ступень видно, награду нет. */
 .ladder-locked { display: grid; place-items: center; border-radius: 8px; background: var(--line-strong); color: var(--card); font-size: 1.1rem; font-weight: 800; opacity: .55; }
 .league-ladder li.is-locked { color: var(--muted); }
-.trophy-row { display: flex; align-items: center; gap: 10px; }
-.trophy-row span { display: grid; }
-.trophy-mark { width: 42px; height: 42px; flex: 0 0 auto; }
+.prize-list { display: grid; gap: 6px; padding: 0; margin: 12px 0 0; list-style: none; }
+.prize-list li { display: flex; align-items: center; gap: 14px; padding: 8px 14px 8px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card-3); }
+.prize-slot { display: grid; flex: 0 0 52px; place-items: center; height: 52px; }
+.prize-list li:nth-child(n+4) .prize-slot::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); }
+.prize-pennant { width: 52px; height: 52px; filter: drop-shadow(0 4px 6px rgba(16, 22, 42, .18)); }
+.prize-copy { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.prize-copy small { color: var(--muted); font-size: .8rem; line-height: 1.35; }
+.prize-list .chip { flex: 0 0 auto; margin-left: auto; }
+.pennant-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; padding: 0; margin: 12px 0 0; list-style: none; }
+.pennant-shelf li { display: grid; justify-items: center; gap: 2px; padding: 14px 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: linear-gradient(180deg, var(--card-3), var(--card)); text-align: center; }
+.shelf-pennant { width: 84px; height: 84px; margin-bottom: 4px; filter: drop-shadow(0 8px 10px rgba(16, 22, 42, .2)); }
+.pennant-shelf strong { font-size: .92rem; }
+.pennant-shelf small { color: var(--muted); font-size: .74rem; }
+@media (max-width: 560px) {
+  .prize-list li { flex-wrap: wrap; }
+  .prize-list li:nth-child(-n+3) .prize-copy { flex: 1 1 calc(100% - 70px); }
+  .prize-list li:nth-child(-n+3) .chip { margin-left: 66px; }
+  .pennant-shelf { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .shelf-pennant { width: 68px; height: 68px; }
+}
 
 /* — Ожидание игроков: партия начинается, когда за столом оба — */
 .match-lobby { display: grid; justify-items: center; gap: 10px; text-align: center; }

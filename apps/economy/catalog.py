@@ -5,13 +5,14 @@
 какому уровню относится. Держать это в базе руками — способ получить предмет
 с кодом, которому нет картинки, или картинку, которую никто не продаёт.
 
-Три уровня аватаров, и это продуктовое решение, а не украшение:
+Четыре уровня аватаров, и это продуктовое решение, а не украшение:
 
 * **базовые** выдаются сразу при регистрации. Кабинет не должен встречать
   ученика пустым кружком с буквой;
 * **покупные** — обычная косметика за сигмы;
 * **анимированные** дороже и намеренно редкие: чем реже движение встречается
   в списке, тем дороже оно читается.
+* **наградные** выдаются за призовое место в лиге и никогда не продаются.
 
 Коды совпадают с именами файлов в `design/svg/`: по ним собирается спрайт
 `static/img/cosmetics.svg`, и разъехаться им негде — за этим следит тест.
@@ -24,6 +25,18 @@ class Tier:
     BASE = "base"
     PAID = "paid"
     ANIMATED = "animated"
+    REWARD = "reward"
+
+
+LEAGUES = ["delta", "gamma", "omega", "beta", "alpha", "sigma"]
+LEAGUE_TITLES = {
+    "delta": "Дельты",
+    "gamma": "Гаммы",
+    "omega": "Омеги",
+    "beta": "Бетты",
+    "alpha": "Альфы",
+    "sigma": "Сигмы",
+}
 
 
 # (код, название, уровень, цена)
@@ -53,6 +66,9 @@ AVATARS: list[tuple[str, str, str, int]] = [
     ("mobius", "Лента Мёбиуса", Tier.ANIMATED, 380),
     ("comet", "Комета", Tier.ANIMATED, 400),
     ("blackhole", "Чёрная дыра", Tier.ANIMATED, 450),
+] + [
+    (f"champion-{league}", f"Чемпион {LEAGUE_TITLES[league]}", Tier.REWARD, 0)
+    for league in LEAGUES
 ]
 
 FRAMES: list[tuple[str, str, str, int]] = [
@@ -72,6 +88,15 @@ FRAMES: list[tuple[str, str, str, int]] = [
     ("gears", "Механизм", Tier.ANIMATED, 280),
     ("saturn", "Сатурн", Tier.ANIMATED, 300),
     ("comet", "Комета", Tier.ANIMATED, 320),
+] + [
+    (
+        f"rosette-{league}-{place}",
+        f"Розетка {LEAGUE_TITLES[league]} · {place} место",
+        Tier.REWARD,
+        0,
+    )
+    for league in LEAGUES
+    for place in (1, 2, 3)
 ]
 
 # Темы оформления рисуются css-палитрой, а не svg: они живут отдельно.
@@ -124,21 +149,36 @@ RETIRED_SLOTS = ["badge"]
 # Знаки лиг — не товар: их выдаёт место в таблице, а не покупка. В каталоге
 # они нужны, чтобы спрайт знал, что рисовать. Порядок — от младшей лиги к
 # старшей, тот же, что в `apps.gamification.models.LEAGUE_ORDER`.
-LEAGUE_MARKS = ["delta", "gamma", "omega", "beta", "alpha", "sigma"]
+LEAGUE_MARKS = LEAGUES
 LEAGUE_PLACES = [1, 2, 3]
+PENNANT_CODES = [
+    f"pennant-{league}-{place}"
+    for league in LEAGUES
+    for place in LEAGUE_PLACES
+]
 
 AVATAR_CODES = [code for code, *_rest in AVATARS]
 FRAME_CODES = [code for code, *_rest in FRAMES]
 THEME_CODES = [code for code, *_rest in THEMES]
 BASE_AVATARS = [code for code, _t, tier, _p in AVATARS if tier == Tier.BASE]
 ANIMATED_AVATARS = [code for code, _t, tier, _p in AVATARS if tier == Tier.ANIMATED]
-ANIMATED_FRAMES = [code for code, _t, tier, _p in FRAMES if tier == Tier.ANIMATED]
+ANIMATED_FRAMES = [
+    code for code, _t, tier, _p in FRAMES
+    if tier == Tier.ANIMATED or code.startswith("rosette-")
+]
 
 TIER_LABELS = {
     Tier.BASE: "базовый",
     Tier.PAID: "покупной",
     Tier.ANIMATED: "анимированный",
+    Tier.REWARD: "награда лиги",
 }
+
+_COSMETIC_GROUPS = (
+    ("avatar", "Аватары", 0, AVATARS),
+    ("frame", "Рамки", 1, FRAMES),
+    ("theme", "Темы оформления", 2, THEMES),
+)
 
 
 def is_animated(slot: str, code: str) -> bool:
@@ -149,6 +189,42 @@ def is_animated(slot: str, code: str) -> bool:
     return False
 
 
+def _update_cosmetic(category, slot: str, item_definition: tuple[str, str, str, int]):
+    from .models import ShopItem
+
+    code, title, tier, price = item_definition
+    noun = {"avatar": "Аватар", "frame": "Рамка", "theme": "Тема"}[slot]
+    return ShopItem.objects.update_or_create(
+        slot=slot, code=code,
+        defaults={
+            "category": category,
+            "title": f"{noun} «{title}»",
+            "tier": tier,
+            "price_coins": price,
+            "is_active": True,
+            "effect": ShopItem.Effect.NONE,
+        },
+    )
+
+
+def ensure_cosmetic(slot: str, code: str):
+    """Создать или обновить одну косметику из каталога; неизвестную пропустить."""
+    from .models import ShopCategory
+
+    for group_slot, category_title, order, items in _COSMETIC_GROUPS:
+        if group_slot != slot:
+            continue
+        definition = next((item for item in items if item[0] == code), None)
+        if definition is None:
+            return None
+        category, _ = ShopCategory.objects.update_or_create(
+            title=category_title, defaults={"order": order}
+        )
+        item, _ = _update_cosmetic(category, slot, definition)
+        return item
+    return None
+
+
 def load_cosmetics(*, dry_run: bool = False) -> dict:
     """Разложить каталог по витрине. Идемпотентно: ключ — слот и код.
 
@@ -157,34 +233,18 @@ def load_cosmetics(*, dry_run: bool = False) -> dict:
     """
     from .models import ShopCategory, ShopItem
 
-    groups = (
-        ("avatar", "Аватары", 0, AVATARS),
-        ("frame", "Рамки", 1, FRAMES),
-        ("theme", "Темы оформления", 2, THEMES),
-    )
     report = {"created": 0, "updated": 0, "dry_run": dry_run}
     if not dry_run:
         _load_consumables(report)
-    for slot, category_title, order, items in groups:
+    for slot, category_title, order, items in _COSMETIC_GROUPS:
         if dry_run:
             report["updated"] += len(items)
             continue
         category, _ = ShopCategory.objects.update_or_create(
             title=category_title, defaults={"order": order}
         )
-        for code, title, tier, price in items:
-            noun = {"avatar": "Аватар", "frame": "Рамка", "theme": "Тема"}[slot]
-            _, created = ShopItem.objects.update_or_create(
-                slot=slot, code=code,
-                defaults={
-                    "category": category,
-                    "title": f"{noun} «{title}»",
-                    "tier": tier,
-                    "price_coins": price,
-                    "is_active": True,
-                    "effect": ShopItem.Effect.NONE,
-                },
-            )
+        for item_definition in items:
+            _, created = _update_cosmetic(category, slot, item_definition)
             report["created" if created else "updated"] += 1
     if not dry_run:
         # Предметы, которых в каталоге больше нет, снимаются с витрины, но не
@@ -193,10 +253,11 @@ def load_cosmetics(*, dry_run: bool = False) -> dict:
         from django.db.models import Q
 
         known = Q()
-        for slot, _title, _order, items in groups:
+        for slot, _title, _order, items in _COSMETIC_GROUPS:
             known |= Q(slot=slot, code__in=[code for code, *_rest in items])
         stale = ShopItem.objects.filter(
-            slot__in=[slot for slot, *_rest in groups] + RETIRED_SLOTS, is_active=True
+            slot__in=[slot for slot, *_rest in _COSMETIC_GROUPS] + RETIRED_SLOTS,
+            is_active=True,
         ).exclude(known)
         report["retired"] = stale.update(is_active=False)
     return report

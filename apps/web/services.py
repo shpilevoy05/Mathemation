@@ -969,7 +969,7 @@ def shop_context(student) -> dict:
     equipped = {entry.item_id for entry in inventory if entry.is_equipped}
     wallet = get_wallet(student)
     items, boosts = [], []
-    for item in storefront():
+    for item in storefront(student=student):
         row = {
             "item": item,
             "owned": item.id in owned,
@@ -1054,11 +1054,14 @@ def _shop_card(row: dict, balance: int) -> dict:
         "art_kind": item.slot if item.slot in ("avatar", "frame") else "",
         "tier_label": (
             TIER_LABELS.get(item.tier, "")
-            if item.tier == ShopItem.Tier.ANIMATED else ""
+            if item.tier in (ShopItem.Tier.ANIMATED, ShopItem.Tier.REWARD) else ""
         ),
         "frosted": item.effect == ShopItem.Effect.STREAK_FREEZE,
         "group": "boost" if row["is_consumable"] else item.slot,
-        "description": item.description or row.get("effect_note") or "Оформление кабинета.",
+        "description": item.description or row.get("effect_note") or (
+            "Награда за призовое место в лиге — не продаётся."
+            if item.tier == ShopItem.Tier.REWARD else "Оформление кабинета."
+        ),
         "available": row["owned"] or row["affordable"],
         "missing": max(item.price_coins - balance, 0),
         # Купленную косметику цена только путает: платить второй раз не за что.

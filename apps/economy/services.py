@@ -153,6 +153,8 @@ def purchase(student, item: ShopItem) -> InventoryItem | None:
     (заморозка стрика, ускоритель опыта) срабатывает сразу и покупается
     повторно, поэтому возвращается `None`: складывать его в инвентарь не во что.
     """
+    if item.tier == ShopItem.Tier.REWARD:
+        raise ValidationError("Награду лиги нельзя купить.")
     if not item.is_available():
         raise ValidationError("Товар недоступен.")
     consumable = item.effect != ShopItem.Effect.NONE
@@ -286,13 +288,21 @@ def cosmetic_codes(student) -> dict[str, str]:
     return codes
 
 
-def storefront(now=None):
-    """Витрина: активные товары, доступные по датам."""
+def storefront(now=None, *, student=None):
+    """Витрина: товары и принадлежащие ученику награды лиги."""
     now = now or timezone.now()
+    owned_reward_ids = set()
+    if student is not None:
+        owned_reward_ids = set(
+            InventoryItem.objects.filter(
+                student=student, item__tier=ShopItem.Tier.REWARD
+            ).values_list("item_id", flat=True)
+        )
     return [
         item
         for item in ShopItem.objects.select_related("category").filter(is_active=True)
         if item.is_available(now)
+        and (item.tier != ShopItem.Tier.REWARD or item.pk in owned_reward_ids)
     ]
 
 
