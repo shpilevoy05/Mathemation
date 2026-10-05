@@ -72,18 +72,17 @@ AVATARS: list[tuple[str, str, str, int]] = [
 ]
 
 FRAMES: list[tuple[str, str, str, int]] = [
-    ("coordinates", "Координаты", Tier.ANIMATED, 220),
     ("integral", "Интеграл", Tier.PAID, 120),
     ("tessellation", "Тесселяция", Tier.PAID, 130),
     ("ivy", "Плющ", Tier.PAID, 140),
     ("pcb", "Плата", Tier.PAID, 150),
     ("vitrage", "Витраж", Tier.PAID, 160),
-    ("flame", "Пламя", Tier.ANIMATED, 240),
-    # «Цветущая» раскрывается один раз при надевании и дальше стоит: продавать
-    # её как анимированную — обещать движение, которого в списке не увидишь.
+    # Покупные рамки статичны: движение — признак уровня «анимированный».
     ("bloom", "Цветущая", Tier.PAID, 170),
-    ("nebula", "Туманность", Tier.ANIMATED, 260),
+    ("coordinates", "Координаты", Tier.PAID, 180),
+    ("flame", "Пламя", Tier.PAID, 190),
     ("bitflow", "Битовый ток", Tier.ANIMATED, 260),
+    ("nebula", "Туманность", Tier.ANIMATED, 260),
     ("aurora", "Аврора", Tier.ANIMATED, 280),
     ("gears", "Механизм", Tier.ANIMATED, 280),
     ("saturn", "Сатурн", Tier.ANIMATED, 300),

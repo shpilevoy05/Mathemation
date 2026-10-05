@@ -2,7 +2,7 @@
 
    Описание движения — design/ANIMATIONS.md; рисунки собирает design/brand/build.py.
    Классы анимируемых элементов в рисунках должны совпадать с этим файлом. Все анимации построены на transform и opacity,
-   единственное исключение — хвост кометы на stroke-dashoffset.
+   исключение — потоки чёрной дыры и ленты Мёбиуса на stroke-dashoffset.
 
    Главное правило дизайна: у элементов внутри SVG центр вращения по умолчанию
    в левом верхнем углу холста, поэтому каждому анимируемому элементу заданы
@@ -11,15 +11,10 @@
 /* — Кейфреймы — */
 @keyframes spin { to { transform: rotate(360deg) } }
 @keyframes breathe { 0%,100% { transform: scale(1) } 50% { transform: scale(1.045) } }
-@keyframes stretch { 0%,100% { transform: scaleY(1) } 50% { transform: scaleY(1.22) } }
-@keyframes pop { 0%,100% { transform: scale(1) } 35% { transform: scale(1.3) } }
 @keyframes blink { 0%,100% { opacity: .3 } 18% { opacity: 1 } 45% { opacity: .3 } }
 @keyframes twinkle { 0%,100% { opacity: .2 } 50% { opacity: 1 } }
 @keyframes glow { 0%,100% { opacity: .32 } 28% { opacity: 1 } 60% { opacity: .32 } }
 @keyframes orbit { to { transform: rotate(360deg) } }
-@keyframes depart { 0%,100% { transform: scale(1) } 45% { transform: scale(1.26) } }
-@keyframes tail { 0%,100% { stroke-dashoffset: 0 } 45% { stroke-dashoffset: -32 } }
-@keyframes tick { 0%,100% { transform: scale(1) } 50% { transform: scale(1.09) } }
 @keyframes shine { 0%,100% { opacity: .25; transform: translate(-6px,0) } 40% { opacity: .95; transform: translate(6px,0) } }
 @keyframes flow { to { stroke-dashoffset: -12 } }
 @keyframes dash { 0%,100% { transform: translate(0,0) } 45% { transform: translate(7px,-7px) } }
@@ -30,66 +25,45 @@
 @keyframes appear { from { transform: scale(.82); opacity: 0 } 60% { transform: scale(1.04); opacity: 1 } to { transform: scale(1) } }
 @keyframes win { 0%,100% { transform: translateY(0) scaleY(1) } 45% { transform: translateY(-9px) scaleY(1.05) } 70% { transform: translateY(0) scaleY(.93) } }
 
-/* — Концепты — */
-.frame-saturn .st-r0,
-.frame-saturn .st-r1,
-.frame-saturn .st-moon { transform-box: view-box; transform-origin: 80px 80px; }
-.frame-saturn .st-r0   { animation: spin 18s linear infinite; }
-.frame-saturn .st-r1   { animation: spin 26s linear infinite reverse; }
-.frame-saturn .st-moon { animation: spin 14s linear infinite; }
+/* — Рамки магазина (design/brand/frames.py) —
+   Движутся только рамки уровня «анимированный»: Сатурн, Комета, Аврора,
+   Механизм, Битовый ток, Туманность. Остальные восемь — покупные и
+   статичные. Обод у всех неподвижен: движется только мотив вокруг него. */
+
+.frame-saturn .sa-moon,
+.frame-saturn .sa-track { transform-box: view-box; transform-origin: 80px 80px; }
+.frame-saturn .sa-moon  { animation: spin 14s linear infinite; }
+.frame-saturn .sa-track { animation: spin 60s linear infinite reverse; }
+.frame-saturn .sa-glint { animation: twinkle 4s ease-in-out infinite; }
+/* Кольцо скрыто внутри диска маской: аватар выглядит планетой, за которой
+   проходит кольцо, — само кольцо не вращается, иначе маска «моргала» бы. */
+
+.frame-comet .co-orbit { transform-box: view-box; transform-origin: 80px 80px;
+                         animation: orbit 6s linear infinite; }       /* облёт аватара */
+.frame-comet .co-halo  { transform-box: fill-box; transform-origin: center;
+                         animation: breathe 1.5s ease-in-out infinite; }
+.frame-comet .co-star  { animation: twinkle calc(1.6s + var(--i) * .3s) ease-in-out infinite; }
+/* Хвост и белая струя гаснут градиентом от головы — движение их не меняет. */
+
+.frame-aurora .au-wave { transform-box: view-box; transform-origin: 80px 80px;
+                         animation: spin calc(14s + var(--i) * 6s) linear infinite; }
+.frame-aurora .au-wave:nth-of-type(even) { animation-direction: reverse; }
 
 .frame-gears .gr-ring {
   transform-box: view-box; transform-origin: 80px 80px;
   animation: spin 24s linear infinite;
 }
-/* Зубья, обод и заклёпки лежат в одной группе .gr-ring и вращаются вместе —
-   расхождения скоростей больше нет. */
-
-.frame-comet .cm-orbit,
-.frame-comet .cm-head { transform-box: view-box; transform-origin: 80px 80px; }
-.frame-comet .cm-orbit { animation: orbit 4s linear infinite; }      /* облёт аватара */
-.frame-comet .cm-head  { animation: depart 4s ease-in-out infinite; } /* уход наружу */
-.frame-comet .cm-tail  { stroke-dasharray: 62 100;                    /* pathLength=100 */
-                         animation: tail 4s ease-in-out infinite; }
-/* Аватар лежит ОТДЕЛЬНЫМ слоем под рамкой и не входит в .cm-orbit —
-   поэтому он остаётся неподвижным. */
 
 .frame-bitflow .bt-pulse { transform-box: view-box; transform-origin: 80px 80px;
                            animation: spin 2.4s linear infinite; }
 .frame-bitflow .bt-bit   { animation: blink 2.4s linear infinite;
                            animation-delay: calc(var(--i) * -100ms); }
 
-.frame-aurora .au-band {
-  transform-box: view-box; transform-origin: 80px 80px;
-  animation: spin calc(12s + var(--i) * 4s) linear infinite;
-}
-.frame-aurora .au-band:nth-of-type(even) { animation-direction: reverse; }
-
-.frame-coordinates .cd-orbit,
-.frame-coordinates .cd-tick { transform-box: view-box; transform-origin: 80px 80px; }
-.frame-coordinates .cd-orbit { animation: spin 30s linear infinite; }
-.frame-coordinates .cd-tick  { animation: tick 2.6s ease-in-out infinite; }
-/* Масштаб от центра аватара — оси растут наружу симметрично.
-   На событии XP: animation: tick 400ms cubic-bezier(.34,1.56,.64,1) 1; */
-
-.frame-flame .fl-tongue > path:first-child {
-  transform-box: fill-box;        /* здесь центр — сам язык, а не холст */
-  transform-origin: 50% 100%;     /* основание языка */
-  animation: stretch 1.6s ease-in-out infinite;
-  animation-delay: calc(var(--i) * -80ms);
-}
-
 .frame-nebula .nb-glow { transform-box: view-box; transform-origin: 80px 80px;
                         animation: breathe 3.6s ease-in-out infinite; }
 .frame-nebula .nb-star { animation: twinkle calc(1.2s + var(--i) * .2s) ease-in-out infinite; }
 
-.frame-bloom .bl-flower {
-  transform-box: view-box;
-  transform-origin: var(--cx) var(--cy);   /* центр конкретного цветка, из разметки */
-  animation: pop 640ms cubic-bezier(.34,1.56,.64,1) 1;
-  animation-delay: calc(var(--i) * 45ms);
-}
-
+/* — Аватары — */
 .avatar-tesseract .tsr-inner,
 .avatar-tesseract .tsr-outer { transform-box: view-box; transform-origin: 64px 64px; }
 .avatar-tesseract .tsr-inner { animation: spin 12s linear infinite reverse; }

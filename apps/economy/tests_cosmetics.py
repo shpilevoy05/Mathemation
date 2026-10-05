@@ -14,8 +14,10 @@ from .catalog import (
     ANIMATED_FRAMES,
     AVATAR_CODES,
     BASE_AVATARS,
+    FRAMES,
     FRAME_CODES,
     PENNANT_CODES,
+    Tier,
     grant_base_avatars,
     load_cosmetics,
 )
@@ -95,6 +97,24 @@ class CatalogMatchesDesignTests(TestCase):
             with self.subTest(avatar=code):
                 self.assertIn(f".avatar-{code} ", css)
 
+    def test_animated_frames_are_derived_from_tier_and_rosettes(self):
+        expected_rosettes = [
+            f"rosette-{league}-{place}"
+            for league in LEAGUE_MARKS
+            for place in (1, 2, 3)
+        ]
+        expected_animated = [
+            code for code, _title, tier, _price in FRAMES if tier == Tier.ANIMATED
+        ]
+
+        self.assertEqual(
+            set(expected_animated),
+            {"saturn", "comet", "aurora", "gears", "bitflow", "nebula"},
+        )
+        self.assertEqual(ANIMATED_FRAMES, expected_animated + expected_rosettes)
+        self.assertNotIn("coordinates", ANIMATED_FRAMES)
+        self.assertNotIn("flame", ANIMATED_FRAMES)
+
 
 class SpriteTests(TestCase):
     def setUp(self):
@@ -164,6 +184,16 @@ class LoadCatalogTests(TestCase):
 
         item = ShopItem.objects.get(slot="avatar", code="blackhole")
         self.assertEqual(item.tier, ShopItem.Tier.ANIMATED)
+
+    def test_downgraded_frames_are_paid_items(self):
+        load_cosmetics()
+
+        expected = {"coordinates": 180, "flame": 190}
+        for code, price in expected.items():
+            with self.subTest(code=code):
+                item = ShopItem.objects.get(slot="frame", code=code)
+                self.assertEqual(item.tier, ShopItem.Tier.PAID)
+                self.assertEqual(item.price_coins, price)
 
     def test_loading_twice_changes_nothing(self):
         load_cosmetics()
@@ -272,7 +302,13 @@ class RenderTests(TestCase):
         markup = render('{% cosmetic "frame" "saturn" %}')
 
         self.assertNotIn("cosmetics.svg#", markup)
-        self.assertIn("st-r0", markup)
+        self.assertIn("sa-moon", markup)
+
+    def test_paid_frames_come_from_the_sprite(self):
+        for code in ("coordinates", "flame"):
+            with self.subTest(code=code):
+                markup = render('{% cosmetic "frame" code %}', code=code)
+                self.assertIn(f"cosmetics.svg#frame-{code}", markup)
 
     def test_pennant_uses_the_128_view_box(self):
         markup = render('{% cosmetic "pennant" "pennant-delta-1" %}')

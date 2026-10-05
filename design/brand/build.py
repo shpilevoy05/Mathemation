@@ -2,13 +2,14 @@
 
     python design/brand/build.py
 
-Пишет: аватары (25 обычных + 6 чемпионских), знаки лиг-розетки с жетонами
-мест, рамки-розетки призёров (лига × место, анимированные) и вымпелы сезона.
+Пишет: аватары (25 обычных + 6 чемпионских), 14 рамок магазина, знаки
+лиг-розетки с жетонами мест, рамки-розетки призёров (лига × место,
+анимированные) и вымпелы сезона.
 После сборки: `manage.py build_cosmetics_sprite`, чтобы обновить спрайт.
 
 Модули рядом — генераторы по слоям: logo (конструкция букв), leagues
-(буквы лиг и цифры), concepts/rewards/final (лиги и награды), avatars*
-(аватары). Рисунки не правят руками в design/svg: правят генератор и
+(буквы лиг и цифры), concepts/rewards/final (лиги и награды), frames
+(рамки магазина; legacy/ — их прежние рисунки-исходники), avatars* (аватары). Рисунки не правят руками в design/svg: правят генератор и
 пересобирают, иначе следующая сборка затрёт правку.
 """
 import sys
@@ -23,6 +24,7 @@ import avatars3  # noqa: E402
 import avatars4  # noqa: E402
 import avatars5  # noqa: E402
 import final  # noqa: E402
+import frames  # noqa: E402
 import rewards  # noqa: E402
 from leagues import ORDER  # noqa: E402
 
@@ -48,9 +50,11 @@ def write(folder: str, name: str, markup: str) -> None:
 
 
 def main() -> dict:
-    counts = {"avatars": 0, "champions": 0, "leagues": 0, "frames": 0, "pennants": 0}
+    counts = {"avatars": 0, "shop_frames": 0, "champions": 0, "leagues": 0, "frames": 0, "pennants": 0}
     for code, fn in AVATARS.items():
         write("avatars", code, fn()); counts["avatars"] += 1
+    for code, fn in frames.FRAMES.items():
+        write("frames", code, fn()); counts["shop_frames"] += 1
     for league in ORDER:
         write("avatars", f"champion-{league}", rewards.constellation_avatar(league)); counts["champions"] += 1
         write("leagues", f"league-{league}", rewards.rosette(league)); counts["leagues"] += 1
