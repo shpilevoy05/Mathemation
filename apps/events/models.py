@@ -20,6 +20,7 @@ class Event(models.Model):
         XP_AWARDED = "xp_awarded"
         STREAK_ADVANCED = "streak_advanced"
         STREAK_RESET = "streak_reset"
+        STREAK_MILESTONE = "streak_milestone"
         QUEST_COMPLETED = "quest_completed"
         # Действия бэкофиса: кто опубликовал урок, поменял цену,
         # начислил сигмы или вернул деньги.

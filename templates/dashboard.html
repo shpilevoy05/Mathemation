@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load l10n %}
+{% load l10n cosmetics %}
 {% block title %}Кабинет — Матемация{% endblock %}
 {% block content %}
 {% if not student %}
@@ -154,6 +154,20 @@
             <span class="xp-chip">+{{ quest.reward_xp }} XP</span>
           </article>
         {% empty %}<p class="empty-copy">Квесты появятся вместе с активным учебным планом.</p>{% endfor %}
+      </div>
+      <div class="streak-badges">
+        <div class="streak-badges-head">
+          <h3>Значки серии</h3>
+          <small>{% if next_streak_badge %}до «{{ next_streak_badge.days }}» — ещё {{ next_streak_badge.left }} {{ streak_unit }}{% else %}все значки собраны{% endif %}</small>
+        </div>
+        <ol>
+          {% for badge in streak_badges %}
+            <li class="{% if badge.earned %}is-earned{% endif %}" title="{% if badge.earned %}Серия {{ badge.days }} {{ streak_unit }} — получен{% else %}Откроется на серии {{ badge.days }} {{ streak_unit }}{% endif %}">
+              {% cosmetic "streak" badge.code css_class="streak-badge" %}
+              <span class="visually-hidden">{% if badge.earned %}Получен значок серии {{ badge.days }} {{ streak_unit }}{% else %}Значок серии {{ badge.days }} {{ streak_unit }} ещё не открыт{% endif %}</span>
+            </li>
+          {% endfor %}
+        </ol>
       </div>
     </section>
 

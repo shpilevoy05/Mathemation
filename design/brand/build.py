@@ -4,7 +4,7 @@
 
 Пишет: аватары (25 обычных + 6 чемпионских), 14 рамок магазина, знаки
 лиг-розетки с жетонами мест, рамки-розетки призёров (лига × место,
-анимированные) и вымпелы сезона.
+анимированные), вымпелы сезона и значки серии (7–150 дней).
 После сборки: `manage.py build_cosmetics_sprite`, чтобы обновить спрайт.
 
 Модули рядом — генераторы по слоям: logo (конструкция букв), leagues
@@ -26,6 +26,7 @@ import avatars5  # noqa: E402
 import final  # noqa: E402
 import frames  # noqa: E402
 import rewards  # noqa: E402
+import streaks  # noqa: E402
 from leagues import ORDER  # noqa: E402
 
 SVG = HERE.parent / "svg"
@@ -50,7 +51,7 @@ def write(folder: str, name: str, markup: str) -> None:
 
 
 def main() -> dict:
-    counts = {"avatars": 0, "shop_frames": 0, "champions": 0, "leagues": 0, "frames": 0, "pennants": 0}
+    counts = {"avatars": 0, "shop_frames": 0, "champions": 0, "leagues": 0, "frames": 0, "pennants": 0, "streaks": 0}
     for code, fn in AVATARS.items():
         write("avatars", code, fn()); counts["avatars"] += 1
     for code, fn in frames.FRAMES.items():
@@ -62,6 +63,8 @@ def main() -> dict:
             write("leagues", f"league-{league}-{place}", rewards.rosette(league, place)); counts["leagues"] += 1
             write("frames", f"rosette-{league}-{place}", final.frame_rosette_anim(league, place, with_style=False)); counts["frames"] += 1
             write("pennants", f"pennant-{league}-{place}", final.pennant(league, place)); counts["pennants"] += 1
+    for days in streaks.THRESHOLDS:
+        write("streaks", f"streak-{days}", streaks.streak_badge(days)); counts["streaks"] += 1
     return counts
 
 

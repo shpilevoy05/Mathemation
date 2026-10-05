@@ -52,6 +52,8 @@ def _urllib_transport(url: str, payload: dict) -> dict:
 
 def telegram_request(method: str, payload: dict, *, transport: Transport | None = None) -> dict:
     token = settings.SOCIAL_AGENT_TELEGRAM_BOT_TOKEN
+    if transport is None and not token:
+        raise TelegramError("Telegram bot token is not configured")
     url = f"https://api.telegram.org/bot{token}/{method}"
     try:
         response = (transport or _urllib_transport)(url, payload)

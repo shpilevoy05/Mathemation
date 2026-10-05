@@ -17,6 +17,7 @@ from .catalog import (
     FRAMES,
     FRAME_CODES,
     PENNANT_CODES,
+    STREAK_CODES,
     Tier,
     grant_base_avatars,
     load_cosmetics,
@@ -57,6 +58,11 @@ class CatalogMatchesDesignTests(TestCase):
         files = sorted(path.stem for path in (design_root() / "pennants").glob("*.svg"))
 
         self.assertEqual(files, sorted(PENNANT_CODES))
+
+    def test_every_streak_file_has_a_code(self):
+        files = sorted(path.stem for path in (design_root() / "streaks").glob("*.svg"))
+
+        self.assertEqual(files, sorted(STREAK_CODES))
 
     def test_known_codes_come_from_the_catalog(self):
         self.assertEqual(KNOWN_AVATARS, set(AVATAR_CODES))
@@ -134,6 +140,11 @@ class SpriteTests(TestCase):
         for code in PENNANT_CODES:
             self.assertIn(f'id="{symbol_id("pennant", code)}"', self.markup)
 
+    def test_streak_badges_are_in_the_sprite(self):
+        for code in STREAK_CODES:
+            self.assertTrue((design_root() / "streaks" / f"{code}.svg").exists())
+            self.assertIn(f'id="{symbol_id("streak", code)}"', self.markup)
+
     def test_symbols_keep_the_root_fill(self):
         import re
 
@@ -185,15 +196,22 @@ class LoadCatalogTests(TestCase):
         item = ShopItem.objects.get(slot="avatar", code="blackhole")
         self.assertEqual(item.tier, ShopItem.Tier.ANIMATED)
 
-    def test_downgraded_frames_are_paid_items(self):
+    def test_regular_frames_are_paid_items(self):
         load_cosmetics()
 
-        expected = {"coordinates": 180, "flame": 190}
+        expected = {"coordinates": 180}
         for code, price in expected.items():
             with self.subTest(code=code):
                 item = ShopItem.objects.get(slot="frame", code=code)
                 self.assertEqual(item.tier, ShopItem.Tier.PAID)
                 self.assertEqual(item.price_coins, price)
+
+    def test_flame_is_a_reward_item(self):
+        load_cosmetics()
+
+        item = ShopItem.objects.get(slot="frame", code="flame")
+        self.assertEqual(item.tier, ShopItem.Tier.REWARD)
+        self.assertEqual(item.price_coins, 0)
 
     def test_loading_twice_changes_nothing(self):
         load_cosmetics()
@@ -316,6 +334,12 @@ class RenderTests(TestCase):
         self.assertIn('viewBox="0 0 128 128"', markup)
         self.assertIn("#pennant-delta-1", markup)
 
+    def test_streak_badge_uses_the_128_view_box(self):
+        markup = render('{% cosmetic "streak" "streak-7" %}')
+
+        self.assertIn('viewBox="0 0 128 128"', markup)
+        self.assertIn("#streak-7", markup)
+
     def test_empty_code_renders_nothing(self):
         self.assertEqual(render('{% cosmetic "avatar" "" %}'), "")
 
@@ -358,7 +382,17 @@ class RewardOnlyTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["detail"], "Награду лиги нельзя купить.")
+        self.assertEqual(response.json()["detail"], "Награду нельзя купить.")
+
+    def test_flame_cannot_be_bought(self):
+        flame = ShopItem.objects.get(slot="frame", code="flame")
+
+        response = self.client.post(
+            f"/api/shop/items/{flame.pk}/buy/", {}, "application/json"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Награду нельзя купить.")
 
     def test_unowned_reward_is_hidden_but_owned_reward_can_be_equipped(self):
         item_ids = {row["id"] for row in self.client.get("/api/shop/").json()["items"]}
@@ -377,8 +411,21 @@ class RewardOnlyTests(TestCase):
         )
 
         page = self.client.get("/shop/")
-        self.assertContains(page, "награда лиги")
+        self.assertContains(page, "Награда за призовое место")
         self.assertContains(page, self.reward.title)
+
+    def test_flame_is_hidden_until_owned_and_uses_streak_note(self):
+        flame = ShopItem.objects.get(slot="frame", code="flame")
+
+        item_ids = {row["id"] for row in self.client.get("/api/shop/").json()["items"]}
+        self.assertNotIn(flame.pk, item_ids)
+
+        InventoryItem.objects.create(student=self.student, item=flame)
+        item_ids = {row["id"] for row in self.client.get("/api/shop/").json()["items"]}
+        self.assertIn(flame.pk, item_ids)
+
+        page = self.client.get("/shop/")
+        self.assertContains(page, "Награда за серию 7 дней")
 
 
 class ConsumableTests(TestCase):

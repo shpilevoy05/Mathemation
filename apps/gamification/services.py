@@ -17,6 +17,7 @@ XP_CORRECT_ATTEMPT = 10
 XP_INCORRECT_ATTEMPT = 2
 XP_COMPLETED_REVIEW = 15
 XP_FINISHED_PLAN_ITEM = 5
+STREAK_BADGES = [7, 15, 30, 50, 100, 150]
 
 
 def level_for_xp(xp: int) -> int:
@@ -43,6 +44,43 @@ def _period_anchor(activity_date: date) -> date:
 def _get_locked_profile(student) -> GamificationProfile:
     GamificationProfile.objects.get_or_create(student=student)
     return GamificationProfile.objects.select_for_update().get(student=student)
+
+
+def streak_unit() -> str:
+    return "дн." if streak_mode() == "daily" else "нед."
+
+
+def streak_badges(profile) -> list[dict]:
+    return [
+        {
+            "days": days,
+            "code": f"streak-{days}",
+            "earned": profile.streak_best >= days,
+        }
+        for days in STREAK_BADGES
+    ]
+
+
+def next_streak_badge(profile) -> dict | None:
+    for days in STREAK_BADGES:
+        if profile.streak_best < days:
+            return {"days": days, "left": days - profile.streak_current}
+    return None
+
+
+def _grant_streak_flame(student) -> None:
+    from apps.economy.models import InventoryItem
+
+    if InventoryItem.objects.filter(
+        student=student, item__slot="frame", item__code="flame"
+    ).exists():
+        return
+
+    from apps.economy.catalog import ensure_cosmetic
+
+    item = ensure_cosmetic("frame", "flame")
+    if item is not None:
+        InventoryItem.objects.get_or_create(student=student, item=item)
 
 
 @transaction.atomic
@@ -88,6 +126,7 @@ def advance_streak(student, activity_date: date | None = None) -> GamificationPr
     period = _period_anchor(activity_date)
     profile = _get_locked_profile(student)
     previous = profile.streak_period_anchor
+    previous_best = profile.streak_best
 
     if previous == period:
         return profile
@@ -133,6 +172,18 @@ def advance_streak(student, activity_date: date | None = None) -> GamificationPr
         frozen_periods=frozen_periods,
         freezes_left=profile.streak_freezes,
     )
+    if profile.streak_best >= 7:
+        _grant_streak_flame(student)
+    for days in STREAK_BADGES:
+        if previous_best < days <= profile.streak_best:
+            log_event(
+                Event.Type.STREAK_MILESTONE,
+                student=student,
+                mode=streak_mode(),
+                days=days,
+                streak_current=profile.streak_current,
+                streak_best=profile.streak_best,
+            )
     return profile
 
 

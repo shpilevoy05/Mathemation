@@ -154,7 +154,7 @@ def purchase(student, item: ShopItem) -> InventoryItem | None:
     повторно, поэтому возвращается `None`: складывать его в инвентарь не во что.
     """
     if item.tier == ShopItem.Tier.REWARD:
-        raise ValidationError("Награду лиги нельзя купить.")
+        raise ValidationError("Награду нельзя купить.")
     if not item.is_available():
         raise ValidationError("Товар недоступен.")
     consumable = item.effect != ShopItem.Effect.NONE

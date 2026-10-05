@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -14,12 +15,16 @@ from apps.practice.services import complete_review, submit_attempt
 
 from .models import GamificationProfile, WeeklyQuest
 from .services import (
+    advance_streak,
     award_xp,
     generate_weekly_quests,
     level_for_xp,
+    next_streak_badge,
     record_attempt_activity,
     record_plan_item_activity,
     record_review_activity,
+    streak_badges,
+    streak_unit,
 )
 
 
@@ -80,6 +85,121 @@ class StreakTests(TestCase):
         profile = GamificationProfile.objects.get(student=self.student)
         self.assertEqual(profile.streak_current, 2)
         self.assertEqual(profile.streak_period_anchor, date(2026, 7, 13))
+
+    def test_flame_is_granted_exactly_at_seven_and_not_equipped(self):
+        from apps.economy.models import InventoryItem, ShopItem
+
+        for offset in range(6):
+            advance_streak(self.student, date(2026, 7, 1) + timedelta(days=offset))
+
+        self.assertFalse(
+            InventoryItem.objects.filter(
+                student=self.student, item__slot="frame", item__code="flame"
+            ).exists()
+        )
+
+        advance_streak(self.student, date(2026, 7, 7))
+
+        flame = ShopItem.objects.get(slot="frame", code="flame")
+        self.assertEqual(flame.tier, ShopItem.Tier.REWARD)
+        self.assertEqual(flame.price_coins, 0)
+        owned = InventoryItem.objects.get(student=self.student, item=flame)
+        self.assertFalse(owned.is_equipped)
+
+    def test_flame_grant_and_milestone_event_are_idempotent(self):
+        from apps.economy.models import InventoryItem
+
+        for offset in range(8):
+            advance_streak(self.student, date(2026, 7, 1) + timedelta(days=offset))
+        advance_streak(self.student, date(2026, 7, 8))
+
+        self.assertEqual(
+            InventoryItem.objects.filter(
+                student=self.student, item__slot="frame", item__code="flame"
+            ).count(),
+            1,
+        )
+
+    def test_flame_owner_does_not_touch_catalog_on_later_advance(self):
+        for offset in range(7):
+            advance_streak(self.student, date(2026, 7, 1) + timedelta(days=offset))
+
+        with patch("apps.economy.catalog.ensure_cosmetic") as ensure_cosmetic:
+            advance_streak(self.student, date(2026, 7, 8))
+
+        ensure_cosmetic.assert_not_called()
+        self.assertEqual(
+            Event.objects.filter(
+                student=self.student,
+                event_type=Event.Type.STREAK_MILESTONE,
+                payload__days=7,
+            ).count(),
+            1,
+        )
+
+    def test_streak_badges_and_next_badge(self):
+        profile = GamificationProfile.objects.create(
+            student=self.student,
+            streak_current=12,
+            streak_best=15,
+        )
+
+        badges = streak_badges(profile)
+
+        self.assertEqual([badge["code"] for badge in badges[:3]], ["streak-7", "streak-15", "streak-30"])
+        self.assertEqual([badge["earned"] for badge in badges[:3]], [True, True, False])
+        self.assertEqual(next_streak_badge(profile), {"days": 30, "left": 18})
+
+    def test_next_streak_badge_returns_none_after_last_milestone(self):
+        profile = GamificationProfile.objects.create(
+            student=self.student,
+            streak_current=150,
+            streak_best=150,
+        )
+
+        self.assertIsNone(next_streak_badge(profile))
+
+    @override_settings(STREAK_MODE="daily")
+    def test_daily_streak_unit(self):
+        self.assertEqual(streak_unit(), "дн.")
+
+    @override_settings(STREAK_MODE="weekly")
+    def test_weekly_streak_unit(self):
+        self.assertEqual(streak_unit(), "нед.")
+
+
+class StreakRewardMigrationTests(TestCase):
+    def test_backfill_creates_flame_and_grants_existing_profiles_once(self):
+        from apps.economy.models import InventoryItem, ShopCategory, ShopItem
+        from apps.gamification.migrations._streak_rewards import (
+            grant_flame_to_existing_profiles,
+        )
+
+        student = make_student("streak-backfill")
+        other = make_student("streak-below-threshold")
+        GamificationProfile.objects.create(student=student, streak_best=7)
+        GamificationProfile.objects.create(student=other, streak_best=6)
+
+        granted = grant_flame_to_existing_profiles(
+            ShopCategory,
+            ShopItem,
+            InventoryItem,
+            GamificationProfile,
+        )
+        granted_again = grant_flame_to_existing_profiles(
+            ShopCategory,
+            ShopItem,
+            InventoryItem,
+            GamificationProfile,
+        )
+
+        flame = ShopItem.objects.get(slot="frame", code="flame")
+        self.assertEqual(flame.tier, ShopItem.Tier.REWARD)
+        self.assertEqual(flame.price_coins, 0)
+        self.assertEqual(granted, 1)
+        self.assertEqual(granted_again, 0)
+        self.assertTrue(InventoryItem.objects.filter(student=student, item=flame).exists())
+        self.assertFalse(InventoryItem.objects.filter(student=other, item=flame).exists())
 
 
 class XpIntegrationTests(TestCase):
@@ -189,4 +309,14 @@ class GamificationApiAndDashboardTests(TestCase):
         self.assertContains(response, "data-gamification-widget")
         self.assertContains(response, "Учебная серия")
         self.assertContains(response, "5 XP")
+
+    def test_dashboard_context_contains_streak_badge_data(self):
+        from apps.web.services import dashboard_context
+
+        context = dashboard_context(self.student)
+
+        self.assertIn("streak_badges", context)
+        self.assertIn("next_streak_badge", context)
+        self.assertEqual(context["streak_unit"], "дн.")
+        self.assertEqual(context["streak_badges"][0]["code"], "streak-7")
 

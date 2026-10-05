@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from apps.social_agent import adapters
 from apps.social_agent.adapters import ChannelAdapter, PublishResult
-from apps.social_agent.adapters.telegram import TelegramAdapter, TelegramError
+from apps.social_agent.adapters.telegram import TelegramAdapter, TelegramError, telegram_request
 from apps.social_agent.bot import process_updates, send_for_review
 from apps.social_agent.models import BrandProfile, BotState, Channel, Post, PostCheck, Rubric, RubricSlot
 from apps.social_agent.planner import plan_week
@@ -54,6 +54,13 @@ class TelegramAdapterTests(TestCase):
             TelegramAdapter(transport, sleep=lambda _seconds: None, max_retries=2).publish(self.make_post())
         self.assertEqual(calls, 3)
         self.assertNotIn("top-secret-token", str(caught.exception))
+
+    @override_settings(SOCIAL_AGENT_TELEGRAM_BOT_TOKEN="")
+    def test_empty_token_without_transport_never_calls_urlopen(self):
+        with patch("apps.social_agent.adapters.telegram.urlopen") as urlopen:
+            with self.assertRaisesMessage(TelegramError, "Telegram bot token is not configured"):
+                telegram_request("sendMessage", {"chat_id": 10, "text": "test"})
+        urlopen.assert_not_called()
 
 
 class PublishingTests(TestCase):

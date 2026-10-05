@@ -388,7 +388,12 @@ class SeasonCloseTests(TestCase):
 
     def test_missing_reward_cosmetics_are_created_for_the_champion(self):
         students = self.build(League.DELTA, count=1)
-        self.assertFalse(ShopItem.objects.filter(tier=ShopItem.Tier.REWARD).exists())
+        self.assertFalse(
+            ShopItem.objects.filter(
+                tier=ShopItem.Tier.REWARD,
+                code__in=["rosette-delta-1", "champion-delta"],
+            ).exists()
+        )
 
         close_season(current_season())
 

@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+from django.conf import settings
 from django.test import SimpleTestCase
 
 from config.settings import _env_bool, _load_env, _parse_admins
@@ -67,3 +68,30 @@ class AdminsParsingTests(SimpleTestCase):
                 ("Мария", "maria@example.ru"),
             ],
         )
+
+
+class TestOutboundSettingsTests(SimpleTestCase):
+    def test_test_settings_scrub_outbound_integrations(self):
+        self.assertEqual(settings.SOCIAL_AGENT_TELEGRAM_BOT_TOKEN, "")
+        self.assertEqual(settings.SOCIAL_AGENT_REVIEW_CHAT_IDS, [])
+        self.assertEqual(settings.SOCIAL_AGENT_REVIEWER_USER_IDS, [])
+        self.assertFalse(settings.SOCIAL_AGENT_ENABLED)
+        self.assertFalse(settings.SOCIAL_AGENT_PUBLISH_ENABLED)
+        self.assertEqual(
+            settings.SOCIAL_AGENT_PROVIDER,
+            "apps.social_agent.providers.MockProvider",
+        )
+        self.assertEqual(settings.SOCIAL_AGENT_LLM_API_KEY, "")
+        self.assertEqual(
+            settings.AI_MENTOR_PROVIDER,
+            "apps.ai_mentor.providers.MockHintProvider",
+        )
+        self.assertEqual(settings.AI_MENTOR_LLM_API_KEY, "")
+        self.assertEqual(
+            settings.EMAIL_BACKEND,
+            "django.core.mail.backends.locmem.EmailBackend",
+        )
+        self.assertEqual(settings.BILLING_PROVIDER, "apps.billing.providers.MockPaymentProvider")
+        self.assertEqual(settings.BILLING_WEBHOOK_SECRET, "")
+        self.assertEqual(settings.KINESCOPE_SIGNING_KEY, "")
+        self.assertEqual(settings.KINESCOPE_KEY_ID, "")

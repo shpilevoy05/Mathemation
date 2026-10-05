@@ -1,4 +1,5 @@
 import os
+import sys
 from decimal import Decimal, InvalidOperation
 from email.utils import parseaddr
 from pathlib import Path
@@ -65,6 +66,7 @@ def _load_env(path: Path) -> None:
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 _load_env(BASE_DIR / ".env")
+_TESTING = "test" in sys.argv
 
 from .security import (  # noqa: E402 — после загрузки .env
     DEV_SECRET_KEY,
@@ -335,11 +337,8 @@ else:
 # Без логов запуск слепой: пишем в stdout (его собирает docker/systemd), а
 # события безопасности выносим в отдельный логгер, чтобы их можно было
 # отфильтровать и завести на них алерт.
-import sys  # noqa: E402 — нужен только для режима тестов
-
 # В тестах логи мешают читать результат: сам факт срабатывания лимита или
 # аудита проверяется тестом, а не глазами в выводе.
-_TESTING = "test" in sys.argv
 LOG_LEVEL = os.environ.get(
     "DJANGO_LOG_LEVEL", "ERROR" if _TESTING else ("INFO" if not DEBUG else "WARNING")
 )
@@ -514,6 +513,38 @@ KINESCOPE_TOKEN_PARAM = os.environ.get("KINESCOPE_TOKEN_PARAM") or "token"
 # Имена полей токена: если контракт хостинга отличается, подстраивается
 # конфигурация, а не код.
 KINESCOPE_TOKEN_CLAIMS = {}
+
+# Tests must never inherit real outbound integration credentials or targets from .env.
+if _TESTING:
+    EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    EMAIL_HOST = "localhost"
+    EMAIL_PORT = 25
+    EMAIL_HOST_USER = ""
+    EMAIL_HOST_PASSWORD = ""
+    EMAIL_USE_TLS = False
+    EMAIL_USE_SSL = False
+    ADMINS = []
+    AI_MENTOR_PROVIDER = "apps.ai_mentor.providers.MockHintProvider"
+    AI_MENTOR_LLM_API_KEY = ""
+    AI_MENTOR_LLM_BASE_URL = ""
+    AI_MENTOR_LLM_MODEL = ""
+    AI_MENTOR_LLM_FOLDER_ID = ""
+    SOCIAL_AGENT_ENABLED = False
+    SOCIAL_AGENT_PUBLISH_ENABLED = False
+    SOCIAL_AGENT_PROVIDER = "apps.social_agent.providers.MockProvider"
+    SOCIAL_AGENT_LLM_API_KEY = ""
+    SOCIAL_AGENT_LLM_BASE_URL = ""
+    SOCIAL_AGENT_LLM_MODEL = ""
+    SOCIAL_AGENT_LLM_FOLDER_ID = ""
+    SOCIAL_AGENT_TELEGRAM_BOT_TOKEN = ""
+    SOCIAL_AGENT_REVIEW_CHAT_IDS = []
+    SOCIAL_AGENT_REVIEWER_USER_IDS = []
+    BILLING_PROVIDER = "apps.billing.providers.MockPaymentProvider"
+    BILLING_WEBHOOK_SECRET = ""
+    BILLING_ENFORCED = False
+    KINESCOPE_SIGNING_KEY = ""
+    KINESCOPE_KEY_ID = ""
+    KINESCOPE_TOKEN_CLAIMS = {}
 
 # --- Forgetting curve (индикатор забывания) ---
 # Days after the last practice before a skill starts to decay.

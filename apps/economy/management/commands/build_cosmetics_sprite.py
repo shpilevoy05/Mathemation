@@ -13,5 +13,6 @@ class Command(BaseCommand):
         self.stdout.write(
             f"{report['path']}: аватаров {report['avatar']}, рамок {report['frame']}, "
             f"знаков лиг {report['league']}, вымпелов {report['pennant']}, "
+            f"значков серий {report['streak']}, "
             f"{report['bytes'] // 1024} КБ"
         )

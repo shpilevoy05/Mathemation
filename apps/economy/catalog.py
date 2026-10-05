@@ -80,7 +80,7 @@ FRAMES: list[tuple[str, str, str, int]] = [
     # Покупные рамки статичны: движение — признак уровня «анимированный».
     ("bloom", "Цветущая", Tier.PAID, 170),
     ("coordinates", "Координаты", Tier.PAID, 180),
-    ("flame", "Пламя", Tier.PAID, 190),
+    ("flame", "Пламя", Tier.REWARD, 0),
     ("bitflow", "Битовый ток", Tier.ANIMATED, 260),
     ("nebula", "Туманность", Tier.ANIMATED, 260),
     ("aurora", "Аврора", Tier.ANIMATED, 280),
@@ -155,6 +155,7 @@ PENNANT_CODES = [
     for league in LEAGUES
     for place in LEAGUE_PLACES
 ]
+STREAK_CODES = ["streak-7", "streak-15", "streak-30", "streak-50", "streak-100", "streak-150"]
 
 AVATAR_CODES = [code for code, *_rest in AVATARS]
 FRAME_CODES = [code for code, *_rest in FRAMES]
@@ -170,8 +171,21 @@ TIER_LABELS = {
     Tier.BASE: "базовый",
     Tier.PAID: "покупной",
     Tier.ANIMATED: "анимированный",
-    Tier.REWARD: "награда лиги",
+    Tier.REWARD: "награда",
 }
+
+REWARD_NOTES = {
+    ("frame", "flame"): "Награда за серию 7 дней — не продаётся.",
+}
+
+
+def reward_note(slot: str, code: str) -> str:
+    """Почему наградный предмет не продаётся."""
+    if (slot, code) in REWARD_NOTES:
+        return REWARD_NOTES[(slot, code)]
+    if code.startswith("rosette-") or code.startswith("champion-"):
+        return "Награда за призовое место в лиге — не продаётся."
+    return "Награда — не продаётся."
 
 _COSMETIC_GROUPS = (
     ("avatar", "Аватары", 0, AVATARS),

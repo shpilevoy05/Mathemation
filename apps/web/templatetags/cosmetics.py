@@ -49,6 +49,7 @@ def cosmetic(kind: str, code: str, view_box: str = "", css_class: str = ""):
     boxes = {
         "avatar": "0 0 128 128", "frame": "0 0 160 160",
         "league": "0 0 128 128", "pennant": "0 0 128 128",
+        "streak": "0 0 128 128",
     }
     box = view_box or boxes.get(kind, "0 0 128 128")
     classes = f"{kind}-{code} {css_class}".strip()

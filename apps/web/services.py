@@ -14,7 +14,12 @@ from apps.ai_mentor.services import mentor_available
 from apps.content.services import published_lessons
 from apps.content.models import Assignment, Lesson, TheoryBlock
 from apps.expert_review.models import ExpertReviewRequest
-from apps.gamification.services import gamification_snapshot
+from apps.gamification.services import (
+    gamification_snapshot,
+    next_streak_badge,
+    streak_badges,
+    streak_unit,
+)
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.knowledge.services import apply_decay, node_states
 from apps.mocks.models import MockExam, MockExamResult
@@ -265,6 +270,9 @@ def dashboard_context(student):
     snapshot = ProgressSnapshot.objects.filter(student=student).first()
     forecast = ceiling_forecast(student) if plan else None
     gamification = gamification_snapshot(student)
+    from apps.gamification.models import GamificationProfile
+
+    gamification_profile, _ = GamificationProfile.objects.get_or_create(student=student)
     level = gamification["level"]
     level_start_xp = 100 * (level - 1) ** 2
     level_end_xp = 100 * level**2
@@ -311,6 +319,9 @@ def dashboard_context(student):
             max((student.exam_date - today).days, 0) if student.exam_date else None
         ),
         "week_streak": _week_streak(student, today),
+        "streak_badges": streak_badges(gamification_profile),
+        "next_streak_badge": next_streak_badge(gamification_profile),
+        "streak_unit": streak_unit(),
         "daily": _daily_banner(student),
         "next_action": next_learning_action(student),
         "offer_pvp": bool(plan and plan.items.filter(completed_at__date=today).exists()
@@ -1034,7 +1045,8 @@ def _shop_card(row: dict, balance: int) -> dict:
     if row["equipped"]:
         tag, tag_class = "надето", "success-soft"
     elif row["owned"]:
-        tag, tag_class = "куплено", "chip-mute"
+        tag = "получено" if item.tier == ShopItem.Tier.REWARD else "куплено"
+        tag_class = "chip-mute"
     elif item.effect == ShopItem.Effect.STREAK_FREEZE:
         tag, tag_class = "защита серии", "chip-brand"
     elif item.effect == ShopItem.Effect.XP_BOOST:
@@ -1042,7 +1054,7 @@ def _shop_card(row: dict, balance: int) -> dict:
     else:
         tag, tag_class = SHOP_SLOT_LABELS.get(item.slot, item.get_slot_display().lower()), "chip-mute"
     has_art = item.effect == ShopItem.Effect.NONE and item.code in SHOP_ART_CODES.get(item.slot, set())
-    from apps.economy.catalog import TIER_LABELS
+    from apps.economy.catalog import TIER_LABELS, reward_note
     return {
         **row,
         "icon": icon,
@@ -1059,7 +1071,7 @@ def _shop_card(row: dict, balance: int) -> dict:
         "frosted": item.effect == ShopItem.Effect.STREAK_FREEZE,
         "group": "boost" if row["is_consumable"] else item.slot,
         "description": item.description or row.get("effect_note") or (
-            "Награда за призовое место в лиге — не продаётся."
+            reward_note(item.slot, item.code)
             if item.tier == ShopItem.Tier.REWARD else "Оформление кабинета."
         ),
         "available": row["owned"] or row["affordable"],
