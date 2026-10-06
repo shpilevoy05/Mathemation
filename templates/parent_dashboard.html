@@ -19,6 +19,14 @@
     </div>
   </section>
 
+  {% if contract %}
+    <section class="card contract-card">
+      <div class="section-heading"><div><p class="eyebrow">Договор</p><h2>Успевает ли к цели</h2></div></div>
+      {% include "partials/contract.html" with contract=contract variant="line" %}
+      {% if contract.is_at_risk %}<p class="muted">Куратор тоже видит этот расчёт и может предложить, как перестроить занятия.</p>{% endif %}
+    </section>
+  {% endif %}
+
   <section class="parent-section">
     <h2>Факт недели</h2>
     <div class="parent-fact-grid">

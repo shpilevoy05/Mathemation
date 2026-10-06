@@ -82,17 +82,32 @@ def apply_score_ratio(review) -> None:
     """Разнести общий балл по тегам задачи, когда пошаговых отметок нет."""
     max_score = float(review.assignment.max_score or 0)
     ratio = 0.0 if max_score <= 0 else max(0.0, min(1.0, float(review.total_score or 0) / max_score))
-    from apps.planning.services import autocomplete_items_for_node
+    from apps.planning.services import autocomplete_items_for_node, autocomplete_review_items
 
     for tag in review.assignment.skill_tags.select_related("node"):
         if ratio > 0:
-            update_mastery(review.student, tag.node, True, tag.weight * ratio)
+            update_mastery(
+                review.student,
+                tag.node,
+                True,
+                tag.weight * ratio,
+                review_result=ratio >= 0.5,
+            )
         if ratio < 1:
             miss_weight = tag.weight * (1 - ratio)
-            update_mastery(review.student, tag.node, False, miss_weight)
+            update_mastery(
+                review.student,
+                tag.node,
+                False,
+                miss_weight,
+                review_result=False if ratio == 0 else None,
+                track_review=ratio == 0,
+            )
             register_mistake(review.student, review.assignment, tag.node)
         else:
             autocomplete_items_for_node(review.student, tag.node)
+        if ratio >= 0.5:
+            autocomplete_review_items(review.student, tag.node)
 
 
 def missing_required_steps(review) -> list[SolutionStep]:

@@ -135,6 +135,11 @@ class KnowledgeNode(models.Model):
             settings.HOURS_PER_NODE_BY_PART.get(self.exam_part, settings.HOURS_PER_NODE)
         )
 
+    @property
+    def is_micro_skill(self) -> bool:
+        """Whether the curriculum code marks this node as a micro-skill."""
+        return self.code.upper().startswith("SK-")
+
 
 class KnowledgeDependency(models.Model):
     """Связь между навыками. Два вида, и это разные обещания ученику.
@@ -235,6 +240,9 @@ class SkillMastery(models.Model):
     peak_mastery = models.FloatField(default=0)  # уровень на момент последней практики
     peak_at = models.DateTimeField(default=timezone.now)
     last_practiced_at = models.DateTimeField(null=True, blank=True)
+    retention_days = models.PositiveSmallIntegerField(default=settings.DECAY_GRACE_DAYS)
+    review_count = models.PositiveSmallIntegerField(default=0)
+    last_retention_failure_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.NOT_STARTED)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -254,7 +262,7 @@ class SkillMastery(models.Model):
         was_mastered = self.status in (self.Status.MASTERED, self.Status.DECAYED)
         if self.mastery >= 70:
             self.status = self.Status.MASTERED
-        elif was_mastered and self.peak_mastery >= 70:
+        elif was_mastered:
             # Тема была освоена, но mastery упал из-за забывания/ошибок.
             self.status = self.Status.DECAYED
         elif self.mastery >= 40:

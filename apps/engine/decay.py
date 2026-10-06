@@ -8,9 +8,11 @@ def decayed_mastery(
     p_mastery: float,
     days_since_practice: float,
     params: EngineParams,
+    grace_days: float | None = None,
 ) -> float:
     """Apply exponential decay after the configured grace period."""
-    over_grace = max(0.0, float(days_since_practice) - params.decay_grace_days)
+    grace = params.decay_grace_days if grace_days is None else float(grace_days)
+    over_grace = max(0.0, float(days_since_practice) - grace)
     value = float(p_mastery) * math.exp(-params.decay_rate_per_day * over_grace)
     return round(min(max(value, 0.0), 100.0), 2)
 

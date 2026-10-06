@@ -4,7 +4,12 @@ from django.db import models
 
 
 class MockExam(models.Model):
+    class Kind(models.TextChoices):
+        FULL = "full", "Полный пробник"
+        PART1_VARIANT = "part1_variant", "Вариант части 1"
+
     title = models.CharField(max_length=200)
+    kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.FULL)
     assignments = models.ManyToManyField("content.Assignment", related_name="mock_exams")
     # Таймер в формате ЕГЭ (3 ч 55 мин).
     duration_minutes = models.PositiveSmallIntegerField(default=235)

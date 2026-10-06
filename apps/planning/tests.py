@@ -45,7 +45,20 @@ class StudyPlanTests(TestCase):
     def test_mastered_nodes_skipped(self):
         set_mastery(self.student, self.basic, 90)
         plan = build_study_plan(self.student)
-        self.assertNotIn(self.basic.id, self._node_order(plan))
+        self.assertFalse(
+            plan.items.filter(
+                node=self.basic,
+                item_type__in=(
+                    StudyPlanItem.ItemType.LESSON,
+                    StudyPlanItem.ItemType.PRACTICE,
+                ),
+            ).exists()
+        )
+        self.assertTrue(
+            plan.items.filter(
+                node=self.basic, item_type=StudyPlanItem.ItemType.REVIEW
+            ).exists()
+        )
         self.assertIn(self.advanced.id, self._node_order(plan))
 
     def test_each_node_gets_lesson_and_practice(self):

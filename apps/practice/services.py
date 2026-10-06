@@ -112,9 +112,10 @@ def submit_attempt(student, assignment: Assignment, answer: str, context: str,
     elif is_correct:
         # A duplicate correct submission is not fresh evidence, but it can
         # reconcile a plan item after an independent mastery update.
-        from apps.planning.services import autocomplete_items_for_node
+        from apps.planning.services import autocomplete_items_for_node, autocomplete_review_items
         for tag in assignment.skill_tags.select_related("node"):
             autocomplete_items_for_node(student, tag.node)
+            autocomplete_review_items(student, tag.node)
     from apps.gamification.services import record_attempt_activity
 
     if reward_eligible and context != Attempt.Context.REVIEW:
@@ -127,15 +128,17 @@ def process_attempt_result(attempt: Attempt, *, register_backlog: bool = True) -
 
     Also called by expert review once a part-2 verdict arrives.
     """
-    from apps.planning.services import autocomplete_items_for_node
+    from apps.planning.services import autocomplete_items_for_node, autocomplete_review_items
 
     for tag in attempt.assignment.skill_tags.select_related("node"):
         update_mastery(attempt.student, tag.node, bool(attempt.is_correct), tag.weight)
-        if attempt.is_correct is False and register_backlog:
-            register_mistake(attempt.student, attempt.assignment, tag.node)
+        if attempt.is_correct is False:
+            if register_backlog:
+                register_mistake(attempt.student, attempt.assignment, tag.node)
         else:
             # Верная задача закрывает соответствующие пункты плана сама:
             # ученик уже сделал работу, отмечать её руками незачем.
+            autocomplete_review_items(attempt.student, tag.node)
             autocomplete_items_for_node(attempt.student, tag.node)
 
 

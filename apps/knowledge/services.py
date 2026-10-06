@@ -1,6 +1,8 @@
 """ORM adapters for mastery and forgetting-curve engine algorithms."""
 
 from django.conf import settings
+from datetime import timedelta
+
 from django.utils import timezone
 
 from apps.engine.decay import decayed_mastery
@@ -75,16 +77,46 @@ def _engine_params() -> EngineParams:
     )
 
 
-def update_mastery(student, node: KnowledgeNode, correct: bool, weight: float = 1.0) -> SkillMastery:
+def update_mastery(
+    student,
+    node: KnowledgeNode,
+    correct: bool,
+    weight: float = 1.0,
+    *,
+    review_result: bool | None = None,
+    track_review: bool = True,
+) -> SkillMastery:
     """Move mastery towards 100 on a correct attempt, towards 0 on a mistake.
 
     `weight` is the assignment↔skill tag weight (0..1] scaling the step.
     Every practice resets the forgetting curve: peak = new value, peak_at = now.
     """
     sm, _ = SkillMastery.objects.get_or_create(student=student, node=node)
+    now = timezone.now()
+    was_review = (
+        sm.peak_mastery >= settings.MASTERY_THRESHOLD
+        or sm.status in (SkillMastery.Status.MASTERED, SkillMastery.Status.DECAYED)
+    )
     sm.mastery = bkt_update(sm.mastery, correct, weight, _engine_params())
+    if was_review and track_review:
+        outcome = correct if review_result is None else review_result
+        elapsed = now - sm.last_practiced_at if sm.last_practiced_at else None
+        minimum_pause = timedelta(days=max(1.0, sm.retention_days / 2.0))
+        if outcome and elapsed is not None and elapsed >= minimum_pause:
+            sm.review_count += 1
+            sm.retention_days = min(
+                sm.retention_days * 2, settings.PLAN_REVIEW_MAX_RETENTION_DAYS
+            )
+        elif not outcome and (
+            sm.last_retention_failure_at is None
+            or timezone.localdate(sm.last_retention_failure_at) < timezone.localdate(now)
+        ):
+            sm.retention_days = max(
+                sm.retention_days // 2, settings.PLAN_REVIEW_MIN_RETENTION_DAYS
+            )
+            sm.last_retention_failure_at = now
     sm.peak_mastery = sm.mastery
-    sm.peak_at = timezone.now()
+    sm.peak_at = now
     sm.last_practiced_at = sm.peak_at
     sm.refresh_status()
     sm.save()
@@ -103,14 +135,14 @@ def set_mastery(student, node: KnowledgeNode, value: float) -> SkillMastery:
     return sm
 
 
-def decayed_value(peak: float, peak_at, now=None) -> float:
+def decayed_value(peak: float, peak_at, now=None, *, grace_days: int | None = None) -> float:
     """Forgetting curve: exponential decay after a grace period.
 
     TODO: replace with FSRS-style per-node half-life once attempt logs allow it.
     """
     now = now or timezone.now()
     days = (now - peak_at).total_seconds() / 86400
-    return decayed_mastery(peak, days, _engine_params())
+    return decayed_mastery(peak, days, _engine_params(), grace_days=grace_days)
 
 
 def apply_decay(student) -> list[SkillMastery]:
@@ -121,7 +153,9 @@ def apply_decay(student) -> list[SkillMastery]:
     """
     newly_decayed = []
     for sm in SkillMastery.objects.filter(student=student, peak_mastery__gt=0).select_related("node"):
-        value = decayed_value(sm.peak_mastery, sm.peak_at)
+        value = decayed_value(
+            sm.peak_mastery, sm.peak_at, grace_days=sm.retention_days
+        )
         if abs(value - sm.mastery) < 0.01:
             continue
         was_decayed = sm.status == SkillMastery.Status.DECAYED

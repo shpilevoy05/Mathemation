@@ -7,8 +7,8 @@
   <section class="page-heading"><div><p class="eyebrow">Экзаменационный режим</p><h1>Пробники</h1><p class="empty-copy">Честная тренировка в формате ЕГЭ. Наставник во время работы отключён.</p></div></section>
   <div class="content-grid">
     {% for item in active_mocks %}
-      <article class="card">
-        <p class="eyebrow">{{ item.exam.duration_minutes }} минут</p><h2>{{ item.exam.title }}</h2>
+      <article class="card mock-card" id="mock-{{ item.exam.id }}">
+        <p class="eyebrow">{% if item.exam.kind == 'part1_variant' %}Вариант первой части · {% endif %}{{ item.exam.duration_minutes }} минут</p><h2>{{ item.exam.title }}</h2>
         <p>{{ item.exam.assignments.count }} задач</p>
         {% if item.latest_result.status == 'in_progress' %}
           <a class="button button-primary" href="{% url 'mock_run' item.latest_result.id %}">Продолжить</a>

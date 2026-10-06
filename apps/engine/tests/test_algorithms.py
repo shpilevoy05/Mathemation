@@ -54,6 +54,10 @@ class DecayEngineTests(SimpleTestCase):
         late = decayed_mastery(90, 45, PARAMS)
         self.assertLess(late, early)
 
+    def test_decay_accepts_a_per_topic_grace_period(self):
+        self.assertEqual(decayed_mastery(90, 20, PARAMS, grace_days=28), 90)
+        self.assertLess(decayed_mastery(90, 20, PARAMS, grace_days=7), 90)
+
     def test_adaptive_intervals_shrink_stretch_and_stay_bounded(self):
         failed = next_intervals(1, 0, PARAMS)
         successful = next_intervals(0, 1, PARAMS)
@@ -108,6 +112,15 @@ class CeilingEngineTests(SimpleTestCase):
         self.assertLessEqual(
             len(fast.unreachable_node_ids), len(slow.unreachable_node_ids)
         )
+
+    def test_reserved_review_hours_reduce_learning_capacity(self):
+        state = node(1)
+        without_review = simulate_ceiling([state], [], 7, 2, PARAMS)
+        with_review = simulate_ceiling(
+            [state], [], 7, 2, PARAMS, reserved_hours=1
+        )
+        self.assertEqual(without_review.reachable_node_ids, (1,))
+        self.assertEqual(with_review.unreachable_node_ids, (1,))
 
     def test_child_stays_unreachable_when_edge_threshold_cannot_be_reached(self):
         result = simulate_ceiling(

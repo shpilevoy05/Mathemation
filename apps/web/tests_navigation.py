@@ -111,6 +111,27 @@ class NavigationTests(TestCase):
             )
         )
 
+    def test_goal_risks_navigation_matches_endpoint_permission(self):
+        from apps.accounts.models import StudentGroup
+
+        curator = User.objects.create_user("nav-risk-curator", is_staff=True)
+        inactive_curator = User.objects.create_user(
+            "nav-risk-inactive-curator", is_staff=True
+        )
+        smm = User.objects.create_user(
+            "nav-risk-smm", role=User.Role.SMM, is_staff=True
+        )
+        StudentGroup.objects.create(
+            title="Active", curator=curator, is_active=True
+        )
+        StudentGroup.objects.create(
+            title="Inactive", curator=inactive_curator, is_active=False
+        )
+
+        self.assertIn("Ученики", self.groups(curator))
+        self.assertNotIn("Ученики", self.groups(inactive_curator))
+        self.assertNotIn("Ученики", self.groups(smm))
+
     def test_anonymous_has_no_navigation(self):
         from django.contrib.auth.models import AnonymousUser
 

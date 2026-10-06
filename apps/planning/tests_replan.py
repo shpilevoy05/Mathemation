@@ -1,7 +1,9 @@
 """Переоценка плана: очередь идёт за прогрессом, а не за датой сборки."""
 from datetime import timedelta
+from unittest.mock import Mock, patch
 
 from django.db import connection
+from django.core.cache import cache
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -56,11 +58,28 @@ class ReprioritizeTests(TestCase):
         self.assertTrue(plan.items.filter(pk=first.pk).exists())
 
     def test_mastered_topic_leaves_the_queue(self):
+        plan = get_active_plan(self.student)
+        next_week = timezone.localdate() + timedelta(days=8)
+        plan.items.update(due_date=next_week, week_index=1)
         set_mastery(self.student, self.cheap, 95)
 
         reprioritize_plan(self.student)
 
-        self.assertNotIn(self.cheap.id, self.pending_nodes())
+        plan = get_active_plan(self.student)
+        self.assertFalse(
+            plan.items.exclude(status=StudyPlanItem.Status.DONE).filter(
+                node=self.cheap,
+                item_type__in=(
+                    StudyPlanItem.ItemType.LESSON,
+                    StudyPlanItem.ItemType.PRACTICE,
+                ),
+            ).exists()
+        )
+        self.assertTrue(
+            plan.items.exclude(status=StudyPlanItem.Status.DONE).filter(
+                node=self.cheap, item_type=StudyPlanItem.ItemType.REVIEW
+            ).exists()
+        )
         self.assertIn(self.rich.id, self.pending_nodes())
 
     def test_queue_follows_the_freshly_opened_prerequisite(self):
@@ -69,13 +88,24 @@ class ReprioritizeTests(TestCase):
         KnowledgeDependency.objects.create(
             node=locked, prerequisite=self.rich, min_mastery=70
         )
+        get_active_plan(self.student).items.update(
+            due_date=timezone.localdate() + timedelta(days=8), week_index=1
+        )
         reprioritize_plan(self.student)
-        before = self.pending_nodes()
+        before = list(
+            get_active_plan(self.student).items.filter(
+                item_type=StudyPlanItem.ItemType.LESSON
+            ).order_by("order").values_list("node_id", flat=True)
+        )
 
         set_mastery(self.student, self.rich, 80)
         reprioritize_plan(self.student)
 
-        after = self.pending_nodes()
+        after = list(
+            get_active_plan(self.student).items.filter(
+                item_type=StudyPlanItem.ItemType.LESSON
+            ).order_by("order").values_list("node_id", flat=True)
+        )
         # Пока пререквизит закрыт, дорогая тема стоит после него; как только он
         # освоен, она поднимается наверх — ради неё план и перестраивается.
         self.assertLess(before.index(self.rich.id), before.index(locked.id))
@@ -136,6 +166,148 @@ class ReprioritizeTests(TestCase):
             .values_list("node_id", "item_type")
         )
         self.assertEqual(len(pairs), len(set(pairs)))
+
+
+class StablePlanTests(TestCase):
+    def setUp(self):
+        self.student = make_student("stable-plan-student")
+        self.student.weekly_hours = 2
+        self.student.exam_date = None
+        self.student.save(update_fields=["weekly_hours", "exam_date"])
+        self.nodes = []
+        cluster = None
+        for index in range(4):
+            node = make_node(f"stable-{index}", cluster=cluster, hours_estimate=2)
+            cluster = node.cluster
+            make_assignment(node, answer="1")
+            self.nodes.append(node)
+        self.plan = build_study_plan(self.student)
+
+    @staticmethod
+    def _week_end(day):
+        return day + timedelta(days=6 - day.weekday())
+
+    def test_nightly_reprioritize_freezes_current_week_and_changes_future(self):
+        today = timezone.localdate()
+        week_end = self._week_end(today)
+        frozen_before = list(
+            self.plan.items.filter(due_date__lte=week_end)
+            .order_by("order")
+            .values_list("pk", "due_date", "order")
+        )
+        future = self.plan.items.filter(
+            due_date__gt=week_end,
+            item_type=StudyPlanItem.ItemType.LESSON,
+        ).first()
+        future_ids = set(
+            self.plan.items.filter(due_date__gt=week_end).values_list("pk", flat=True)
+        )
+        set_mastery(self.student, future.node, 95)
+
+        reprioritize_plan(self.student)
+
+        self.assertEqual(
+            list(
+                self.plan.items.filter(pk__in=[row[0] for row in frozen_before])
+                .order_by("order")
+                .values_list("pk", "due_date", "order")
+            ),
+            frozen_before,
+        )
+        self.assertFalse(
+            self.plan.items.filter(
+                node=future.node,
+                item_type__in=(
+                    StudyPlanItem.ItemType.LESSON,
+                    StudyPlanItem.ItemType.PRACTICE,
+                ),
+            ).exists()
+        )
+        self.assertFalse(
+            self.plan.items.filter(pk__in=future_ids, due_date__gt=week_end).exists()
+        )
+
+    def test_daytime_mastery_closes_items_without_reordering_the_rest(self):
+        target = self.nodes[0]
+        untouched_before = list(
+            self.plan.items.exclude(node=target)
+            .order_by("pk")
+            .values_list("pk", "due_date", "order", "status")
+        )
+        set_mastery(self.student, target, 95)
+
+        autocomplete_items_for_node(self.student, target)
+
+        self.assertEqual(
+            list(
+                self.plan.items.exclude(node=target)
+                .order_by("pk")
+                .values_list("pk", "due_date", "order", "status")
+            ),
+            untouched_before,
+        )
+        self.assertFalse(
+            self.plan.items.filter(node=target).exclude(
+                status=StudyPlanItem.Status.DONE
+            ).exists()
+        )
+
+    def test_first_refresh_in_new_week_starts_regeneration_following_monday(self):
+        today = timezone.localdate()
+        next_monday = today + timedelta(days=7 - today.weekday())
+        following_monday = next_monday + timedelta(days=7)
+        current_node = self.nodes[0]
+        self.plan.items.filter(node=current_node).update(
+            due_date=next_monday, week_index=0
+        )
+        self.plan.items.exclude(node=current_node).update(
+            due_date=following_monday, week_index=1
+        )
+        frozen_ids = set(
+            self.plan.items.filter(node=current_node).values_list("pk", flat=True)
+        )
+
+        with patch("apps.planning.services.timezone.localdate", return_value=next_monday):
+            reprioritize_plan(self.student)
+
+        self.assertEqual(
+            set(self.plan.items.filter(node=current_node).values_list("pk", flat=True)),
+            frozen_ids,
+        )
+        regenerated = self.plan.items.filter(
+            status=StudyPlanItem.Status.PENDING,
+            origin=StudyPlanItem.Origin.PLAN,
+        ).exclude(pk__in=frozen_ids)
+        self.assertTrue(regenerated.exists())
+        self.assertFalse(regenerated.filter(due_date__lt=following_monday).exists())
+
+    def test_nightly_refresh_is_idempotent(self):
+        def snapshot():
+            return list(
+                self.plan.items.order_by("order", "pk").values_list(
+                    "node_id",
+                    "item_type",
+                    "due_date",
+                    "week_index",
+                    "order",
+                    "status",
+                    "origin",
+                )
+            )
+
+        refresh_plans()
+        first = snapshot()
+        refresh_plans()
+
+        self.assertEqual(snapshot(), first)
+
+    def test_full_build_still_fills_current_week(self):
+        today = timezone.localdate()
+        week_end = self._week_end(today)
+
+        self.assertTrue(
+            self.plan.items.filter(due_date__gte=today, due_date__lte=week_end).exists()
+        )
 
 
 class ScheduleTests(TestCase):
@@ -277,6 +449,7 @@ class ScheduleTests(TestCase):
         for index in range(12):
             make_assignment(light, answer=str(index))
         make_assignment(heavy, answer="h")
+        ExamProfile.objects.update(is_active=False)
         profile = ExamProfile.objects.create(
             year=2030,
             title="Planner profile",
@@ -453,3 +626,44 @@ class CarryOverTests(TestCase):
 
         self.assertEqual(processed, 1)
         self.assertFalse(plan.items.filter(due_date__lt=timezone.localdate()).exists())
+
+    def test_nightly_job_warms_contract_cache(self):
+        from apps.progress.services import plan_contract
+
+        self.student.exam_date = timezone.localdate() + timedelta(days=90)
+        self.student.save(update_fields=["exam_date"])
+        cache.clear()
+        fake_forecast = {
+            "ceiling_score": 85,
+            "unreachable_node_ids": [],
+        }
+        simulation = Mock(return_value=fake_forecast)
+        with patch(
+            "apps.progress.services._contract_ceiling_runner",
+            return_value=simulation,
+        ) as prepare:
+            refresh_plans()
+            calls_after_warm = simulation.call_count
+            plan_contract(self.student)
+
+        self.assertGreater(calls_after_warm, 0)
+        self.assertEqual(simulation.call_count, calls_after_warm)
+        self.assertEqual(prepare.call_count, 1)
+
+    def test_contract_warm_failure_does_not_stop_other_students(self):
+        other = make_student("warm-failure-other")
+        other_node = make_node("warm-failure-node")
+        make_assignment(other_node)
+        build_study_plan(other)
+
+        with (
+            patch(
+                "apps.progress.services.plan_contract",
+                side_effect=RuntimeError("cache unavailable"),
+            ) as warm,
+            self.assertLogs("apps.planning.tasks", level="ERROR"),
+        ):
+            processed = refresh_plans()
+
+        self.assertEqual(processed, 2)
+        self.assertEqual(warm.call_count, 2)

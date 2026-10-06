@@ -115,6 +115,65 @@ class CeilingForecastTests(TestCase):
         forecast = ceiling_forecast(self.student)
         self.assertEqual(forecast["unreachable_node_ids"], [])
 
+    def test_decayed_mastered_topic_uses_peak_in_ceiling(self):
+        node = self.nodes[0]
+        mastery = set_mastery(self.student, node, 90)
+        mastery.mastery = 50
+        mastery.status = mastery.Status.DECAYED
+        mastery.save(update_fields=["mastery", "status"])
+        self.student.exam_date = timezone.localdate()
+        self.student.save(update_fields=["exam_date"])
+        peak_score, _ = predict_score(
+            self.student, mastery_override={node.id: mastery.peak_mastery}
+        )
+
+        forecast = ceiling_forecast(self.student)
+
+        self.assertGreaterEqual(forecast["ceiling_score"], peak_score)
+
+    def test_scheduled_review_time_reduces_learning_capacity(self):
+        student = make_student(
+            "review-ceiling",
+            weekly_hours=1,
+            exam_date=timezone.localdate() + timedelta(days=7),
+        )
+        reviewed = make_node("review-ceiling-mastered", exam_part=2)
+        learning = make_node(
+            "review-ceiling-learning",
+            cluster=reviewed.cluster,
+            hours_estimate=1,
+        )
+        mastery = set_mastery(student, reviewed, 90)
+        mastery.retention_days = 7
+        mastery.peak_at = timezone.now() - timedelta(days=1)
+        mastery.save(update_fields=["retention_days", "peak_at"])
+
+        forecast = ceiling_forecast(student)
+
+        self.assertIn(learning.id, forecast["unreachable_node_ids"])
+
+    def test_mock_and_variant_time_reduce_learning_capacity(self):
+        from apps.mocks.models import MockExam
+        from apps.planning.models import StudyPlan
+
+        student = make_student(
+            "checkpoint-ceiling",
+            weekly_hours=2,
+            exam_date=timezone.localdate() + timedelta(weeks=3),
+        )
+        learning = make_node("checkpoint-ceiling-learning", hours_estimate=1)
+        first_plan = build_study_plan(student)
+        StudyPlan.objects.filter(pk=first_plan.pk).update(
+            created_at=timezone.now() - timedelta(weeks=35)
+        )
+        MockExam.objects.create(
+            title="Ceiling variant", kind=MockExam.Kind.PART1_VARIANT
+        )
+
+        forecast = ceiling_forecast(student)
+
+        self.assertIn(learning.id, forecast["unreachable_node_ids"])
+
 
 class ParentReportTests(TestCase):
     def setUp(self):
@@ -223,10 +282,16 @@ class ExamProfileForecastTests(TestCase):
         self.student = make_student("profile-student")
         self.part1_node = make_node("p1")
         self.part2_node = make_node("p2", cluster=self.part1_node.cluster, exam_part=2)
-        self.profile = ExamProfile.objects.create(
-            year=2027, title="ЕГЭ (тест)", max_primary_score=6,
-            primary_to_scaled=[min(100, i * 10) for i in range(7)], is_active=True,
+        self.profile, _ = ExamProfile.objects.update_or_create(
+            year=2027,
+            defaults={
+                "title": "ЕГЭ (тест)",
+                "max_primary_score": 6,
+                "primary_to_scaled": [min(100, i * 10) for i in range(7)],
+                "is_active": True,
+            },
         )
+        self.profile.tasks.all().delete()
         first = ExamTask.objects.create(
             profile=self.profile, number=1, exam_part=1, max_score=1, difficulty=2
         )

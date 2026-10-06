@@ -489,12 +489,20 @@ class MockBuilderForm(AccessibleFieldsMixin, forms.ModelForm):
 
     class Meta:
         model = MockExam
-        fields = ("title", "duration_minutes", "is_active")
+        fields = ("title", "kind", "duration_minutes", "is_active")
         labels = {
-            "title": "Название", "duration_minutes": "Длительность, минут",
+            "title": "Название", "kind": "Тип", "duration_minutes": "Длительность, минут",
             "is_active": "Активен",
         }
 
     def __init__(self, *args, assignment_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["add_tasks"].queryset = assignment_queryset or Assignment.objects.none()
+        # The current explicit studio template does not render this new field yet.
+        # Keep existing submissions valid until the visual follow-up adds the select.
+        self.fields["kind"].required = False
+
+    def clean_kind(self):
+        return self.cleaned_data.get("kind") or (
+            self.instance.kind if self.instance.pk else MockExam.Kind.FULL
+        )

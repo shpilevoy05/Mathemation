@@ -33,9 +33,13 @@ class DiagnosticFlowTests(TestCase):
 
         plan = get_active_plan(student)
         self.assertIsNotNone(plan)
-        plan_nodes = set(plan.items.values_list("node_id", flat=True))
-        self.assertIn(unknown.id, plan_nodes)
-        self.assertNotIn(known.id, plan_nodes)
+        learning_nodes = set(
+            plan.items.filter(item_type__in=("lesson", "practice"))
+            .values_list("node_id", flat=True)
+        )
+        self.assertIn(unknown.id, learning_nodes)
+        self.assertNotIn(known.id, learning_nodes)
+        self.assertTrue(plan.items.filter(node=known, item_type="review").exists())
 
         student.refresh_from_db()
         self.assertIsNotNone(student.start_score)

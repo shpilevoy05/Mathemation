@@ -1,9 +1,11 @@
 """Forecast (текущий балл + потолок с рычагами), snapshots, weekly reports."""
 from copy import deepcopy
+from dataclasses import replace
 from datetime import date
 from datetime import timedelta
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db.models import Sum
 from django.utils import timezone
 
@@ -440,18 +442,25 @@ def calibration_report(student, limit: int = 20) -> dict:
     }
 
 
-def ceiling_forecast(student, weekly_hours: int | None = None, exam_date=None) -> dict:
-    """Потолок: чего реально достичь к экзамену при заданном темпе.
-
-    Рычаги «поиграть ползунком» = вызов с другими weekly_hours / exam_date.
-    Возвращает потолочный балл и списки достижимых/недостижимых узлов —
-    последние подсвечиваются на карте оверлеем «что реально успеешь».
-    """
-    weekly_hours = weekly_hours or student.weekly_hours
-    exam_date = exam_date or student.exam_date
-    current_score, _ = predict_score(student)
-
-    states, _, profile = _forecast_dtos(student)
+def _prepare_ceiling(student, exam_date) -> dict:
+    """Load invariant ceiling inputs once for one student/date scenario."""
+    mastery_rows = list(SkillMastery.objects.filter(student=student).select_related("node"))
+    review_masteries = [
+        mastery
+        for mastery in mastery_rows
+        if mastery.peak_mastery >= settings.MASTERY_THRESHOLD
+        or mastery.status == SkillMastery.Status.DECAYED
+    ]
+    ceiling_masteries = {mastery.node_id: mastery.mastery for mastery in mastery_rows}
+    for mastery in review_masteries:
+        ceiling_masteries[mastery.node_id] = mastery.peak_mastery
+    states, weights, profile = _forecast_dtos(student, ceiling_masteries)
+    params = _engine_params(profile)
+    current_masteries = {mastery.node_id: mastery.mastery for mastery in mastery_rows}
+    current_states = [
+        replace(state, mastery=float(current_masteries.get(state.node_id, 0.0)))
+        for state in states
+    ]
     edges = [
         EdgeDTO(
             from_node_id=dependency.prerequisite_id,
@@ -467,30 +476,260 @@ def ceiling_forecast(student, weekly_hours: int | None = None, exam_date=None) -
         if exam_date is None
         else max((exam_date - timezone.localdate()).days, 0)
     )
+    from apps.planning.services import (
+        planned_checkpoint_specs,
+        preparation_start,
+        review_cost_hours,
+    )
+    today = timezone.localdate()
+    from apps.planning.phases import phase_for_date
+
+    plan_start = preparation_start(student, today)
+    phase = phase_for_date(
+        plan_start,
+        exam_date,
+        today,
+        consolidation_weeks=settings.PLAN_CONSOLIDATION_WEEKS,
+        exam_phase_weeks=settings.PLAN_EXAM_PHASE_WEEKS,
+    )
+    review_hours = 0.0
+    for mastery in review_masteries:
+        cost = review_cost_hours(mastery.node)
+        natural_due = max(
+            today,
+            timezone.localdate(mastery.peak_at)
+            + timedelta(days=mastery.retention_days),
+        )
+        if exam_date is None or natural_due < exam_date:
+            review_hours += cost
+        if (
+            exam_date is not None
+            and phase.consolidation_starts_on is not None
+            and not phase.consolidation_starts_on <= natural_due < exam_date
+        ):
+            review_hours += cost
+    checkpoint_hours = sum(
+        cost
+        for _item_type, _due_date, cost in planned_checkpoint_specs(
+            student, plan_start, today, exam_date
+        )
+    )
+    current_primary = engine_expected_primary(current_states, weights, params)
+    current_primary = min(
+        max(current_primary + student.primary_calibration, 0.0),
+        params.max_primary_score,
+    )
+    current_score = (
+        profile.scaled_for(current_primary)
+        if profile is not None
+        else scaled_score(current_primary, settings.PRIMARY_TO_SCALED)
+    )
+    return {
+        "states": states,
+        "weights": weights,
+        "profile": profile,
+        "params": params,
+        "edges": edges,
+        "days_left": days_left,
+        "reserved_hours": review_hours + checkpoint_hours,
+        "current_score": int(min(max(current_score, 0), 100)),
+        "calibration": student.primary_calibration,
+    }
+
+
+def _simulate_prepared_ceiling(prepared: dict, weekly_hours: int) -> dict:
+    result = simulate_ceiling(
+        prepared["states"],
+        prepared["edges"],
+        prepared["days_left"],
+        weekly_hours,
+        prepared["params"],
+        reserved_hours=prepared["reserved_hours"],
+    )
+    projected_states = [
+        replace(state, mastery=result.mastery_profile.get(state.node_id, state.mastery))
+        for state in prepared["states"]
+    ]
+    primary = engine_expected_primary(
+        projected_states,
+        prepared["weights"],
+        prepared["params"],
+    )
+    primary = min(
+        max(primary + prepared["calibration"], 0.0),
+        prepared["params"].max_primary_score,
+    )
+    profile = prepared["profile"]
+    ceiling_score = (
+        profile.scaled_for(primary)
+        if profile is not None
+        else scaled_score(primary, settings.PRIMARY_TO_SCALED)
+    )
+    unreachable = list(result.unreachable_node_ids)
+    return {
+        "ceiling_score": max(
+            int(min(max(ceiling_score, 0), 100)), prepared["current_score"]
+        ),
+        "reachable_node_ids": list(result.reachable_node_ids),
+        "unreachable_node_ids": unreachable,
+    }
+
+
+def _contract_ceiling_runner(student):
+    prepared = _prepare_ceiling(student, student.exam_date)
+    return lambda hours: _simulate_prepared_ceiling(prepared, hours)
+
+
+def ceiling_forecast(student, weekly_hours: int | None = None, exam_date=None) -> dict:
+    """Потолок: чего реально достичь к экзамену при заданном темпе.
+
+    Рычаги «поиграть ползунком» = вызов с другими weekly_hours / exam_date.
+    Возвращает потолочный балл и списки достижимых/недостижимых узлов —
+    последние подсвечиваются на карте оверлеем «что реально успеешь».
+    """
+    weekly_hours = weekly_hours or student.weekly_hours
+    exam_date = exam_date or student.exam_date
+    prepared = _prepare_ceiling(student, exam_date)
+    simulated = _simulate_prepared_ceiling(prepared, weekly_hours)
     from apps.planning.services import recommended_weekly_hours
 
     recommended_hours = recommended_weekly_hours(student, exam_date)
-    result = simulate_ceiling(states, edges, days_left, weekly_hours, _engine_params(profile))
-    ceiling_score, _ = predict_score(student, mastery_override=result.mastery_profile)
 
-    unreachable = list(result.unreachable_node_ids)
+    unreachable = simulated["unreachable_node_ids"]
     return {
-        "current_score": current_score,
-        "ceiling_score": max(ceiling_score, current_score),
+        "current_score": prepared["current_score"],
+        "ceiling_score": simulated["ceiling_score"],
         "weekly_hours": weekly_hours,
         "exam_date": exam_date,
-        "reachable_node_ids": list(result.reachable_node_ids),
+        "reachable_node_ids": simulated["reachable_node_ids"],
         "unreachable_node_ids": unreachable,
         # Чем именно ограничен потолок. Без этого ползунок выглядит сломанным:
         # ученик двигает нагрузку, число стоит, и непонятно, что времени уже
         # хватает на весь материал, а упирается всё в объём программы.
         "limited_by": "scope" if not unreachable else "time",
         "unreachable_count": len(unreachable),
-        "days_left": days_left,
+        "days_left": prepared["days_left"],
         # Сколько часов в неделю нужно, чтобы успеть всё к этой дате. Ученик
         # двигает ползунок наугад, пока ему не сказали, куда его двигать.
         "recommended_hours": recommended_hours,
     }
+
+
+def _plan_contract_cache_key(student) -> str:
+    profile = exam_active_profile()
+    exam_date = student.exam_date.isoformat() if student.exam_date else "none"
+    return (
+        f"plan-contract:v2:{student.pk}:{timezone.localdate().isoformat()}:"
+        f"{student.weekly_hours}:{student.target_score}:{exam_date}:"
+        f"{profile.pk if profile else 'none'}"
+    )
+
+
+def plan_contract(student) -> dict:
+    """Explain what the current pace can reach and what the target requires."""
+    base = {
+        "target_score": student.target_score,
+        "weekly_hours": student.weekly_hours,
+        "exam_date": student.exam_date,
+        "forecast_score": None,
+        "needed_hours": None,
+        "best_score": None,
+        "status": "no_data",
+        "reason": None,
+        "not_taken": [],
+        "is_at_risk": False,
+    }
+    if student.exam_date is None:
+        return {**base, "reason": "Не указана дата экзамена."}
+    if not student.target_score:
+        return {**base, "reason": "Не указана цель."}
+
+    key = _plan_contract_cache_key(student)
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    forecasts: dict[int, dict] = {}
+    simulate = _contract_ceiling_runner(student)
+
+    def forecast_at(hours: int) -> dict:
+        if hours not in forecasts:
+            forecasts[hours] = simulate(hours)
+        return forecasts[hours]
+
+    current = forecast_at(student.weekly_hours)
+    maximum = int(settings.PLAN_CONTRACT_MAX_HOURS)
+    best = forecast_at(maximum)
+    target = student.target_score
+    needed_hours = None
+    if best["ceiling_score"] >= target:
+        low, high = 1, maximum
+        while low < high:
+            middle = (low + high) // 2
+            if forecast_at(middle)["ceiling_score"] >= target:
+                high = middle
+            else:
+                low = middle + 1
+        needed_hours = low
+
+    forecast_score = current["ceiling_score"]
+    if forecast_score >= target:
+        status = "on_track"
+    elif needed_hours is not None and needed_hours > student.weekly_hours:
+        status = "needs_hours"
+    else:
+        status = "unreachable"
+
+    from apps.knowledge.models import KnowledgeNode
+    from apps.planning.services import exam_values_for_nodes
+
+    unreachable_ids = current.get("unreachable_node_ids", [])
+    unreachable = list(
+        KnowledgeNode.objects.filter(pk__in=unreachable_ids).select_related("cluster")
+    )
+    values = exam_values_for_nodes(unreachable)
+    unreachable.sort(key=lambda node: (-values.get(node.pk, 0.0), node.pk))
+    result = {
+        **base,
+        "forecast_score": forecast_score,
+        "needed_hours": needed_hours,
+        "best_score": best["ceiling_score"],
+        "status": status,
+        "not_taken": [node.title for node in unreachable[:5]],
+        "is_at_risk": status in {"needs_hours", "unreachable"},
+    }
+    cache.set(key, result, timeout=60 * 60 * 24)
+    return result
+
+
+def students_at_risk(curator_user) -> list[dict]:
+    """Active students visible to this curator, ordered by score shortfall."""
+    from apps.accounts.models import StudentProfile
+    from apps.web.permissions import is_methodist
+
+    students = StudentProfile.objects.filter(user__is_active=True).select_related("user")
+    if not (curator_user.is_superuser or is_methodist(curator_user)):
+        students = students.filter(
+            groups__is_active=True,
+            groups__curator=curator_user,
+        ).distinct()
+    rows = []
+    for student in students:
+        contract = plan_contract(student)
+        if not contract["is_at_risk"]:
+            continue
+        rows.append(
+            {
+                "student": student,
+                "contract": contract,
+                "gap": max(
+                    (contract["target_score"] or 0)
+                    - (contract["forecast_score"] or 0),
+                    0,
+                ),
+            }
+        )
+    return sorted(rows, key=lambda row: (-row["gap"], row["student"].pk))
 
 
 def weak_topics(student, limit=WEAK_TOPIC_LIMIT) -> list[dict]:

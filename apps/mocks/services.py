@@ -12,10 +12,30 @@ from apps.progress.services import (
 from .models import MockExam, MockExamResult
 
 
+def validate_mock_assignments(kind: str, assignments) -> None:
+    if kind == MockExam.Kind.PART1_VARIANT and any(
+        assignment.exam_part != Assignment.Part.PART1 for assignment in assignments
+    ):
+        from django.core.exceptions import ValidationError
+
+        raise ValidationError("Вариант части 1 может содержать только задачи части 1.")
+
+
 @transaction.atomic
-def save_mock_exam(exam: MockExam, *, title, is_active, duration_minutes,
-                   add_assignments=()):
+def save_mock_exam(
+    exam: MockExam,
+    *,
+    title,
+    is_active,
+    duration_minutes,
+    kind=MockExam.Kind.FULL,
+    add_assignments=(),
+):
+    add_assignments = list(add_assignments)
+    existing = list(exam.assignments.all()) if exam.pk else []
+    validate_mock_assignments(kind, [*existing, *add_assignments])
     exam.title = title
+    exam.kind = kind
     exam.is_active = is_active
     exam.duration_minutes = duration_minutes
     exam.full_clean()
@@ -87,6 +107,15 @@ def start_mock(student, exam: MockExam) -> MockExamResult:
         result_id=result.id,
     )
     return result
+
+
+def next_uncompleted_variant(student) -> MockExam | None:
+    return (
+        MockExam.objects.filter(kind=MockExam.Kind.PART1_VARIANT, is_active=True)
+        .exclude(results__student=student, results__status=MockExamResult.Status.COMPLETED)
+        .order_by("id")
+        .first()
+    )
 
 
 def _rescore(result: MockExamResult) -> None:
@@ -202,9 +231,20 @@ def maybe_complete_mock(result: MockExamResult) -> MockExamResult:
 
 def _finalize(result: MockExamResult) -> None:
     """Пробник — экзаменационное измерение: калибровка, снапшот, событие."""
-    # Калибруем в первичных баллах: это то, что реально измерил пробник.
-    calibrate_forecast(result.student, result.total_primary_score, mock_result=result)
+    # A part-1 drill is not a full-exam measurement and must not calibrate the
+    # student's whole-exam forecast as though omitted part 2 were a zero.
+    if result.exam.kind == MockExam.Kind.FULL:
+        calibrate_forecast(result.student, result.total_primary_score, mock_result=result)
     create_snapshot(result.student)
+    from apps.planning.models import StudyPlanItem
+    from apps.planning.services import autocomplete_checkpoint_item
+
+    item_type = (
+        StudyPlanItem.ItemType.VARIANT
+        if result.exam.kind == MockExam.Kind.PART1_VARIANT
+        else StudyPlanItem.ItemType.MOCK
+    )
+    autocomplete_checkpoint_item(result.student, item_type)
     from apps.events.models import Event
     from apps.events.services import log_event
 

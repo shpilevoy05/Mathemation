@@ -15,7 +15,12 @@ from .services import MockDeadlineExpired, start_mock, submit_mock, save_draft
 class MockListView(views.APIView):
     def get(self, request):
         return Response([
-            {"id": m.id, "title": m.title, "duration_minutes": m.duration_minutes}
+            {
+                "id": m.id,
+                "title": m.title,
+                "kind": m.kind,
+                "duration_minutes": m.duration_minutes,
+            }
             for m in MockExam.objects.filter(is_active=True)
         ])
 

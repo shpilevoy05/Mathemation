@@ -56,6 +56,7 @@ class StudyPlanItem(models.Model):
         PRACTICE = "practice"
         REVIEW = "review"
         MOCK = "mock"
+        VARIANT = "variant"
 
     plan = models.ForeignKey(StudyPlan, on_delete=models.CASCADE, related_name="items")
     node = models.ForeignKey(

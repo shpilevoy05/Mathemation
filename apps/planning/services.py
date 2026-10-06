@@ -9,7 +9,7 @@ from django.utils import timezone
 from apps.engine.dto import EdgeDTO, EngineParams, NodeState
 from apps.engine.planner import greedy_plan, study_cost_hours, topological_order
 from apps.exams.services import max_primary_score, task_weights_for_nodes
-from apps.knowledge.models import KnowledgeDependency, KnowledgeNode
+from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, SkillMastery
 from apps.knowledge.services import mastery_map
 
 from .models import (
@@ -19,6 +19,7 @@ from .models import (
     Trajectory,
     TrajectoryTransition,
 )
+from .phases import EXAM, LEARNING, phase_for_date
 
 def _engine_params(profile=None) -> EngineParams:
     return EngineParams(
@@ -98,7 +99,13 @@ def _ordered_pending_nodes_and_params(student) -> tuple[list[KnowledgeNode], Eng
     Используется и планировщиком, и симуляцией потолка прогноза.
     """
     masteries = mastery_map(student)
-    nodes = list(_planned_nodes().select_related("cluster"))
+    mastered_node_ids = SkillMastery.objects.filter(student=student).filter(
+        models.Q(peak_mastery__gte=settings.MASTERY_THRESHOLD)
+        | models.Q(status=SkillMastery.Status.DECAYED)
+    ).values_list("node_id", flat=True)
+    nodes = list(
+        _planned_nodes().exclude(pk__in=mastered_node_ids).select_related("cluster")
+    )
     ids = {node.id for node in nodes}
     edges = _graph_edges(ids)
     by_id = {node.id: node for node in nodes}
@@ -116,6 +123,35 @@ def order_pending_nodes(student) -> list[KnowledgeNode]:
     """
     nodes, _params = _ordered_pending_nodes_and_params(student)
     return nodes
+
+
+def preparation_start(student, fallback=None) -> date:
+    """First-ever plan date, including archived plans; today before onboarding."""
+    created_at = (
+        StudyPlan.objects.filter(student=student)
+        .order_by("created_at")
+        .values_list("created_at", flat=True)
+        .first()
+    )
+    return timezone.localdate(created_at) if created_at else (fallback or timezone.localdate())
+
+
+def plan_phase(student, on_date=None) -> dict:
+    """Current plan phase and inclusive range for student-facing UI contexts."""
+    on_date = on_date or timezone.localdate()
+    plan_start = preparation_start(student)
+    phase = phase_for_date(
+        plan_start,
+        student.exam_date,
+        on_date,
+        consolidation_weeks=settings.PLAN_CONSOLIDATION_WEEKS,
+        exam_phase_weeks=settings.PLAN_EXAM_PHASE_WEEKS,
+    )
+    return {
+        "phase": phase.code,
+        "starts_on": phase.starts_on,
+        "ends_on": phase.ends_on,
+    }
 
 
 def build_study_plan(student, reason: str = "initial") -> StudyPlan:
@@ -204,7 +240,118 @@ def _node_cost_hours(node, mastery: float, params: EngineParams) -> float:
     return study_cost_hours(_node_dto(node, mastery), params)
 
 
-def _fill_plan_items(student, plan: StudyPlan, trajectory, *, done_pairs=None) -> int:
+def review_cost_hours(node: KnowledgeNode) -> float:
+    if node.is_micro_skill:
+        return float(settings.PLAN_REVIEW_MICRO_HOURS)
+    if node.exam_part == KnowledgeNode.Part.PART2:
+        return float(settings.PLAN_REVIEW_PART2_HOURS)
+    return float(settings.PLAN_REVIEW_PART1_HOURS)
+
+
+def planned_checkpoint_specs(
+    student,
+    plan_start: date,
+    today: date,
+    exam_date,
+    *,
+    schedule_start: date | None = None,
+):
+    """Planned mock/variant checkpoints as ``(item_type, due_date, hours)``."""
+    if exam_date is None:
+        return []
+    from apps.mocks.models import MockExam, MockExamResult
+
+    last_full = (
+        MockExamResult.objects.filter(
+            student=student,
+            exam__kind=MockExam.Kind.FULL,
+            status=MockExamResult.Status.COMPLETED,
+            completed_at__isnull=False,
+        )
+        .order_by("-completed_at")
+        .values_list("completed_at", flat=True)
+        .first()
+    )
+    first_due = (
+        timezone.localdate(last_full) + timedelta(days=settings.PLAN_MOCK_INTERVAL_DAYS)
+        if last_full
+        else plan_start + timedelta(days=settings.PLAN_MOCK_FIRST_DAYS)
+    )
+    due = max(today, first_due)
+    specs = []
+    while due < exam_date:
+        specs.append((StudyPlanItem.ItemType.MOCK, due, float(settings.PLAN_MOCK_HOURS)))
+        due += timedelta(days=settings.PLAN_MOCK_INTERVAL_DAYS)
+
+    variant_start = schedule_start or today
+    mock_weeks = {
+        max(0, (due_date - variant_start).days // 7)
+        for _, due_date, _ in specs
+        if due_date >= variant_start
+    }
+    available_variants = (
+        MockExam.objects.filter(kind=MockExam.Kind.PART1_VARIANT, is_active=True)
+        .exclude(
+            results__student=student,
+            results__status=MockExamResult.Status.COMPLETED,
+        )
+        .distinct()
+        .count()
+    )
+    weeks_left = max(1, ceil((exam_date - variant_start).days / 7))
+    for week in range(weeks_left):
+        if available_variants <= 0 or week in mock_weeks:
+            continue
+        week_date = variant_start + timedelta(days=7 * week)
+        phase = phase_for_date(
+            plan_start,
+            exam_date,
+            week_date,
+            consolidation_weeks=settings.PLAN_CONSOLIDATION_WEEKS,
+            exam_phase_weeks=settings.PLAN_EXAM_PHASE_WEEKS,
+        )
+        if phase.code != EXAM or week_date >= exam_date:
+            continue
+        specs.append(
+            (
+                StudyPlanItem.ItemType.VARIANT,
+                week_date,
+                float(settings.PLAN_VARIANT_HOURS),
+            )
+        )
+        available_variants -= 1
+    return sorted(specs, key=lambda spec: (spec[1], spec[0]))
+
+
+def exam_values_for_nodes(nodes: list[KnowledgeNode]) -> dict[int, float]:
+    """Primary-score value per node from the planner's exam-weight source."""
+    values = {node.id: 0.0 for node in nodes}
+    for task in task_weights_for_nodes(nodes).weights:
+        weights = (
+            [max(float(weight), 0.0) for weight in task.node_weights]
+            if len(task.node_weights) == len(task.node_ids)
+            else [1.0] * len(task.node_ids)
+        )
+        total = sum(weights)
+        if not total:
+            continue
+        for node_id, weight in zip(task.node_ids, weights):
+            values[node_id] = values.get(node_id, 0.0) + task.max_score * weight / total
+    return values
+
+
+def _fill_plan_items(
+    student,
+    plan: StudyPlan,
+    trajectory,
+    *,
+    done_pairs=None,
+    frozen_pairs=None,
+    schedule_start: date | None = None,
+    order_start: int = 0,
+    review_week_share: float | None = None,
+    final_review_week_share: float | None = None,
+) -> int:
     """Разложить темы по неделям по выбранной нагрузке.
 
     Бюджет считается в часах, а не в темах: тема на четыре часа не должна
@@ -217,10 +364,23 @@ def _fill_plan_items(student, plan: StudyPlan, trajectory, *, done_pairs=None) -
     которую не обещает и прогноз.
     """
     weekly_hours = max(1, _weekly_hours(student, trajectory))
+    review_week_share = (
+        settings.PLAN_REVIEW_WEEK_SHARE
+        if review_week_share is None
+        else review_week_share
+    )
+    final_review_week_share = (
+        settings.PLAN_REVIEW_FINAL_SHARE
+        if final_review_week_share is None
+        else final_review_week_share
+    )
     today = timezone.localdate()
+    schedule_start = schedule_start or today
+    plan_start = preparation_start(student, today)
     masteries = mastery_map(student)
     nodes, params = _ordered_pending_nodes_and_params(student)
     done_pairs = done_pairs or set()
+    frozen_pairs = frozen_pairs or set()
     # Уже закрытые пункты не возвращаем: исключаем пару «тема + тип пункта», а
     # не тему целиком — закрытый урок не отменяет практику по той же теме.
     nodes = [
@@ -230,32 +390,209 @@ def _fill_plan_items(student, plan: StudyPlan, trajectory, *, done_pairs=None) -
             for item_type in (StudyPlanItem.ItemType.LESSON, StudyPlanItem.ItemType.PRACTICE)
         )
     ]
-    if not nodes:
-        return 0
-
     hours_per_week = float(weekly_hours)
     # Сколько недель осталось до экзамена. Без даты горизонта нет: план
     # раскладывается целиком.
     weeks_left = None
     if student.exam_date:
-        weeks_left = max(1, ceil((student.exam_date - today).days / 7))
+        weeks_left = max(0, ceil((student.exam_date - schedule_start).days / 7))
 
-    order = 0
+    order = order_start
+    checkpoint_hours: dict[int, float] = {}
+    review_hours: dict[int, float] = {}
+    learning_hours: dict[int, float] = {}
+    learning_days: dict[int, int] = {}
+    existing_checkpoints = list(
+        plan.items.exclude(status=StudyPlanItem.Status.DONE)
+        .filter(item_type__in=(StudyPlanItem.ItemType.MOCK, StudyPlanItem.ItemType.VARIANT))
+        .order_by("due_date", "order")
+    )
+    existing_counts = {
+        item_type: sum(1 for item in existing_checkpoints if item.item_type == item_type)
+        for item_type in (StudyPlanItem.ItemType.MOCK, StudyPlanItem.ItemType.VARIANT)
+    }
+    for item in existing_checkpoints:
+        if item.due_date is None or item.due_date < schedule_start:
+            continue
+        week = max(0, (item.due_date - schedule_start).days // 7)
+        cost = (
+            float(settings.PLAN_MOCK_HOURS)
+            if item.item_type == StudyPlanItem.ItemType.MOCK
+            else float(settings.PLAN_VARIANT_HOURS)
+        )
+        checkpoint_hours[week] = checkpoint_hours.get(week, 0.0) + cost
+
+    skipped_existing = {StudyPlanItem.ItemType.MOCK: 0, StudyPlanItem.ItemType.VARIANT: 0}
+    for item_type, due_date, cost in planned_checkpoint_specs(
+        student,
+        plan_start,
+        today,
+        student.exam_date,
+        schedule_start=schedule_start,
+    ):
+        if skipped_existing[item_type] < existing_counts[item_type]:
+            skipped_existing[item_type] += 1
+            continue
+        if due_date < schedule_start:
+            continue
+        week = max(0, (due_date - schedule_start).days // 7)
+        if (
+            item_type == StudyPlanItem.ItemType.VARIANT
+            and any(
+                item.item_type == StudyPlanItem.ItemType.MOCK
+                and item.due_date
+                and item.due_date >= schedule_start
+                and max(0, (item.due_date - schedule_start).days // 7) == week
+                for item in existing_checkpoints
+            )
+        ):
+            continue
+        StudyPlanItem.objects.create(
+            plan=plan,
+            item_type=item_type,
+            order=order,
+            week_index=week,
+            due_date=due_date,
+            origin=StudyPlanItem.Origin.PLAN,
+        )
+        order += 1
+        checkpoint_hours[week] = checkpoint_hours.get(week, 0.0) + cost
+    existing_reviews = list(
+        plan.items.exclude(status=StudyPlanItem.Status.DONE)
+        .filter(item_type=StudyPlanItem.ItemType.REVIEW, node__isnull=False)
+        .select_related("node")
+    )
+    scheduled_review_dates: dict[int, set[date]] = {}
+    review_masteries = list(
+        SkillMastery.objects.filter(student=student)
+        .filter(
+            models.Q(peak_mastery__gte=settings.MASTERY_THRESHOLD)
+            | models.Q(status=SkillMastery.Status.DECAYED)
+        )
+        .select_related("node")
+        .order_by("peak_at", "node_id")
+    )
+    review_caps: dict[int, float] = {}
+
+    def phase_at(value: date):
+        return phase_for_date(
+            plan_start,
+            student.exam_date,
+            value,
+            consolidation_weeks=settings.PLAN_CONSOLIDATION_WEEKS,
+            exam_phase_weeks=settings.PLAN_EXAM_PHASE_WEEKS,
+        )
+
+    def share_at(value: date) -> float:
+        return (
+            review_week_share
+            if phase_at(value).code == LEARNING
+            else final_review_week_share
+        )
+
+    for item in existing_reviews:
+        if item.due_date is None or item.due_date < schedule_start:
+            continue
+        week = max(0, (item.due_date - schedule_start).days // 7)
+        cost = review_cost_hours(item.node)
+        remaining = max(hours_per_week - checkpoint_hours.get(week, 0.0), 0.0)
+        base_cap = remaining * share_at(item.due_date)
+        review_caps[week] = max(review_caps.get(week, base_cap), base_cap, cost)
+        review_hours[week] = review_hours.get(week, 0.0) + cost
+        scheduled_review_dates.setdefault(item.node_id, set()).add(item.due_date)
+
+    def place_review(mastery, target_date: date) -> date | None:
+        week = max(0, (target_date - schedule_start).days // 7)
+        cost = review_cost_hours(mastery.node)
+        while weeks_left is None or week < weeks_left:
+            scheduled_due = (
+                target_date
+                if week == max(0, (target_date - schedule_start).days // 7)
+                else schedule_start + timedelta(days=7 * week)
+            )
+            if student.exam_date and scheduled_due >= student.exam_date:
+                return None
+            remaining = max(hours_per_week - checkpoint_hours.get(week, 0.0), 0.0)
+            base_cap = remaining * share_at(scheduled_due)
+            used = review_hours.get(week, 0.0)
+            cap = review_caps.get(week, max(base_cap, cost))
+            if used + cost <= cap:
+                review_caps.setdefault(week, cap)
+                StudyPlanItem.objects.create(
+                    plan=plan,
+                    node=mastery.node,
+                    item_type=StudyPlanItem.ItemType.REVIEW,
+                    order=place_review.order,
+                    week_index=week,
+                    due_date=scheduled_due,
+                    origin=StudyPlanItem.Origin.PLAN,
+                )
+                place_review.order += 1
+                review_hours[week] = used + cost
+                scheduled_review_dates.setdefault(mastery.node_id, set()).add(
+                    scheduled_due
+                )
+                return scheduled_due
+            week += 1
+        return None
+
+    place_review.order = order
+    for mastery in review_masteries:
+        if (mastery.node_id, StudyPlanItem.ItemType.REVIEW) in frozen_pairs:
+            continue
+        due = timezone.localdate(mastery.peak_at) + timedelta(
+            days=mastery.retention_days
+        )
+        due = max(schedule_start, due)
+        if student.exam_date and due >= student.exam_date:
+            continue
+        if due not in scheduled_review_dates.get(mastery.node_id, set()):
+            place_review(mastery, due)
+
+    final_window = phase_at(today).consolidation_starts_on
+    if final_window is not None and student.exam_date:
+        values = exam_values_for_nodes([mastery.node for mastery in review_masteries])
+        pull_forward = [
+            mastery
+            for mastery in review_masteries
+            if (mastery.node_id, StudyPlanItem.ItemType.REVIEW) not in frozen_pairs
+            if not any(
+                final_window <= due < student.exam_date
+                for due in scheduled_review_dates.get(mastery.node_id, set())
+            )
+        ]
+        pull_forward.sort(key=lambda mastery: (-values.get(mastery.node_id, 0.0), mastery.node_id))
+        for mastery in pull_forward:
+            place_review(mastery, max(final_window, schedule_start))
+
+    order = place_review.order
+
     week = 0
-    hours_in_week = 0.0
-    day_in_week = 0
     unplanned = 0
     for node in nodes:
         node_hours = _node_cost_hours(node, masteries.get(node.id, 0.0), params)
-        if hours_in_week and hours_in_week + node_hours > hours_per_week:
+        while (
+            checkpoint_hours.get(week, 0.0)
+            + review_hours.get(week, 0.0)
+            + learning_hours.get(week, 0.0)
+            > 0
+            and checkpoint_hours.get(week, 0.0)
+            + review_hours.get(week, 0.0)
+            + learning_hours.get(week, 0.0)
+            + node_hours
+            > hours_per_week
+        ):
             week += 1
-            hours_in_week = 0.0
-            day_in_week = 0
         if weeks_left is not None and week >= weeks_left:
             # Дальше экзамена планировать нечего: остаток честно не помещается.
             unplanned += 1
             continue
-        due = today + timedelta(days=7 * week + min(day_in_week, 6))
+        week_date = schedule_start + timedelta(days=7 * week)
+        if phase_at(week_date).code == EXAM and masteries.get(node.id, 0.0) <= 0:
+            unplanned += 1
+            continue
+        day_in_week = learning_days.get(week, 0)
+        due = schedule_start + timedelta(days=7 * week + min(day_in_week, 6))
         if student.exam_date and due > student.exam_date:
             due = student.exam_date
         for item_type in (StudyPlanItem.ItemType.LESSON, StudyPlanItem.ItemType.PRACTICE):
@@ -266,8 +603,8 @@ def _fill_plan_items(student, plan: StudyPlan, trajectory, *, done_pairs=None) -
                 order=order, week_index=week, due_date=due,
             )
             order += 1
-        hours_in_week += node_hours
-        day_in_week += 1
+        learning_hours[week] = learning_hours.get(week, 0.0) + node_hours
+        learning_days[week] = day_in_week + 1
     if plan.unplanned_nodes != unplanned:
         plan.unplanned_nodes = unplanned
         plan.save(update_fields=["unplanned_nodes"])
@@ -347,19 +684,24 @@ def _renumber_plan_items(plan: StudyPlan) -> None:
 def reprioritize_plan(
     student, *, event_reason: str = "reprioritized", force_event: bool = False
 ) -> StudyPlan | None:
-    """Пересобрать очередь активного плана под текущее освоение.
-
-    План строится один раз по событию, но ученик растёт каждый день: закрытая
-    тема меняет и пороги пререквизитов, и выгоду остальных тем. Без переоценки
-    остаток плана остаётся в приоритете, посчитанном на старых данных, — это
-    прямо противоречит обещанию «быстрее к баллу».
-
-    Сделанное не трогаем: закрытые пункты остаются в плане как история, а
-    пересобирается только незакрытая часть.
-    """
+    """Nightly rebuild of future weeks without disturbing the current week."""
     plan = get_active_plan(student)
     if plan is None:
         return None
+
+    from .schedule import WEEK_START
+
+    today = timezone.localdate()
+    days_from_week_start = (today.weekday() - WEEK_START) % 7
+    week_end = today + timedelta(days=6 - days_from_week_start)
+    next_week_start = week_end + timedelta(days=1)
+    frozen_items = list(
+        plan.items.filter(
+            status=StudyPlanItem.Status.PENDING,
+            due_date__lte=week_end,
+        )
+    )
+    frozen_pairs = _item_pair_set(frozen_items)
 
     before = list(
         plan.items.exclude(status=StudyPlanItem.Status.DONE)
@@ -370,13 +712,21 @@ def reprioritize_plan(
     plan.items.filter(
         status=StudyPlanItem.Status.PENDING,
         origin=StudyPlanItem.Origin.PLAN,
+    ).filter(
+        models.Q(due_date__gt=week_end) | models.Q(due_date__isnull=True)
     ).delete()
-    # Закрытые пункты уходят в начало очереди: они уже история, и новая
-    # нумерация не должна их перемешивать с актуальными.
     kept_pairs = _item_pair_set(plan.items.all())
     trajectory = plan.trajectory
-    _fill_plan_items(student, plan, trajectory, done_pairs=kept_pairs)
-    _renumber_plan_items(plan)
+    highest_order = plan.items.aggregate(value=models.Max("order"))["value"]
+    _fill_plan_items(
+        student,
+        plan,
+        trajectory,
+        done_pairs=kept_pairs,
+        frozen_pairs=frozen_pairs,
+        schedule_start=next_week_start,
+        order_start=(highest_order + 1 if highest_order is not None else 0),
+    )
 
     after = list(
         plan.items.exclude(status=StudyPlanItem.Status.DONE)
@@ -682,10 +1032,14 @@ def move_item(item, new_date) -> StudyPlanItem:
     item.week_index = max(0, (new_date - today).days // 7)
     item.origin = StudyPlanItem.Origin.MANUAL
     item.save(update_fields=["due_date", "week_index", "origin"])
+    item_title = item.node.title if item.node_id else {
+        StudyPlanItem.ItemType.MOCK: "Пробник",
+        StudyPlanItem.ItemType.VARIANT: "Вариант части 1",
+    }.get(item.item_type, "Пункт плана")
     log_plan_change(
         item.plan.student,
         PlanChangeLog.Reason.MANUAL,
-        f"«{item.node.title}» перенесено на {new_date.strftime('%d.%m')}.",
+        f"«{item_title}» перенесено на {new_date.strftime('%d.%m')}.",
         node=item.node,
     )
     return item
@@ -743,21 +1097,33 @@ def autocomplete_items_for_node(student, node) -> list[StudyPlanItem]:
     pending = plan.items.filter(
         node=node, item_type__in=finished_types
     ).exclude(status=StudyPlanItem.Status.DONE)
-    closed = [complete_item(item) for item in pending]
-    if closed:
-        # Закрытая тема меняет выгоду остальных: пороги пререквизитов открылись,
-        # а часть плана могла обесцениться. Переоцениваем очередь сразу, пока
-        # ученик ещё в занятии.
-        reprioritize_plan(student)
-    return closed
+    return [complete_item(item) for item in pending]
 
 
 def autocomplete_review_items(student, node) -> list[StudyPlanItem]:
-    """Закрыть пункты отработки после успешного повтора по теме."""
+    """Закрыть ближайший пункт отработки после успешного повтора по теме."""
     plan = get_active_plan(student)
     if plan is None or node is None:
         return []
     pending = plan.items.filter(
         node=node, item_type=StudyPlanItem.ItemType.REVIEW
-    ).exclude(status=StudyPlanItem.Status.DONE)
-    return [complete_item(item) for item in pending]
+    ).exclude(status=StudyPlanItem.Status.DONE).order_by("due_date", "order")
+    item = pending.first()
+    return [complete_item(item)] if item else []
+
+
+def autocomplete_checkpoint_item(student, item_type: str) -> list[StudyPlanItem]:
+    """Close the nearest pending mock or timed-variant checkpoint."""
+    plan = get_active_plan(student)
+    if plan is None or item_type not in {
+        StudyPlanItem.ItemType.MOCK,
+        StudyPlanItem.ItemType.VARIANT,
+    }:
+        return []
+    item = (
+        plan.items.filter(item_type=item_type)
+        .exclude(status=StudyPlanItem.Status.DONE)
+        .order_by("due_date", "order")
+        .first()
+    )
+    return [complete_item(item)] if item else []

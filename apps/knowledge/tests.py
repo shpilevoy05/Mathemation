@@ -39,7 +39,7 @@ class MasteryUpdateTests(TestCase):
         set_mastery(self.student, self.node, 80)
         sm = update_mastery(self.student, self.node, correct=False)
         self.assertEqual(sm.mastery, 56.0)  # 80 + 0.3 * (0 - 80)
-        self.assertEqual(sm.status, SkillMastery.Status.PRACTICED)
+        self.assertEqual(sm.status, SkillMastery.Status.DECAYED)
 
     def test_weight_scales_step(self):
         sm = update_mastery(self.student, self.node, correct=True, weight=0.5)
@@ -56,6 +56,56 @@ class MasteryUpdateTests(TestCase):
     def test_mastery_clamped_to_bounds(self):
         sm = set_mastery(self.student, self.node, 150)
         self.assertEqual(sm.mastery, 100.0)
+
+    def test_correct_review_doubles_retention_and_counts_review(self):
+        sm = set_mastery(self.student, self.node, settings.MASTERY_THRESHOLD)
+        sm.last_practiced_at = timezone.now() - timedelta(
+            days=settings.DECAY_GRACE_DAYS // 2
+        )
+        sm.save(update_fields=["last_practiced_at"])
+        sm = update_mastery(self.student, self.node, correct=True)
+        self.assertEqual(sm.retention_days, settings.DECAY_GRACE_DAYS * 2)
+        self.assertEqual(sm.review_count, 1)
+
+    def test_wrong_review_halves_retention_with_floor(self):
+        sm = set_mastery(self.student, self.node, 90)
+        sm.retention_days = 28
+        sm.save(update_fields=["retention_days"])
+        sm = update_mastery(self.student, self.node, correct=False)
+        self.assertEqual(sm.retention_days, 14)
+        self.assertEqual(sm.review_count, 0)
+
+    def test_learning_attempt_does_not_change_retention(self):
+        set_mastery(self.student, self.node, settings.MASTERY_THRESHOLD - 1)
+        sm = update_mastery(self.student, self.node, correct=True)
+        self.assertEqual(sm.retention_days, settings.DECAY_GRACE_DAYS)
+        self.assertEqual(sm.review_count, 0)
+
+    def test_correct_answers_in_one_session_do_not_extend_retention(self):
+        set_mastery(self.student, self.node, 90)
+        for _ in range(4):
+            sm = update_mastery(self.student, self.node, correct=True)
+        self.assertEqual(sm.retention_days, settings.DECAY_GRACE_DAYS)
+        self.assertEqual(sm.review_count, 0)
+
+    def test_correct_answer_after_half_retention_extends_once(self):
+        sm = set_mastery(self.student, self.node, 90)
+        sm.last_practiced_at = timezone.now() - timedelta(days=7)
+        sm.save(update_fields=["last_practiced_at"])
+        first = update_mastery(self.student, self.node, correct=True)
+        second = update_mastery(self.student, self.node, correct=True)
+        self.assertEqual(first.retention_days, 28)
+        self.assertEqual(second.retention_days, 28)
+        self.assertEqual(second.review_count, 1)
+
+    def test_two_mistakes_same_day_shrink_retention_once(self):
+        sm = set_mastery(self.student, self.node, 90)
+        sm.retention_days = 28
+        sm.save(update_fields=["retention_days"])
+        first = update_mastery(self.student, self.node, correct=False)
+        second = update_mastery(self.student, self.node, correct=False)
+        self.assertEqual(first.retention_days, 14)
+        self.assertEqual(second.retention_days, 14)
 
 
 class DecayTests(TestCase):
@@ -109,6 +159,15 @@ class DecayTests(TestCase):
         first = SkillMastery.objects.get(pk=sm.pk).mastery
         apply_decay(self.student)
         self.assertEqual(SkillMastery.objects.get(pk=sm.pk).mastery, first)
+
+    def test_decay_uses_topic_retention_period(self):
+        sm = set_mastery(self.student, self.node, 90)
+        sm.retention_days = settings.DECAY_GRACE_DAYS * 2
+        sm.peak_at = timezone.now() - timedelta(days=settings.DECAY_GRACE_DAYS + 1)
+        sm.save(update_fields=["retention_days", "peak_at"])
+        apply_decay(self.student)
+        sm.refresh_from_db()
+        self.assertEqual(sm.mastery, 90.0)
 
     def test_practice_resets_forgetting_curve(self):
         sm = set_mastery(self.student, self.node, 90)

@@ -5,6 +5,7 @@
 {% if not student %}<section class="empty-state"><h1>Прогноз</h1><p>Этот раздел доступен ученикам.</p></section>{% else %}
 <div class="page-heading"><div><p class="eyebrow">Честная оценка</p><h1>Прогноз и потолок</h1><p>Посмотри, как темп и время до экзамена влияют на достижимый результат.</p></div></div>
 <section class="forecast-hero" data-forecast><div class="forecast-score"><small>Текущий прогноз</small><strong data-current-score>{{ forecast.current_score }}</strong><span>при текущем темпе</span></div><div class="forecast-arrow">→</div><div class="forecast-score ceiling"><small>Потолок</small><strong data-ceiling-score>{{ forecast.ceiling_score }}</strong><span>при выбранных условиях</span></div></section>
+<section class="card card-wide contract-card"><div class="section-heading"><div><p class="eyebrow">Договор</p><h2>Успеваем ли к цели</h2></div></div>{% include "partials/contract.html" with contract=contract phase=plan_phase variant="card" %}</section>
 <section class="card card-wide forecast-card">
   <div class="section-heading">
     <h2>Шкала первичных баллов</h2>

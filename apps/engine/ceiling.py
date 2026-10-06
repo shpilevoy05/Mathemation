@@ -11,6 +11,7 @@ def simulate_ceiling(
     days_left: int | None,
     weekly_hours: float,
     params: EngineParams,
+    reserved_hours: float = 0.0,
 ) -> CeilingResult:
     """Simulate which pending nodes fit and return the resulting profile.
 
@@ -21,8 +22,10 @@ def simulate_ceiling(
     """
     pending = greedy_pending_nodes(node_states, edges, params)
     unlimited = days_left is None
-    budget_hours = (
-        0.0 if unlimited else max(days_left, 0) / 7.0 * max(weekly_hours, 0.0)
+    budget_hours = 0.0 if unlimited else max(
+        max(days_left, 0) / 7.0 * max(weekly_hours, 0.0)
+        - max(reserved_hours, 0.0),
+        0.0,
     )
 
     profile = {node.node_id: node.mastery for node in node_states}

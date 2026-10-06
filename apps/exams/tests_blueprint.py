@@ -24,13 +24,15 @@ class StructureTests(TestCase):
     def test_part_one_is_thirteen_tasks_by_one_point(self):
         part1 = [task for task in TASKS if task[1] == 1]
 
+        self.assertEqual([task[0] for task in part1], list(range(1, 14)))
         self.assertEqual(len(part1), 13)
         self.assertTrue(all(task[2] == 1 for task in part1))
 
     def test_part_two_is_seven_tasks_and_twenty_points(self):
         part2 = [task for task in TASKS if task[1] == 2]
 
-        self.assertEqual(len(part2), 7)
+        self.assertEqual([task[0] for task in part2], list(range(14, 21)))
+        self.assertEqual([task[2] for task in part2], [2, 3, 2, 2, 3, 4, 4])
         self.assertEqual(sum(task[2] for task in part2), 20)
 
     def test_numbers_are_consecutive(self):
@@ -42,10 +44,14 @@ class StructureTests(TestCase):
     def test_new_tasks_are_in_place(self):
         titles = {number: title for number, _p, _s, _d, title in TASKS}
 
-        # Задание 6 — случайные величины, 13 — личные финансы, 17 — моделирование.
+        # Новое только задание 6; прежние 8, 12 и 16 поменяли место/формат.
         self.assertIn("Случайная величина", titles[6])
-        self.assertIn("финанс", titles[13])
-        self.assertIn("оделирован", titles[17])
+        self.assertEqual(titles[9], "Производная и первообразная по графику")
+        self.assertEqual(titles[13], "Экономическая задача и финансы (краткий ответ)")
+        self.assertEqual(
+            titles[17],
+            "Моделирование реальных ситуаций: алгебра и начала анализа",
+        )
 
 
 class ScaleTests(TestCase):
@@ -119,10 +125,23 @@ class LoadTests(TestCase):
         self.assertEqual(ExamTaskSkill.objects.count(), first)
 
     def test_dry_run_touches_nothing(self):
+        before = (
+            ExamProfile.objects.count(),
+            ExamTask.objects.count(),
+            ExamTaskSkill.objects.count(),
+        )
+
         report = load_blueprint(dry_run=True)
 
         self.assertTrue(report["dry_run"])
-        self.assertFalse(ExamProfile.objects.exists())
+        self.assertEqual(
+            (
+                ExamProfile.objects.count(),
+                ExamTask.objects.count(),
+                ExamTaskSkill.objects.count(),
+            ),
+            before,
+        )
 
     def test_stale_links_are_dropped(self):
         load_blueprint()

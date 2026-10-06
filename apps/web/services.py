@@ -24,7 +24,7 @@ from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicClust
 from apps.knowledge.services import apply_decay, node_states
 from apps.mocks.models import MockExam, MockExamResult
 from apps.planning.models import StudyPlanItem, TrajectoryTransition
-from apps.planning.services import get_active_plan, items_for_period
+from apps.planning.services import get_active_plan, items_for_period, plan_phase
 from apps.practice.models import Attempt, MistakeBacklogItem
 from apps.practice.services import due_reviews, practice_queue
 from apps.progress.models import ProgressSnapshot
@@ -194,8 +194,14 @@ NODE_STATE_LABELS = {
 POINT_TYPE_LABELS = {
     "lesson": "Урок",
     "practice": "Практика",
-    "review": "Отработка",
+    "review": "Повтор",
     "mock": "Пробник",
+    "variant": "Вариант части 1",
+}
+# Заголовки пунктов без темы: пробник и вариант относятся ко всему экзамену.
+POINT_TITLES = {
+    "mock": "Пробный экзамен",
+    "variant": "Вариант первой части на время",
 }
 BACKLOG_STATUS_LABELS = {
     "open": "открыта",
@@ -235,11 +241,23 @@ def gauge_metrics(score):
     }
 
 
+def _plan_item_url(item) -> str:
+    """Куда ведёт пункт плана: тема — в урок, повтор — сразу к задачам темы."""
+    if item.node_id:
+        url = reverse("lesson", args=[item.node_id])
+        if item.item_type == StudyPlanItem.ItemType.REVIEW:
+            url += "?context=review"
+        return url
+    return reverse("mocks")
+
+
 def _prepare_plan_items(items):
     prepared = list(items)
     for item in prepared:
         item.ui_type_label = POINT_TYPE_LABELS[item.item_type]
         item.ui_status_label = PLAN_STATUS_LABELS[item.status]
+        item.ui_title = item.node.title if item.node_id else POINT_TITLES.get(item.item_type, item.ui_type_label)
+        item.ui_url = _plan_item_url(item)
     return prepared
 
 
@@ -254,9 +272,20 @@ def next_learning_action(student):
     plan = get_active_plan(student)
     item = plan.items.exclude(status=StudyPlanItem.Status.DONE).select_related("node").first() if plan else None
     if item and item.node_id:
-        return {"url": reverse("lesson", args=[item.node_id]), "title": f"Продолжить: {item.node.title}"}
+        url = reverse("lesson", args=[item.node_id])
+        title = f"Продолжить: {item.node.title}"
+        if item.item_type == StudyPlanItem.ItemType.REVIEW:
+            url += "?context=review"
+            title = f"Повторить: {item.node.title}"
+        return {"url": url, "title": title}
     if item and item.item_type == StudyPlanItem.ItemType.MOCK:
         return {"url": reverse("mocks"), "title": "Пройти пробник"}
+    if item and item.item_type == StudyPlanItem.ItemType.VARIANT:
+        from apps.mocks.services import next_uncompleted_variant
+
+        variant = next_uncompleted_variant(student)
+        url = reverse("mocks") + (f"#mock-{variant.pk}" if variant else "")
+        return {"url": url, "title": "Пройти вариант части 1"}
     return {"url": reverse("diagnostics" if not plan else "practice_backlog"),
             "title": "Пройти диагностику" if not plan else "Повторить изученное"}
 
@@ -291,7 +320,7 @@ def dashboard_context(student):
         TrajectoryTransition.objects.filter(student=student, acknowledged=False)
         .select_related("from_trajectory", "to_trajectory")
     )
-    from apps.progress.services import transition_explanation
+    from apps.progress.services import plan_contract, transition_explanation
 
     for transition in transitions:
         transition.explanations = transition_explanation(transition)
@@ -310,6 +339,8 @@ def dashboard_context(student):
         ),
         "trajectory_transitions": transitions,
         "forecast": forecast,
+        "contract": plan_contract(student),
+        "plan_phase": plan_phase(student),
         "gamification": gamification,
         "has_diagnostic": snapshot is not None and snapshot.start_score is not None,
         "journey_percent": score_journey_percent,
@@ -1237,6 +1268,10 @@ def lesson_context(student, node_id, attempt_context=Attempt.Context.LESSON):
     review = review_stats(student, node)
     snapshot = gamification_snapshot(student)
     mastery = node_states(student)[node.id]
+    current_stage = next(stage["key"] for stage in stages if stage["is_current"])
+    if attempt_context == Attempt.Context.REVIEW:
+        # A scheduled retention review is topic practice, not a return to theory.
+        current_stage = "tasks"
     return {
         "node": node,
         "video_lessons": video_lessons,
@@ -1245,7 +1280,7 @@ def lesson_context(student, node_id, attempt_context=Attempt.Context.LESSON):
         "attempt_context": attempt_context,
         "mentor_enabled": mentor_available(attempt_context),
         "stages": stages,
-        "current_stage": next(stage["key"] for stage in stages if stage["is_current"]),
+        "current_stage": current_stage,
         "lesson_is_complete": all(stage["is_done"] for stage in stages),
         "task_stats": task_stats(student, node),
         "due_node_reviews": review["due"],
@@ -1399,6 +1434,7 @@ def forecast_context(student):
     from apps.progress.services import (
         active_exam_profile,
         forecast_interval,
+        plan_contract,
         profile_coverage,
     )
 
@@ -1417,6 +1453,8 @@ def forecast_context(student):
         ]
     return {
         "forecast": forecast,
+        "contract": plan_contract(student),
+        "plan_phase": plan_phase(student),
         "target_score": student.target_score,
         "trajectory": plan.trajectory if plan and plan.trajectory_id else None,
         "gauge": primary_gauge(student, forecast),
@@ -1496,7 +1534,11 @@ def mock_result_context(student, result_id):
 
 
 def parent_context(parent):
-    from apps.progress.services import build_parent_report, localize_parent_report_payload
+    from apps.progress.services import (
+        build_parent_report,
+        localize_parent_report_payload,
+        plan_contract,
+    )
 
     child = parent.children.select_related("user").first()
     if child is None:
@@ -1537,6 +1579,7 @@ def parent_context(parent):
     gauge = gauge_metrics(score)
     return {
         "child": child,
+        "contract": plan_contract(child),
         "report": report,
         "report_data": payload,
         "error_distribution": distribution,

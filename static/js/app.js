@@ -1727,6 +1727,37 @@
     }
   });
 
+  // Договор после смены часов: те же тексты, что в partials/contract.html.
+  function renderContract(contract) {
+    const card = document.querySelector("[data-contract]");
+    if (!card) return;
+    card.dataset.status = contract.status;
+    const set = (selector, value) => { const node = card.querySelector(selector); if (node) node.textContent = value; };
+    set("[data-contract-forecast]", contract.forecast_score ?? "—");
+    set("[data-contract-hours]", contract.weekly_hours);
+    set("[data-contract-needed]", contract.needed_hours ? `${contract.needed_hours} ч` : (contract.status === "unreachable" ? "больше 20 ч" : "—"));
+    const text = card.querySelector("[data-contract-text]");
+    if (text) {
+      const head = `При ${contract.weekly_hours} ч в неделю прогноз — `;
+      const bold = value => { const b = document.createElement("b"); b.textContent = value; return b; };
+      text.replaceChildren();
+      if (contract.status === "no_data") text.append(contract.reason || "");
+      else if (contract.status === "on_track") text.append(head, bold(contract.forecast_score), `. Цель ${contract.target_score} достижима.`);
+      else if (contract.status === "needs_hours") text.append(head, bold(contract.forecast_score), `, цель — ${contract.target_score}. Чтобы успеть, нужно `, bold(`${contract.needed_hours} ч`), " в неделю.");
+      else text.append(head, bold(contract.forecast_score), `, цель — ${contract.target_score}. Даже при 20 ч в неделю реально около `, bold(contract.best_score), ".");
+    }
+    let dropped = card.querySelector("[data-contract-dropped]");
+    const showDropped = contract.not_taken?.length && contract.status !== "on_track";
+    if (showDropped) {
+      if (!dropped) {
+        dropped = document.createElement("p");
+        dropped.className = "contract-dropped"; dropped.dataset.contractDropped = "";
+        text?.after(dropped);
+      }
+      dropped.textContent = `План сознательно не берёт: ${contract.not_taken.join(", ")}.`;
+    } else dropped?.remove();
+  }
+
   // Прогноз: числа доезжают до нового значения, а шкала едет вместе с ними.
   // Мгновенная подстановка выглядела как перезагрузка страницы, а шкала и
   // вовсе оставалась на месте — казалось, что рычаги ни на что не влияют.
@@ -1844,6 +1875,7 @@
         });
         countTo(document.querySelector("[data-current-score]"), data.current_score);
         countTo(document.querySelector("[data-ceiling-score]"), data.ceiling_score);
+        if (data.contract) renderContract(data.contract);
         if (applied) {
           applied.textContent = `План перестроен: ${data.plan_items} пунктов. `
             + "Расписание уже показывает новый порядок.";

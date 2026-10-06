@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 from django.urls import reverse
 
-from .permissions import is_expert, is_methodist, is_smm
+from .permissions import can_view_goal_risks, is_expert, is_methodist, is_smm
 
 
 @dataclass
@@ -144,6 +144,12 @@ def _staff_groups(user) -> list[NavGroup]:
                 "Очередь работ", reverse("expert_queue"), "i-doc",
                 ("expert_queue", "expert_review"),
             ),
+        ]))
+    # Куратор видит учеников своих групп, которым не хватает часов на цель:
+    # по ним он отдельно говорит с учеником и родителем.
+    if can_view_goal_risks(user):
+        groups.append(NavGroup("Ученики", "i-target", [
+            NavItem("Риски по целям", reverse("studio_risks"), "i-target", ("studio_risks",)),
         ]))
     if is_methodist(user):
         groups.append(NavGroup("Контент", "i-book", [

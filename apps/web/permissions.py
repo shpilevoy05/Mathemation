@@ -21,3 +21,14 @@ def is_methodist(user):
 
 def is_smm(user):
     return _has_access(user, role=User.Role.SMM, group_name="SMM")
+
+
+def can_view_goal_risks(user):
+    """Methodists, superusers and active-group curators may see goal risks."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+    return (
+        user.is_superuser
+        or is_methodist(user)
+        or user.curated_groups.filter(is_active=True).exists()
+    )

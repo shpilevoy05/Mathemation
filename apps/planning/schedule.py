@@ -20,6 +20,8 @@ WEEK_START = 0  # понедельник
 KIND_LESSON = "lesson"
 KIND_PRACTICE = "practice"
 KIND_REVIEW = "review"
+KIND_MOCK = "mock"
+KIND_VARIANT = "variant"
 KIND_HOMEWORK = "homework"
 KIND_EXAM = "exam"
 
@@ -27,6 +29,8 @@ KIND_LABELS = {
     KIND_LESSON: "Занятие",
     KIND_PRACTICE: "Практика",
     KIND_REVIEW: "Повтор",
+    KIND_MOCK: "Пробник",
+    KIND_VARIANT: "Вариант части 1",
     KIND_HOMEWORK: "Домашка",
     KIND_EXAM: "Экзамен",
 }
@@ -86,12 +90,32 @@ def _plan_entries(student, first: date, last: date) -> dict[date, list[Entry]]:
         .order_by("order")
     )
     for item in items:
-        kind = KIND_LESSON if item.item_type == StudyPlanItem.ItemType.LESSON else KIND_PRACTICE
+        if item.item_type == StudyPlanItem.ItemType.LESSON:
+            kind = KIND_LESSON
+        elif item.item_type == StudyPlanItem.ItemType.REVIEW:
+            kind = KIND_REVIEW
+        elif item.item_type == StudyPlanItem.ItemType.MOCK:
+            kind = KIND_MOCK
+        elif item.item_type == StudyPlanItem.ItemType.VARIANT:
+            kind = KIND_VARIANT
+        else:
+            kind = KIND_PRACTICE
+        url = reverse("lesson", args=[item.node_id]) if item.node_id else None
+        if item.item_type == StudyPlanItem.ItemType.REVIEW:
+            url += "?context=review"
+        elif item.item_type == StudyPlanItem.ItemType.MOCK:
+            url = reverse("mocks")
+        elif item.item_type == StudyPlanItem.ItemType.VARIANT:
+            from apps.mocks.services import next_uncompleted_variant
+
+            variant = next_uncompleted_variant(student)
+            url = reverse("mocks") + (f"#mock-{variant.pk}" if variant else "")
+        title = item.node.title if item.node_id else KIND_LABELS[kind]
         entries.setdefault(item.due_date, []).append(
             Entry(
                 kind=kind,
-                title=item.node.title,
-                url=reverse("lesson", args=[item.node_id]),
+                title=title,
+                url=url,
                 is_done=item.status == StudyPlanItem.Status.DONE,
                 plan_item_id=item.id,
             )

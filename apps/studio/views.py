@@ -32,7 +32,7 @@ from apps.diagnostics.services import remove_diagnostic_assignment, save_diagnos
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode, TopicCluster
 from apps.mocks.models import MockExam
 from apps.mocks.services import remove_mock_assignment, save_mock_exam
-from apps.web.permissions import is_methodist
+from apps.web.permissions import can_view_goal_risks, is_methodist
 
 from .forms import (
     AssignmentForm,
@@ -77,6 +77,28 @@ def methodist_required(view):
         return view(request, *args, **kwargs)
 
     return wrapped
+
+
+def risk_staff_required(view):
+    @login_required
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if not can_view_goal_risks(request.user):
+            raise PermissionDenied
+        return view(request, *args, **kwargs)
+
+    return wrapped
+
+
+@risk_staff_required
+def risk_list(request):
+    from apps.progress.services import students_at_risk
+
+    return render(
+        request,
+        "studio/risks.html",
+        {"rows": students_at_risk(request.user)},
+    )
 
 
 def _add_validation_error(form, error: ValidationError):
@@ -714,15 +736,21 @@ def mock_edit(request, exam_id=None):
             request.POST, instance=exam, assignment_queryset=filter_assignments({})
         )
         if form.is_valid():
-            exam = save_mock_exam(
-                exam, title=form.cleaned_data["title"],
-                duration_minutes=form.cleaned_data["duration_minutes"],
-                is_active=form.cleaned_data["is_active"],
-                add_assignments=form.cleaned_data["add_tasks"],
-            )
-            audit_saved(request.user, "mock.save", exam, title=exam.title)
-            messages.success(request, "Пробник сохранён.")
-            return redirect("studio_mock_edit", exam_id=exam.pk)
+            try:
+                exam = save_mock_exam(
+                    exam,
+                    title=form.cleaned_data["title"],
+                    kind=form.cleaned_data["kind"],
+                    duration_minutes=form.cleaned_data["duration_minutes"],
+                    is_active=form.cleaned_data["is_active"],
+                    add_assignments=form.cleaned_data["add_tasks"],
+                )
+            except ValidationError as error:
+                _add_validation_error(form, error)
+            else:
+                audit_saved(request.user, "mock.save", exam, title=exam.title)
+                messages.success(request, "Пробник сохранён.")
+                return redirect("studio_mock_edit", exam_id=exam.pk)
     else:
         form = MockBuilderForm(instance=exam, assignment_queryset=picker_assignments)
     tasks = sorted(

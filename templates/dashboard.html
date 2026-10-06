@@ -99,7 +99,7 @@
   {% if week_items %}
     <dialog class="app-dialog" id="week-plan-dialog" {% if not major_changes and not trajectory_transitions %}data-auto-open{% endif %}>
       <p class="eyebrow">Твой ритм</p><h2>План на неделю</h2>
-      <ul class="check-list compact">{% for item in week_items %}<li class="{% if item.status == 'done' %}is-done{% endif %}"><span>{% if item.status == 'done' %}✓{% else %}{{ item.due_date|date:"D" }}{% endif %}</span><div><strong>{{ item.ui_type_label }}</strong><small>{{ item.node.title }} · {{ item.due_date|date:"d.m" }}</small></div></li>{% endfor %}</ul>
+      <ul class="check-list compact">{% for item in week_items %}<li class="{% if item.status == 'done' %}is-done{% endif %}"><span>{% if item.status == 'done' %}✓{% else %}{{ item.due_date|date:"D" }}{% endif %}</span><div><strong>{{ item.ui_type_label }}</strong><small>{% if item.node_id %}{{ item.node.title }} · {% endif %}{{ item.due_date|date:"d.m" }}</small></div></li>{% endfor %}</ul>
       <button class="button button-primary" type="button" data-close-dialog>К занятиям</button>
     </dialog>
   {% endif %}
@@ -173,6 +173,7 @@
 
     <section class="card card-wide today-card">
       <div class="section-heading"><div><p class="eyebrow">Сегодня</p><h2>План на сегодня</h2></div>{% if week_items %}<button class="link-button" type="button" data-open-dialog="week-plan-dialog">Показать неделю</button>{% endif %}</div>
+      {% include "partials/contract.html" with contract=contract phase=plan_phase variant="line" link=True %}
       {% if today_items %}
         <ul class="today-list">
           {% for item in today_items %}
@@ -182,7 +183,7 @@
               {% else %}
                 <button class="plan-check" type="button" aria-label="Отметить выполненным" data-complete-plan="/api/plan/items/{{ item.id }}/complete/"><svg aria-hidden="true"><use href="#i-check"></use></svg></button>
               {% endif %}
-              <div><strong>{{ item.node.title }}</strong><small>{{ item.ui_type_label }} · {{ item.ui_status_label }}</small></div>
+              <div><a class="today-link" href="{{ item.ui_url }}"><strong>{{ item.ui_title }}</strong></a><small>{{ item.ui_type_label }} · {{ item.ui_status_label }}</small></div>
               {% if item.status == 'done' %}<span class="chip success-soft">готово</span>{% else %}<span class="item-type-chip">{{ item.ui_type_label }}</span>{% endif %}
             </li>
           {% endfor %}

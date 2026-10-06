@@ -82,7 +82,7 @@ class ApplyForecastView(views.APIView):
 
     def post(self, request):
         from apps.planning.services import build_study_plan
-        from apps.progress.services import ceiling_forecast
+        from apps.progress.services import ceiling_forecast, plan_contract
 
         student = get_student(request)
         serializer = ApplyForecastSerializer(data=request.data)
@@ -104,6 +104,7 @@ class ApplyForecastView(views.APIView):
             "limited_by": forecast["limited_by"],
             "plan_items": plan.items.count() if plan else 0,
             "unplanned_nodes": plan.unplanned_nodes if plan else 0,
+            "contract": plan_contract(student),
         })
 
 
