@@ -4,9 +4,9 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 
 from apps.practice.models import Attempt, MistakeBacklogItem, ReviewSchedule
-from apps.practice.services import process_attempt_result, register_mistake, submit_attempt
+from apps.practice.services import register_mistake, submit_attempt
 
-from .evidence import apply_step_marks
+from .evidence import apply_score_ratio, apply_step_marks
 from .models import ExpertReviewRequest, SolutionStepMark
 
 
@@ -110,7 +110,7 @@ def finish_review(request: ExpertReviewRequest, reviewer, score_by_criteria: dic
         apply_step_marks(request)
         _close_plan_for_done_steps(request)
     else:
-        process_attempt_result(attempt)
+        apply_score_ratio(request)
     # Вердикт по пробнику: пересчитать итог и, если все работы проверены,
     # закрыть пробник (калибровка прогноза + адаптация плана).
     if request.mock_result:

@@ -8,7 +8,7 @@ from apps.engine.decay import decayed_mastery, next_intervals
 from apps.engine.dto import EdgeDTO, EngineParams, NodeState, TaskWeight
 from apps.engine.forecast import expected_primary, probability_correct, scaled_score
 from apps.engine.mastery import bkt_update
-from apps.engine.planner import greedy_plan, topological_order
+from apps.engine.planner import greedy_plan, study_cost_hours, topological_order
 
 
 PARAMS = EngineParams(
@@ -18,6 +18,7 @@ PARAMS = EngineParams(
     max_primary_score=32,
     hours_per_node=2,
     attainable_mastery=85,
+    plan_min_cost_share=0.25,
     bkt_alpha=0.3,
     forecast_calibration_alpha=0.3,
     theta_scale=6,
@@ -151,6 +152,15 @@ class PlannerEngineTests(SimpleTestCase):
             PARAMS,
         )
         self.assertEqual([state.node_id for state in ordered], [1, 2])
+
+    def test_study_cost_is_lower_for_partly_mastered_topic(self):
+        empty = node(1, mastery=0)
+        partly = node(2, mastery=60)
+
+        self.assertLess(
+            study_cost_hours(partly, PARAMS),
+            study_cost_hours(empty, PARAMS),
+        )
 
     def test_prerequisites_precede_dependants(self):
         ordered = topological_order(

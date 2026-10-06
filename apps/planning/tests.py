@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.utils import timezone
 
 from apps.knowledge.models import KnowledgeDependency, TopicCluster
@@ -18,7 +18,6 @@ from apps.planning.services import (
     build_study_plan,
     get_active_plan,
     log_plan_change,
-    maybe_transition,
     reinsert_node,
 )
 
@@ -75,9 +74,11 @@ class StudyPlanTests(TestCase):
         from apps.planning.models import PlanChangeLog
         from apps.planning.services import rebuild_after_inactivity
 
-        build_study_plan(self.student)
+        old_plan = build_study_plan(self.student)
         plan = rebuild_after_inactivity(self.student, idle_days=14)
         self.assertIsNotNone(plan)
+        self.assertNotEqual(plan.id, old_plan.id)
+        self.assertFalse(TrajectoryTransition.objects.exists())
         change = PlanChangeLog.objects.get(reason=PlanChangeLog.Reason.INACTIVITY)
         self.assertTrue(change.is_major)
         self.assertFalse(change.acknowledged)
@@ -108,158 +109,13 @@ class TrajectoryTests(TestCase):
     def test_score_above_90_uses_top_trajectory(self):
         self.assertEqual(assign_trajectory(self.student, 97).slug, "score90")
 
-    def test_poor_mock_moves_down_and_rebuilds_plan(self):
-        assign_trajectory(self.student, 84)
-        build_study_plan(self.student)
-        transition = maybe_transition(
-            self.student,
-            PlanChangeLog.Reason.POOR_MOCK,
-            {"scaled_score": 70, "node_ids": [self.node.id]},
-        )
-
-        self.assertIsNotNone(transition)
-        self.assertEqual(transition.from_trajectory.slug, "score84")
-        self.assertEqual(transition.to_trajectory.slug, "score78")
-        self.assertTrue(transition.recovery_actions)
-        self.assertIn(
-            f'Вернуть в план: "{self.node.title}".',
-            transition.recovery_actions,
-        )
-        self.assertNotIn(str(self.node.id), transition.recovery_actions[0])
-        self.assertEqual(get_active_plan(self.student).trajectory.slug, "score78")
-        self.assertTrue(
-            PlanChangeLog.objects.filter(
-                reason=PlanChangeLog.Reason.POOR_MOCK, is_major=True
-            ).exists()
-        )
-        self.assertTrue(
-            Event.objects.filter(event_type=Event.Type.TRAJECTORY_TRANSITION).exists()
-        )
-
-    @override_settings(TRAJECTORY_DOWNGRADE_COOLDOWN_HOURS=24)
-    def test_second_downgrade_within_cooldown_is_skipped(self):
-        assign_trajectory(self.student, 90)
-        build_study_plan(self.student)
-
-        first = maybe_transition(
-            self.student,
-            PlanChangeLog.Reason.FREQUENT_MISTAKES,
-            {"error_count": 3},
-        )
-        second = maybe_transition(
-            self.student,
-            PlanChangeLog.Reason.FREQUENT_MISTAKES,
-            {"error_count": 3},
-        )
-
-        self.assertEqual(first.to_trajectory.slug, "score84")
-        self.assertIsNone(second)
-        self.assertEqual(get_active_plan(self.student).trajectory.slug, "score84")
-        self.assertEqual(
-            TrajectoryTransition.objects.filter(
-                student=self.student,
-                from_trajectory__isnull=False,
-            ).count(),
-            1,
-        )
-
-    @override_settings(TRAJECTORY_DOWNGRADE_COOLDOWN_HOURS=24)
-    def test_downgrade_after_cooldown_is_allowed(self):
-        assign_trajectory(self.student, 90)
-        build_study_plan(self.student)
-        first = maybe_transition(
-            self.student,
-            PlanChangeLog.Reason.FREQUENT_MISTAKES,
-            {"error_count": 3},
-        )
-        TrajectoryTransition.objects.filter(pk=first.pk).update(
-            created_at=timezone.now() - timedelta(hours=24, seconds=1)
-        )
-
-        second = maybe_transition(
-            self.student,
-            PlanChangeLog.Reason.FREQUENT_MISTAKES,
-            {"error_count": 3},
-        )
-
-        self.assertIsNotNone(second)
-        self.assertEqual(second.from_trajectory.slug, "score84")
-        self.assertEqual(second.to_trajectory.slug, "score78")
-
-    @override_settings(TRAJECTORY_DOWNGRADE_COOLDOWN_HOURS=24)
-    def test_upgrade_within_downgrade_cooldown_is_allowed(self):
-        from apps.mocks.models import MockExam, MockExamResult
-
-        assign_trajectory(self.student, 90)
-        build_study_plan(self.student)
-        maybe_transition(
-            self.student,
-            PlanChangeLog.Reason.FREQUENT_MISTAKES,
-            {"error_count": 3},
-        )
-        exam = MockExam.objects.create(title="Сильный пробник")
-        for completed_at in (
-            timezone.now() - timedelta(hours=2),
-            timezone.now() - timedelta(hours=1),
-        ):
-            MockExamResult.objects.create(
-                student=self.student,
-                exam=exam,
-                status=MockExamResult.Status.COMPLETED,
-                scaled_score=100,
-                completed_at=completed_at,
-            )
-
-        transition = maybe_transition(
-            self.student,
-            PlanChangeLog.Reason.POOR_MOCK,
-            {"scaled_score": 100},
-        )
-
-        self.assertIsNotNone(transition)
-        self.assertEqual(transition.from_trajectory.slug, "score84")
-        self.assertEqual(transition.to_trajectory.slug, "score90")
-
-    def test_recovery_actions_from_details_deduplicate_and_skip_missing_nodes(self):
-        second_node = make_node("second-trajectory-node", cluster=self.node.cluster)
-        assign_trajectory(self.student, 84)
-        build_study_plan(self.student)
-
-        transition = maybe_transition(
-            self.student,
-            PlanChangeLog.Reason.INACTIVITY,
-            {"idle_days": 14, "node_ids": [self.node.id, self.node.id, 999999]},
-        )
-
-        recovery = transition.recovery_actions[0]
-        self.assertEqual(recovery.count(f'"{self.node.title}"'), 1)
-        self.assertNotIn("999999", recovery)
-        self.assertNotIn(f'"{second_node.title}"', recovery)
-
-    def test_recovery_actions_from_plan_deduplicate_nodes_and_use_titles(self):
-        second_node = make_node("second-trajectory-node", cluster=self.node.cluster)
-        assign_trajectory(self.student, 84)
-        build_study_plan(self.student)
-
-        transition = maybe_transition(
-            self.student,
-            PlanChangeLog.Reason.INACTIVITY,
-            {"idle_days": 14},
-        )
-
-        recovery = transition.recovery_actions[0]
-        self.assertEqual(recovery.count(f'"{self.node.title}"'), 1)
-        self.assertEqual(recovery.count(f'"{second_node.title}"'), 1)
-        self.assertNotIn(str(self.node.id), recovery)
-        self.assertNotIn(str(second_node.id), recovery)
-
     def test_acknowledge_transition_api(self):
         assign_trajectory(self.student, 84)
         build_study_plan(self.student)
-        transition = maybe_transition(
-            self.student,
-            PlanChangeLog.Reason.INACTIVITY,
-            {"idle_days": 14},
+        transition = TrajectoryTransition.objects.create(
+            student=self.student,
+            to_trajectory=Trajectory.objects.get(slug="score84"),
+            reasons=[PlanChangeLog.Reason.INACTIVITY],
         )
         self.client.force_login(self.student.user)
         response = self.client.post(
@@ -268,78 +124,6 @@ class TrajectoryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         transition.refresh_from_db()
         self.assertTrue(transition.acknowledged)
-
-    def test_three_errors_on_node_move_trajectory_down(self):
-        from apps.practice.models import Attempt
-        from apps.practice.services import submit_attempt
-        from apps.practice.tests import make_assignment
-
-        assignment = make_assignment(self.node, answer="42")
-        assign_trajectory(self.student, 84)
-        build_study_plan(self.student)
-        StudyPlanItem.objects.update(status=StudyPlanItem.Status.DONE)
-        for _ in range(3):
-            submit_attempt(self.student, assignment, "wrong", Attempt.Context.LESSON)
-        transition = TrajectoryTransition.objects.get(
-            student=self.student,
-            from_trajectory__slug="score84",
-            to_trajectory__slug="score78",
-        )
-        self.assertIn(PlanChangeLog.Reason.FREQUENT_MISTAKES, transition.reasons)
-
-    def test_frequent_mistake_transition_stores_and_explains_evidence(self):
-        from apps.practice.models import MistakeBacklogItem
-        from apps.practice.tests import make_assignment
-        from apps.progress.services import transition_explanation
-
-        second_node = make_node("evidence-second", cluster=self.node.cluster)
-        first_assignment = make_assignment(self.node)
-        first_assignment.title = "Степени"
-        first_assignment.save(update_fields=["title"])
-        second_assignment = make_assignment(second_node)
-        second_assignment.title = "Логарифм произведения"
-        second_assignment.save(update_fields=["title"])
-        unknown_assignment = make_assignment(second_node)
-        unknown_assignment.title = "Вписанный угол"
-        unknown_assignment.save(update_fields=["title"])
-        MistakeBacklogItem.objects.create(
-            student=self.student, node=self.node, assignment=first_assignment,
-            error_count=4, error_type=MistakeBacklogItem.ErrorType.ARITHMETIC_SLIP,
-        )
-        MistakeBacklogItem.objects.create(
-            student=self.student, node=second_node, assignment=second_assignment,
-            error_count=2, error_type=MistakeBacklogItem.ErrorType.MISREAD_CONDITION,
-        )
-        MistakeBacklogItem.objects.create(
-            student=self.student, node=second_node, assignment=unknown_assignment,
-            error_count=6, error_type=MistakeBacklogItem.ErrorType.UNKNOWN,
-        )
-        assign_trajectory(self.student, 84)
-        build_study_plan(self.student)
-
-        transition = maybe_transition(
-            self.student, PlanChangeLog.Reason.FREQUENT_MISTAKES,
-            {"error_count": 4, "node_ids": [self.node.id]},
-        )
-
-        self.assertEqual(transition.evidence["mistake_count"], 12)
-        self.assertEqual(transition.evidence["trigger_topic"], self.node.title)
-        self.assertEqual(transition.evidence["trigger_count"], 4)
-        self.assertEqual(transition.evidence["breakdown_days"], 7)
-        self.assertEqual(transition.evidence["topics"][0]["title"], self.node.title)
-        self.assertEqual(transition.evidence["examples"][0], "Степени")
-        self.assertNotIn(
-            "тип уточняется",
-            [item["label"] for item in transition.evidence["error_types"]],
-        )
-        explanation = transition_explanation(transition)
-        self.assertIn(
-            f"По теме «{self.node.title}» накопились 4 неисправленные ошибки — "
-            "при 3 и больше мы снижаем темп, чтобы сначала закрыть пробел.",
-            explanation,
-        )
-        self.assertTrue(any("арифметическая ошибка" in line for line in explanation))
-        self.assertTrue(any("Степени" in line for line in explanation))
 
     def test_previous_evidence_version_uses_breakdown_without_trigger_sentence(self):
         from apps.progress.services import transition_explanation
@@ -364,37 +148,6 @@ class TrajectoryTests(TestCase):
             explanation,
             [f"За последние 7 дней больше всего ошибок в темах: {self.node.title} — 5."],
         )
-
-    def test_trigger_topic_example_precedes_recent_other_topic(self):
-        from apps.practice.models import MistakeBacklogItem
-        from apps.practice.tests import make_assignment
-
-        other_node = make_node("recent-other-topic", cluster=self.node.cluster)
-        trigger_assignment = make_assignment(self.node)
-        trigger_assignment.title = "Старая задача нужной темы"
-        trigger_assignment.save(update_fields=["title"])
-        other_assignment = make_assignment(other_node)
-        other_assignment.title = "Свежая задача другой темы"
-        other_assignment.save(update_fields=["title"])
-        trigger_item = MistakeBacklogItem.objects.create(
-            student=self.student, node=self.node, assignment=trigger_assignment,
-            error_count=3,
-        )
-        MistakeBacklogItem.objects.filter(pk=trigger_item.pk).update(
-            created_at=timezone.now() - timedelta(days=30)
-        )
-        MistakeBacklogItem.objects.create(
-            student=self.student, node=other_node, assignment=other_assignment,
-        )
-        assign_trajectory(self.student, 84)
-        build_study_plan(self.student)
-
-        transition = maybe_transition(
-            self.student, PlanChangeLog.Reason.FREQUENT_MISTAKES,
-            {"error_count": 3, "node_ids": [self.node.id]},
-        )
-
-        self.assertEqual(transition.evidence["examples"][0], trigger_assignment.title)
 
     def test_old_transition_explanation_uses_human_label(self):
         from apps.progress.services import transition_explanation

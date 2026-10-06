@@ -23,6 +23,7 @@ def _engine_params() -> EngineParams:
         max_primary_score=settings.MAX_PRIMARY_SCORE,
         hours_per_node=settings.HOURS_PER_NODE,
         attainable_mastery=settings.ATTAINABLE_MASTERY,
+        plan_min_cost_share=settings.PLAN_MIN_COST_SHARE,
         bkt_alpha=settings.BKT_ALPHA,
         forecast_calibration_alpha=settings.FORECAST_CALIBRATION_ALPHA,
         theta_scale=settings.IRT_THETA_SCALE,
@@ -201,13 +202,6 @@ def _maybe_reinsert_topic(student, node) -> None:
             student, node,
             reason=PlanChangeLog.Reason.FREQUENT_MISTAKES,
             description=f"Частые ошибки по навыку «{node.title}» ({open_errors} открытых).",
-        )
-        from apps.planning.services import maybe_transition
-
-        maybe_transition(
-            student,
-            PlanChangeLog.Reason.FREQUENT_MISTAKES,
-            {"error_count": open_errors, "node_ids": [node.id]},
         )
 
 

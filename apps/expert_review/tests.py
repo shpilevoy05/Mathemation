@@ -10,6 +10,7 @@ from apps.expert_review.forms import FinishExpertReviewForm
 from apps.expert_review.models import ExpertReviewRequest
 from apps.events.models import Event
 from apps.knowledge.models import SkillMastery
+from apps.knowledge.services import mastery_map
 from apps.knowledge.tests import make_node, make_student
 from apps.practice.models import MistakeBacklogItem
 from apps.practice.tests import make_assignment
@@ -99,6 +100,28 @@ class ExpertErrorTagTests(TestCase):
             Event.objects.filter(
                 student=self.student,
                 event_type=Event.Type.EXPERT_REVIEW_COMPLETED,
+            ).exists()
+        )
+
+    def test_part2_score_without_step_marks_updates_mastery_proportionally(self):
+        self.assignment.max_score = 3
+        self.assignment.save(update_fields=["max_score"])
+        review = submit_solution(
+            self.student,
+            self.assignment,
+            SimpleUploadedFile("partial-solution.jpg", (b"\xff\xd8\xff\xe0" + b"\x00" * 64)),
+        )
+
+        finish_review(review, self.expert, {"K1": 1})
+
+        mastery = mastery_map(self.student)[self.node.id]
+        self.assertGreater(mastery, 0)
+        self.assertLess(mastery, 30)
+        self.assertTrue(
+            MistakeBacklogItem.objects.filter(
+                student=self.student,
+                assignment=self.assignment,
+                node=self.node,
             ).exists()
         )
 

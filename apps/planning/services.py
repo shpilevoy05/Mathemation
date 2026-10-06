@@ -1,15 +1,14 @@
 """Study plan building and adaptation."""
-import logging
-from datetime import timedelta
+from datetime import date, timedelta
 from math import ceil
 
 from django.conf import settings
 from django.db import models, transaction
 from django.utils import timezone
 
-from apps.content.models import Assignment
-from apps.engine.dto import EdgeDTO, EngineParams, NodeState, TaskWeight
-from apps.engine.planner import greedy_plan, topological_order
+from apps.engine.dto import EdgeDTO, EngineParams, NodeState
+from apps.engine.planner import greedy_plan, study_cost_hours, topological_order
+from apps.exams.services import max_primary_score, task_weights_for_nodes
 from apps.knowledge.models import KnowledgeDependency, KnowledgeNode
 from apps.knowledge.services import mastery_map
 
@@ -21,18 +20,15 @@ from .models import (
     TrajectoryTransition,
 )
 
-
-logger = logging.getLogger(__name__)
-
-
-def _engine_params() -> EngineParams:
+def _engine_params(profile=None) -> EngineParams:
     return EngineParams(
         mastery_threshold=settings.MASTERY_THRESHOLD,
         decay_grace_days=settings.DECAY_GRACE_DAYS,
         decay_rate_per_day=settings.DECAY_RATE_PER_DAY,
-        max_primary_score=settings.MAX_PRIMARY_SCORE,
+        max_primary_score=max_primary_score(profile),
         hours_per_node=settings.HOURS_PER_NODE,
         attainable_mastery=settings.ATTAINABLE_MASTERY,
+        plan_min_cost_share=settings.PLAN_MIN_COST_SHARE,
         bkt_alpha=settings.BKT_ALPHA,
         forecast_calibration_alpha=settings.FORECAST_CALIBRATION_ALPHA,
         theta_scale=settings.IRT_THETA_SCALE,
@@ -43,6 +39,7 @@ def _engine_params() -> EngineParams:
         review_ease=settings.REVIEW_EASE,
         min_review_interval_days=settings.MIN_REVIEW_INTERVAL_DAYS,
         max_review_interval_days=settings.MAX_REVIEW_INTERVAL_DAYS,
+        normalize_by_task_weights=profile is None,
     )
 
 
@@ -95,7 +92,7 @@ def _topological_order(nodes):
     return [by_id[state.node_id] for state in ordered]
 
 
-def order_pending_nodes(student) -> list[KnowledgeNode]:
+def _ordered_pending_nodes_and_params(student) -> tuple[list[KnowledgeNode], EngineParams]:
     """Неосвоенные узлы в порядке изучения (зависимости + вес в баллах).
 
     Используется и планировщиком, и симуляцией потолка прогноза.
@@ -106,36 +103,19 @@ def order_pending_nodes(student) -> list[KnowledgeNode]:
     edges = _graph_edges(ids)
     by_id = {node.id: node for node in nodes}
     states = [_node_dto(node, masteries.get(node.id, 0.0)) for node in nodes]
-    assignments = list(
-        Assignment.objects.filter(skill_tags__node_id__in=ids)
-        .prefetch_related("skill_tags")
-        .distinct()
-    )
-    task_weights = []
-    for assignment in assignments:
-        tags = list(assignment.skill_tags.all())
-        task_weights.append(
-            TaskWeight(
-                assignment_id=assignment.id,
-                node_ids=tuple(tag.node_id for tag in tags),
-                node_weights=tuple(float(tag.weight) for tag in tags),
-                max_score=float(assignment.max_score),
-                difficulty=float(assignment.difficulty),
-                discrimination=settings.IRT_DEFAULT_DISCRIMINATION,
-            )
-        )
-    if not task_weights:
-        task_weights = [
-            TaskWeight(
-                assignment_id=node.id,
-                node_ids=(node.id,),
-                max_score=float(node.weight * node.cluster.exam_weight),
-                difficulty=3.0,
-            )
-            for node in nodes
-        ]
-    ordered = greedy_plan(states, edges, task_weights, _engine_params())
-    return [by_id[state.node_id] for state in ordered]
+    weight_set = task_weights_for_nodes(nodes)
+    params = _engine_params(weight_set.profile)
+    ordered = greedy_plan(states, edges, weight_set.weights, params)
+    return [by_id[state.node_id] for state in ordered], params
+
+
+def order_pending_nodes(student) -> list[KnowledgeNode]:
+    """Несвоенные узлы в порядке изучения (зависимости + вес в баллах).
+
+    Используется публичными тестами и симуляцией: детали параметров движка остаются внутри сервиса.
+    """
+    nodes, _params = _ordered_pending_nodes_and_params(student)
+    return nodes
 
 
 def build_study_plan(student, reason: str = "initial") -> StudyPlan:
@@ -147,6 +127,7 @@ def build_study_plan(student, reason: str = "initial") -> StudyPlan:
     """
     current = get_active_plan(student)
     trajectory = current.trajectory if current else None
+    carried_items = _items_to_carry_into_new_plan(current, student.exam_date)
     if trajectory is None:
         latest_transition = (
             TrajectoryTransition.objects.filter(student=student)
@@ -164,7 +145,9 @@ def build_study_plan(student, reason: str = "initial") -> StudyPlan:
         trajectory=trajectory,
     )
 
-    _fill_plan_items(student, plan, trajectory)
+    carried_pairs = _copy_carried_items(carried_items, plan)
+    _fill_plan_items(student, plan, trajectory, done_pairs=carried_pairs)
+    _renumber_plan_items(plan)
     from apps.events.models import Event
     from apps.events.services import log_event
 
@@ -179,8 +162,46 @@ def build_study_plan(student, reason: str = "initial") -> StudyPlan:
     return plan
 
 
+def _items_to_carry_into_new_plan(plan: StudyPlan | None, exam_date) -> list[StudyPlanItem]:
+    if plan is None:
+        return []
+    today = timezone.localdate()
+    carried = plan.items.exclude(status=StudyPlanItem.Status.DONE).filter(
+        models.Q(origin=StudyPlanItem.Origin.URGENT)
+        | models.Q(origin=StudyPlanItem.Origin.MANUAL, due_date__gte=today)
+    )
+    if exam_date:
+        carried = carried.filter(
+            models.Q(due_date__isnull=True) | models.Q(due_date__lte=exam_date)
+        )
+    return list(carried.order_by("order"))
+
+
+def _copy_carried_items(items: list[StudyPlanItem], plan: StudyPlan) -> set[tuple[int, str]]:
+    carried_pairs = set()
+    for item in items:
+        StudyPlanItem.objects.create(
+            plan=plan,
+            node_id=item.node_id,
+            item_type=item.item_type,
+            order=item.order,
+            week_index=item.week_index,
+            due_date=item.due_date,
+            status=item.status,
+            origin=item.origin,
+            completed_at=item.completed_at,
+        )
+        if item.node_id:
+            carried_pairs.add((item.node_id, item.item_type))
+    return carried_pairs
+
+
 def _weekly_hours(student, trajectory) -> int:
-    return trajectory.weekly_load_hours if trajectory else student.weekly_hours
+    return student.weekly_hours
+
+
+def _node_cost_hours(node, mastery: float, params: EngineParams) -> float:
+    return study_cost_hours(_node_dto(node, mastery), params)
 
 
 def _fill_plan_items(student, plan: StudyPlan, trajectory, *, done_pairs=None) -> int:
@@ -197,7 +218,8 @@ def _fill_plan_items(student, plan: StudyPlan, trajectory, *, done_pairs=None) -
     """
     weekly_hours = max(1, _weekly_hours(student, trajectory))
     today = timezone.localdate()
-    nodes = order_pending_nodes(student)
+    masteries = mastery_map(student)
+    nodes, params = _ordered_pending_nodes_and_params(student)
     done_pairs = done_pairs or set()
     # Уже закрытые пункты не возвращаем: исключаем пару «тема + тип пункта», а
     # не тему целиком — закрытый урок не отменяет практику по той же теме.
@@ -224,7 +246,7 @@ def _fill_plan_items(student, plan: StudyPlan, trajectory, *, done_pairs=None) -
     day_in_week = 0
     unplanned = 0
     for node in nodes:
-        node_hours = _node_hours(node)
+        node_hours = _node_cost_hours(node, masteries.get(node.id, 0.0), params)
         if hours_in_week and hours_in_week + node_hours > hours_per_week:
             week += 1
             hours_in_week = 0.0
@@ -262,10 +284,14 @@ def recommended_weekly_hours(student, exam_date=None) -> int | None:
     exam_date = exam_date or student.exam_date
     if exam_date is None:
         return None
-    nodes = order_pending_nodes(student)
+    nodes, params = _ordered_pending_nodes_and_params(student)
     if not nodes:
         return 0
-    total_hours = sum(_node_hours(node) for node in nodes)
+    masteries = mastery_map(student)
+    total_hours = sum(
+        _node_cost_hours(node, masteries.get(node.id, 0.0), params)
+        for node in nodes
+    )
     weeks_left = max(1, ceil((exam_date - timezone.localdate()).days / 7))
     return max(1, ceil(total_hours / weeks_left))
 
@@ -278,6 +304,43 @@ def _node_hours(node) -> float:
     return float(
         settings.HOURS_PER_NODE_BY_PART.get(node.exam_part, settings.HOURS_PER_NODE)
     )
+
+
+def _item_pair_set(items) -> set[tuple[int, str]]:
+    return {
+        (item.node_id, item.item_type)
+        for item in items
+        if item.node_id
+    }
+
+
+def _active_priority(item: StudyPlanItem) -> int:
+    if item.origin == StudyPlanItem.Origin.URGENT:
+        return 0
+    if item.origin == StudyPlanItem.Origin.MANUAL or item.status == StudyPlanItem.Status.IN_PROGRESS:
+        return 1
+    return 2
+
+
+def _renumber_plan_items(plan: StudyPlan) -> None:
+    done_items = list(plan.items.filter(status=StudyPlanItem.Status.DONE).order_by("order"))
+    active_items = list(plan.items.exclude(status=StudyPlanItem.Status.DONE))
+    ordered_active = sorted(
+        active_items,
+        key=lambda item: (
+            item.due_date is None,
+            item.due_date or date.max,
+            _active_priority(item),
+            item.order,
+        ),
+    )
+    changed = []
+    for index, item in enumerate([*done_items, *ordered_active]):
+        if item.order != index:
+            item.order = index
+            changed.append(item)
+    if changed:
+        StudyPlanItem.objects.bulk_update(changed, ["order"])
 
 
 @transaction.atomic
@@ -298,29 +361,22 @@ def reprioritize_plan(
     if plan is None:
         return None
 
-    done_items = list(plan.items.filter(status=StudyPlanItem.Status.DONE))
-    done_pairs = {
-        (item.node_id, item.item_type) for item in done_items if item.node_id
-    }
     before = list(
         plan.items.exclude(status=StudyPlanItem.Status.DONE)
         .order_by("order")
         .values_list("node_id", "item_type")
     )
 
-    plan.items.exclude(status=StudyPlanItem.Status.DONE).delete()
+    plan.items.filter(
+        status=StudyPlanItem.Status.PENDING,
+        origin=StudyPlanItem.Origin.PLAN,
+    ).delete()
     # Закрытые пункты уходят в начало очереди: они уже история, и новая
     # нумерация не должна их перемешивать с актуальными.
-    for index, item in enumerate(sorted(done_items, key=lambda entry: entry.order)):
-        if item.order != index:
-            item.order = index
-            item.save(update_fields=["order"])
+    kept_pairs = _item_pair_set(plan.items.all())
     trajectory = plan.trajectory
-    created = _fill_plan_items(student, plan, trajectory, done_pairs=done_pairs)
-    if created:
-        StudyPlanItem.objects.filter(
-            plan=plan, status=StudyPlanItem.Status.PENDING
-        ).update(order=models.F("order") + len(done_items))
+    _fill_plan_items(student, plan, trajectory, done_pairs=kept_pairs)
+    _renumber_plan_items(plan)
 
     after = list(
         plan.items.exclude(status=StudyPlanItem.Status.DONE)
@@ -375,10 +431,22 @@ def reinsert_node(student, node, reason: str, description: str = "",
     plan = get_active_plan(student)
     if plan is None:
         return None
-    has_pending = plan.items.filter(
-        node=node, status=StudyPlanItem.Status.PENDING
-    ).exists()
-    if not has_pending:
+    urgent_due = timezone.localdate() + timedelta(days=in_days)
+    item = (
+        plan.items.filter(
+            node=node,
+            status=StudyPlanItem.Status.PENDING,
+            item_type=StudyPlanItem.ItemType.PRACTICE,
+        )
+        .order_by("order")
+        .first()
+    )
+    if item is not None:
+        item.origin = StudyPlanItem.Origin.URGENT
+        if item.due_date is None or urgent_due < item.due_date:
+            item.due_date = urgent_due
+        item.save(update_fields=["origin", "due_date"])
+    else:
         # Возвращённая тема — самое срочное, что есть в плане: её срок «завтра».
         # Раньше она получала последний порядковый номер и уезжала в конец
         # списка, то есть срок и порядок противоречили друг другу.
@@ -394,10 +462,8 @@ def reinsert_node(student, node, reason: str, description: str = "",
         ).update(order=models.F("order") + 1)
         item = StudyPlanItem.objects.create(
             plan=plan, node=node, item_type=StudyPlanItem.ItemType.PRACTICE,
-            order=order, due_date=timezone.localdate() + timedelta(days=in_days),
+            order=order, due_date=urgent_due, origin=StudyPlanItem.Origin.URGENT,
         )
-    else:
-        item = None
     log_plan_change(
         student, reason=reason, description=description, is_major=is_major, node=node
     )
@@ -455,14 +521,6 @@ def rebuild_after_inactivity(student, idle_days: int) -> StudyPlan | None:
 
     if get_active_plan(student) is None:
         return None
-    transition = maybe_transition(
-        student,
-        PlanChangeLog.Reason.INACTIVITY,
-        {"idle_days": idle_days},
-    )
-    if transition:
-        return get_active_plan(student)
-
     plan = build_study_plan(student, reason=PlanChangeLog.Reason.INACTIVITY)
     predicted, _ = predict_score(student)
     weeks = max(1, round(idle_days / 7))
@@ -580,240 +638,6 @@ def change_target_score(student, target_score: int) -> dict:
     }
 
 
-def _recovery_actions(student, details: dict, trajectory: Trajectory) -> list[str]:
-    node_ids = []
-    for node_id in details.get("node_ids", []):
-        try:
-            node_ids.append(int(node_id))
-        except (TypeError, ValueError):
-            continue
-    plan = get_active_plan(student)
-    if not node_ids and plan:
-        node_ids = list(
-            plan.items.filter(
-                status__in=[StudyPlanItem.Status.PENDING, StudyPlanItem.Status.IN_PROGRESS],
-                node_id__isnull=False,
-            )
-            .order_by()
-            .values_list("node_id", flat=True)
-            .distinct()[:3]
-        )
-    node_ids = list(dict.fromkeys(node_ids))
-    nodes_by_id = KnowledgeNode.objects.in_bulk(node_ids)
-    node_titles = [
-        nodes_by_id[node_id].title
-        for node_id in node_ids
-        if node_id in nodes_by_id
-    ]
-    actions = []
-    if node_titles:
-        quoted_titles = ", ".join(f'"{title}"' for title in node_titles)
-        actions.append(f"Вернуть в план: {quoted_titles}.")
-    actions.append(
-        f"Пересобрать недельный план под нагрузку {trajectory.weekly_load_hours} ч."
-    )
-    return actions
-
-
-def _transition_target(student, current: Trajectory, reason: str, details: dict):
-    trajectories = list(Trajectory.objects.order_by("target_min"))
-    index = next((i for i, item in enumerate(trajectories) if item.pk == current.pk), None)
-    if index is None:
-        return None
-
-    should_move_down = False
-    if reason == PlanChangeLog.Reason.POOR_MOCK:
-        primary_score = details.get("primary_score")
-        if primary_score is not None:
-            # Таблицу берём из активного профиля экзамена: она меняется вместе
-            # со структурой, а настройки — только запасной вариант.
-            from apps.progress.services import primary_for_scaled
-
-            target_primary = primary_for_scaled(current.target_min)
-            should_move_down = primary_score < target_primary - 5
-        else:
-            score = details.get(
-                "scaled_score",
-                details.get("score", details.get("mock_score", details.get("actual_score"))),
-            )
-            should_move_down = score is not None and score < current.target_min - 5
-    elif reason == PlanChangeLog.Reason.FREQUENT_MISTAKES:
-        error_count = details.get(
-            "error_count",
-            details.get("mistake_count", details.get("errors_count", 0)),
-        )
-        should_move_down = error_count >= settings.FREQUENT_MISTAKE_THRESHOLD
-    elif reason == PlanChangeLog.Reason.INACTIVITY:
-        idle_days = details.get("idle_days", details.get("days", 0))
-        should_move_down = idle_days >= settings.INACTIVITY_REBUILD_DAYS
-
-    if should_move_down and index > 0:
-        return trajectories[index - 1]
-
-    if reason == PlanChangeLog.Reason.POOR_MOCK and index < len(trajectories) - 1:
-        from apps.mocks.models import MockExamResult
-
-        recent_scores = list(
-            MockExamResult.objects.filter(
-                student=student,
-                status=MockExamResult.Status.COMPLETED,
-                scaled_score__isnull=False,
-            )
-            .order_by("-completed_at")
-            .values_list("scaled_score", flat=True)[:2]
-        )
-        if len(recent_scores) == 2 and all(score > current.target_max for score in recent_scores):
-            return trajectories[index + 1]
-    return None
-
-
-def _transition_evidence(student, current: Trajectory, reason: str, details: dict) -> dict:
-    """Freeze the concrete facts that justified a trajectory transition."""
-    if reason == PlanChangeLog.Reason.FREQUENT_MISTAKES:
-        from apps.practice.models import ERROR_TYPE_LABELS, MistakeBacklogItem
-
-        breakdown_days = 7
-        cutoff = timezone.now() - timedelta(days=breakdown_days)
-        trigger_node_ids = details.get("node_ids", [])
-        trigger_node = (
-            KnowledgeNode.objects.filter(pk=trigger_node_ids[0]).first()
-            if trigger_node_ids else None
-        )
-        items = list(
-            MistakeBacklogItem.objects.filter(
-                student=student,
-                created_at__gte=cutoff,
-            )
-            .exclude(status=MistakeBacklogItem.Status.RESOLVED)
-            .select_related("node", "assignment")
-            .order_by("-created_at", "-id")
-        )
-        topic_counts: dict[str, int] = {}
-        error_type_counts: dict[str, int] = {}
-        for item in items:
-            topic_counts[item.node.title] = topic_counts.get(item.node.title, 0) + item.error_count
-            if item.error_type != MistakeBacklogItem.ErrorType.UNKNOWN:
-                label = ERROR_TYPE_LABELS.get(item.error_type, item.get_error_type_display())
-                error_type_counts[label] = error_type_counts.get(label, 0) + item.error_count
-
-        examples = []
-        if trigger_node:
-            trigger_titles = (
-                MistakeBacklogItem.objects.filter(student=student, node=trigger_node)
-                .exclude(status=MistakeBacklogItem.Status.RESOLVED)
-                .order_by("-created_at", "-id")
-                .values_list("assignment__title", flat=True)
-            )
-            examples.extend(dict.fromkeys(trigger_titles))
-        for item in items:
-            if item.assignment.title not in examples:
-                examples.append(item.assignment.title)
-
-        trigger_title = trigger_node.title if trigger_node else ""
-        return {
-            "trigger_topic": trigger_title,
-            "trigger_count": int(details.get("error_count", 0)),
-            "breakdown_days": breakdown_days,
-            "mistake_count": sum(item.error_count for item in items),
-            "threshold": settings.FREQUENT_MISTAKE_THRESHOLD,
-            "topics": [
-                {"title": title, "count": count}
-                for title, count in sorted(
-                    topic_counts.items(),
-                    key=lambda row: (row[0] != trigger_title, -row[1], row[0]),
-                )[:3]
-            ],
-            "error_types": [
-                {"label": label, "count": count}
-                for label, count in sorted(error_type_counts.items(), key=lambda row: (-row[1], row[0]))
-            ],
-            "examples": examples[:3],
-        }
-    if reason == PlanChangeLog.Reason.POOR_MOCK:
-        from apps.progress.services import primary_for_scaled
-
-        return {
-            "mock_title": details.get("mock_title", ""),
-            "primary_score": details.get("primary_score"),
-            "scaled_score": details.get("scaled_score"),
-            "required_primary_score": primary_for_scaled(current.target_min),
-            "required_scaled_score": current.target_min,
-        }
-    if reason == PlanChangeLog.Reason.INACTIVITY:
-        return {"idle_days": int(details.get("idle_days", details.get("days", 0)))}
-    return {}
-
-
-@transaction.atomic
-def maybe_transition(student, reason: str, details: dict | None = None):
-    details = details or {}
-    current = _current_trajectory(student)
-    if current is None:
-        return None
-    target = _transition_target(student, current, reason, details)
-    if target is None or target.pk == current.pk:
-        return None
-
-    moving_down = target.target_min < current.target_min
-    if moving_down:
-        cooldown_started_at = timezone.now() - timedelta(
-            hours=settings.TRAJECTORY_DOWNGRADE_COOLDOWN_HOURS
-        )
-        recent_downgrade_exists = TrajectoryTransition.objects.filter(
-            student=student,
-            from_trajectory__target_min__gt=models.F("to_trajectory__target_min"),
-            created_at__gt=cooldown_started_at,
-        ).exists()
-        if recent_downgrade_exists:
-            logger.debug(
-                "trajectory.downgrade_skipped student=%s current=%s target=%s "
-                "cooldown_hours=%s",
-                student.pk,
-                current.slug,
-                target.slug,
-                settings.TRAJECTORY_DOWNGRADE_COOLDOWN_HOURS,
-            )
-            return None
-
-    recovery_actions = _recovery_actions(student, details, target) if moving_down else []
-    transition = TrajectoryTransition.objects.create(
-        student=student,
-        from_trajectory=current,
-        to_trajectory=target,
-        reasons=[reason],
-        evidence=_transition_evidence(student, current, reason, details),
-        recovery_actions=recovery_actions,
-    )
-    old_plan = get_active_plan(student)
-    if old_plan:
-        old_plan.trajectory = target
-        old_plan.save(update_fields=["trajectory"])
-    build_study_plan(student, reason=reason)
-    log_plan_change(
-        student,
-        reason=reason,
-        description=(
-            f"При текущем темпе траектория изменена с {current.title} на {target.title}."
-        ),
-        is_major=True,
-    )
-
-    from apps.events.models import Event
-    from apps.events.services import log_event
-
-    log_event(
-        Event.Type.TRAJECTORY_TRANSITION,
-        student=student,
-        transition_id=transition.id,
-        from_trajectory_id=current.id,
-        to_trajectory_id=target.id,
-        reason=reason,
-        details=details,
-        recovery_actions=recovery_actions,
-    )
-    return transition
-
-
 def acknowledge_trajectory_transition(student, transition_id: int):
     transition = TrajectoryTransition.objects.get(pk=transition_id, student=student)
     transition.acknowledged = True
@@ -856,7 +680,8 @@ def move_item(item, new_date) -> StudyPlanItem:
         raise PlanItemMoveRefused("Дата позже экзамена — план так не строят.")
     item.due_date = new_date
     item.week_index = max(0, (new_date - today).days // 7)
-    item.save(update_fields=["due_date", "week_index"])
+    item.origin = StudyPlanItem.Origin.MANUAL
+    item.save(update_fields=["due_date", "week_index", "origin"])
     log_plan_change(
         item.plan.student,
         PlanChangeLog.Reason.MANUAL,

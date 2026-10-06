@@ -65,6 +65,15 @@ def greedy_pending_nodes(
     return greedy_plan(node_states, edges, tasks, params)
 
 
+def study_cost_hours(node: NodeState, params: EngineParams) -> float:
+    base_hours = node.study_hours(params.hours_per_node)
+    if base_hours <= 0:
+        base_hours = 1.0
+    attainable = params.attainable_mastery or 1.0
+    missing_share = (params.attainable_mastery - node.mastery) / attainable
+    return base_hours * max(params.plan_min_cost_share, missing_share)
+
+
 def greedy_plan(
     node_states: Sequence[NodeState],
     edges: Sequence[EdgeDTO],
@@ -136,9 +145,7 @@ def greedy_plan(
             ]
             gain = expected_primary(candidate_states, task_weights, params) - baseline
             node = by_id[node_id]
-            hours = node.study_hours(params.hours_per_node)
-            if hours <= 0:
-                hours = 1.0
+            hours = study_cost_hours(node, params)
             return (
                 -(gain / hours),
                 -(node.weight * node.cluster_weight),

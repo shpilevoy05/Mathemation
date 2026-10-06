@@ -6,9 +6,12 @@ from datetime import timedelta
 
 from apps.content.models import Assignment
 from apps.expert_review.services import finish_review, submit_solution
+from apps.knowledge.services import mastery_map, set_mastery
 from apps.knowledge.tests import make_node, make_student
 from apps.mocks.models import MockExam, MockExamResult
 from apps.mocks.services import complete_mock_part1, submit_mock
+from apps.planning.models import PlanChangeLog, TrajectoryTransition
+from apps.planning.services import assign_trajectory, build_study_plan, get_active_plan
 from apps.practice.models import Attempt
 from apps.practice.services import submit_attempt
 from apps.practice.tests import make_assignment
@@ -117,3 +120,31 @@ class MockLifecycleTests(TestCase):
         self.assertTrue(result.time_expired)
         self.assertEqual(result.status, MockExamResult.Status.COMPLETED)
         self.assertEqual(result.attempts.count(), 1)
+
+    def test_weak_mock_updates_mastery_without_trajectory_or_plan_rebuild(self):
+        self.exam.assignments.set([self.a1])
+        set_mastery(self.student, self.node1, 80)
+        assign_trajectory(self.student, 84)
+        old_transition_count = TrajectoryTransition.objects.count()
+        old_plan = build_study_plan(self.student)
+
+        result = MockExamResult.objects.create(student=self.student, exam=self.exam)
+        submit_mock(result, {str(self.a1.id): "0"})
+
+        self.assertEqual(TrajectoryTransition.objects.count(), old_transition_count)
+        self.assertEqual(get_active_plan(self.student).id, old_plan.id)
+        self.assertFalse(
+            PlanChangeLog.objects.filter(reason=PlanChangeLog.Reason.POOR_MOCK).exists()
+        )
+        self.assertLess(mastery_map(self.student)[self.node1.id], 80)
+
+    def test_two_strong_mocks_do_not_raise_trajectory(self):
+        self.exam.assignments.set([self.a1])
+        assign_trajectory(self.student, 78)
+        old_transition_count = TrajectoryTransition.objects.count()
+
+        for _ in range(2):
+            result = MockExamResult.objects.create(student=self.student, exam=self.exam)
+            submit_mock(result, {str(self.a1.id): "7"})
+
+        self.assertEqual(TrajectoryTransition.objects.count(), old_transition_count)

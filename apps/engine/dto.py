@@ -50,6 +50,7 @@ class EngineParams:
     max_primary_score: float
     hours_per_node: float
     attainable_mastery: float
+    plan_min_cost_share: float
     bkt_alpha: float
     forecast_calibration_alpha: float
     theta_scale: float

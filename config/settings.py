@@ -385,10 +385,6 @@ MIN_REVIEW_INTERVAL_DAYS = 1
 MAX_REVIEW_INTERVAL_DAYS = 60
 # Open mistakes on one node that force the topic back into the plan.
 FREQUENT_MISTAKE_THRESHOLD = 3
-# Minimum time before another automatic trajectory downgrade is allowed.
-TRAJECTORY_DOWNGRADE_COOLDOWN_HOURS = int(
-    os.environ.get("TRAJECTORY_DOWNGRADE_COOLDOWN_HOURS") or "24"
-)
 # Expert review SLA (hours), stored per-request but defaulted here.
 EXPERT_REVIEW_SLA_HOURS = 48
 # Max leading hints per assignment per student.
@@ -580,6 +576,7 @@ HOURS_PER_NODE = 2
 # Дефолт по части экзамена; конкретный узел может задать hours_estimate.
 HOURS_PER_NODE_BY_PART = {1: 2, 2: 4}
 ATTAINABLE_MASTERY = 85
+PLAN_MIN_COST_SHARE = 0.25
 # Интервал прогноза: пока пробников нет, разброс берётся отсюда (первичные
 # баллы). Одно число выглядит точнее, чем прогноз есть на самом деле.
 FORECAST_PRIOR_SIGMA_PRIMARY = 3.0

@@ -11,8 +11,13 @@ from apps.engine.ceiling import simulate_ceiling
 from apps.engine.dto import EdgeDTO, EngineParams, NodeState, TaskWeight
 from apps.engine.forecast import expected_primary as engine_expected_primary
 from apps.engine.forecast import probability_correct, scaled_score
-from apps.content.models import Assignment
 from apps.exams.models import ExamProfile
+from apps.exams.services import (
+    active_exam_profile as exam_active_profile,
+    max_primary_score as exam_max_primary_score,
+    profile_task_weights,
+    task_weights_for_nodes,
+)
 from apps.knowledge.models import SkillMastery
 from apps.knowledge.services import gates, learnable_nodes
 from apps.planning.models import StudyPlanItem
@@ -157,15 +162,12 @@ def localize_parent_report_payload(payload: dict) -> dict:
 
 
 def active_exam_profile() -> ExamProfile | None:
-    return ExamProfile.active()
+    return exam_active_profile()
 
 
 def max_primary_score(profile: ExamProfile | None = None) -> float:
     """Максимум первичных баллов: из профиля, иначе из настроек."""
-    profile = profile if profile is not None else active_exam_profile()
-    if profile is not None:
-        return float(profile.max_primary_score)
-    return float(settings.MAX_PRIMARY_SCORE)
+    return exam_max_primary_score(profile)
 
 
 def _engine_params(profile: ExamProfile | None = None) -> EngineParams:
@@ -176,6 +178,7 @@ def _engine_params(profile: ExamProfile | None = None) -> EngineParams:
         max_primary_score=max_primary_score(profile),
         hours_per_node=settings.HOURS_PER_NODE,
         attainable_mastery=settings.ATTAINABLE_MASTERY,
+        plan_min_cost_share=settings.PLAN_MIN_COST_SHARE,
         bkt_alpha=settings.BKT_ALPHA,
         forecast_calibration_alpha=settings.FORECAST_CALIBRATION_ALPHA,
         theta_scale=settings.IRT_THETA_SCALE,
@@ -199,27 +202,12 @@ def _profile_task_weights(profile: ExamProfile) -> list[TaskWeight]:
     и приписывать ему вероятность по нулевому mastery — значит выдумывать
     баллы. В разборе такое задание видно с нулевым вкладом.
     """
-    weights = []
-    for task in profile.tasks.prefetch_related("skills").all():
-        skills = list(task.skills.all())
-        if not skills:
-            continue
-        weights.append(
-            TaskWeight(
-                assignment_id=task.id,
-                node_ids=tuple(skill.node_id for skill in skills),
-                node_weights=tuple(float(skill.weight) for skill in skills),
-                max_score=float(task.max_score),
-                difficulty=float(task.difficulty),
-                discrimination=settings.IRT_DEFAULT_DISCRIMINATION,
-            )
-        )
-    return weights
+    return profile_task_weights(profile)
 
 
 def _forecast_dtos(
     student, mastery_override: dict[int, float] | None = None
-) -> tuple[list[NodeState], list[TaskWeight]]:
+) -> tuple[list[NodeState], list[TaskWeight], ExamProfile | None]:
     # Папки в прогноз не идут: своего освоения у них нет, а как узлы с нулём
     # они занижали бы балл ровно на число папок.
     nodes = list(learnable_nodes().select_related("cluster"))
@@ -245,42 +233,8 @@ def _forecast_dtos(
 
     # Профиль экзамена — приоритетный источник: прогноз описывает экзамен, а
     # не содержимое банка задач.
-    profile = active_exam_profile()
-    if profile is not None:
-        profile_weights = _profile_task_weights(profile)
-        if profile_weights:
-            return states, profile_weights
-
-    assignments = list(
-        Assignment.objects.filter(skill_tags__node_id__in=[node.id for node in nodes])
-        .prefetch_related("skill_tags")
-        .distinct()
-    )
-    weights = []
-    for assignment in assignments:
-        tags = list(assignment.skill_tags.all())
-        weights.append(
-            TaskWeight(
-                assignment_id=assignment.id,
-                node_ids=tuple(tag.node_id for tag in tags),
-                node_weights=tuple(float(tag.weight) for tag in tags),
-                max_score=float(assignment.max_score),
-                difficulty=float(assignment.difficulty),
-                discrimination=settings.IRT_DEFAULT_DISCRIMINATION,
-            )
-        )
-    # Empty content databases still get a deterministic node-based bootstrap.
-    if not weights:
-        weights = [
-            TaskWeight(
-                assignment_id=node.id,
-                node_ids=(node.id,),
-                max_score=float(node.weight * node.cluster.exam_weight),
-                difficulty=3.0,
-            )
-            for node in nodes
-        ]
-    return states, weights
+    weight_set = task_weights_for_nodes(nodes)
+    return states, weight_set.weights, weight_set.profile
 
 
 def primary_to_scaled(primary: float) -> int:
@@ -317,8 +271,8 @@ def expected_primary(student, mastery_override: dict[int, float] | None = None) 
     Задания берутся из профиля экзамена, если он заполнен, иначе — из банка
     задач с нормировкой (прежнее поведение).
     """
-    states, weights = _forecast_dtos(student, mastery_override)
-    return engine_expected_primary(states, weights, _engine_params(active_exam_profile()))
+    states, weights, profile = _forecast_dtos(student, mastery_override)
+    return engine_expected_primary(states, weights, _engine_params(profile))
 
 
 def profile_coverage(profile: ExamProfile | None = None) -> dict:
@@ -352,7 +306,7 @@ def forecast_breakdown(student, mastery_override: dict[int, float] | None = None
     profile = active_exam_profile()
     if profile is None:
         return []
-    states, _ = _forecast_dtos(student, mastery_override)
+    states, _, _ = _forecast_dtos(student, mastery_override)
     params = _engine_params(profile)
     mastery_by_id = {state.node_id: state.mastery for state in states}
 
@@ -497,7 +451,7 @@ def ceiling_forecast(student, weekly_hours: int | None = None, exam_date=None) -
     exam_date = exam_date or student.exam_date
     current_score, _ = predict_score(student)
 
-    states, _ = _forecast_dtos(student)
+    states, _, profile = _forecast_dtos(student)
     edges = [
         EdgeDTO(
             from_node_id=dependency.prerequisite_id,
@@ -516,7 +470,7 @@ def ceiling_forecast(student, weekly_hours: int | None = None, exam_date=None) -
     from apps.planning.services import recommended_weekly_hours
 
     recommended_hours = recommended_weekly_hours(student, exam_date)
-    result = simulate_ceiling(states, edges, days_left, weekly_hours, _engine_params())
+    result = simulate_ceiling(states, edges, days_left, weekly_hours, _engine_params(profile))
     ceiling_score, _ = predict_score(student, mastery_override=result.mastery_profile)
 
     unreachable = list(result.unreachable_node_ids)

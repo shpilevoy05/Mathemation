@@ -1,7 +1,9 @@
 """Переоценка плана: очередь идёт за прогрессом, а не за датой сборки."""
 from datetime import timedelta
 
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from apps.knowledge.models import KnowledgeDependency
@@ -11,9 +13,12 @@ from apps.practice.tests import make_assignment
 
 from .models import StudyPlanItem
 from .services import (
+    autocomplete_items_for_node,
     build_study_plan,
     carry_over_overdue,
     get_active_plan,
+    move_item,
+    order_pending_nodes,
     reinsert_node,
     reprioritize_plan,
 )
@@ -81,6 +86,57 @@ class ReprioritizeTests(TestCase):
 
         self.assertIsNone(reprioritize_plan(other))
 
+    def test_manual_move_survives_nightly_refresh_and_autocomplete_rebuild(self):
+        plan = get_active_plan(self.student)
+        manual = plan.items.filter(node=self.rich).order_by("order").first()
+        target = timezone.localdate() + timedelta(days=5)
+        move_item(manual, target)
+
+        refresh_plans()
+
+        manual.refresh_from_db()
+        self.assertEqual(manual.origin, StudyPlanItem.Origin.MANUAL)
+        self.assertEqual(manual.due_date, target)
+
+        set_mastery(self.student, self.cheap, 95)
+        autocomplete_items_for_node(self.student, self.cheap)
+
+        manual.refresh_from_db()
+        self.assertEqual(manual.origin, StudyPlanItem.Origin.MANUAL)
+        self.assertEqual(manual.due_date, target)
+
+    def test_in_progress_item_survives_reprioritize(self):
+        plan = get_active_plan(self.student)
+        item = plan.items.order_by("order").first()
+        item.status = StudyPlanItem.Status.IN_PROGRESS
+        item.save(update_fields=["status"])
+
+        reprioritize_plan(self.student)
+
+        item.refresh_from_db()
+        self.assertEqual(item.status, StudyPlanItem.Status.IN_PROGRESS)
+
+    def test_kept_items_block_duplicate_node_type_pairs(self):
+        plan = get_active_plan(self.student)
+        manual = plan.items.order_by("order").first()
+        move_item(manual, timezone.localdate() + timedelta(days=3))
+        in_progress = (
+            plan.items.exclude(pk=manual.pk)
+            .filter(node=manual.node, item_type=StudyPlanItem.ItemType.PRACTICE)
+            .first()
+        )
+        in_progress.status = StudyPlanItem.Status.IN_PROGRESS
+        in_progress.save(update_fields=["status"])
+
+        reprioritize_plan(self.student)
+
+        pairs = list(
+            get_active_plan(self.student).items
+            .exclude(status=StudyPlanItem.Status.DONE)
+            .values_list("node_id", "item_type")
+        )
+        self.assertEqual(len(pairs), len(set(pairs)))
+
 
 class ScheduleTests(TestCase):
     def setUp(self):
@@ -117,6 +173,133 @@ class ScheduleTests(TestCase):
         self.assertTrue(due_dates)
         self.assertTrue(all(date <= self.student.exam_date for date in due_dates))
 
+    def test_partly_mastered_topic_uses_less_weekly_budget(self):
+        student = make_student("cost-student")
+        student.weekly_hours = 6
+        student.exam_date = timezone.localdate() + timedelta(days=14)
+        student.save(update_fields=["weekly_hours", "exam_date"])
+        zero = make_node("cost-zero", hours_estimate=4)
+        partly = make_node("cost-partly", cluster=zero.cluster, hours_estimate=4)
+        for node in (zero, partly):
+            make_assignment(node, answer="1")
+        set_mastery(student, zero, 0)
+        set_mastery(student, partly, 60)
+
+        plan = build_study_plan(student)
+
+        weeks = {
+            item.node_id: item.week_index
+            for item in plan.items.filter(item_type=StudyPlanItem.ItemType.LESSON)
+        }
+        self.assertEqual(weeks[zero.id], weeks[partly.id])
+
+    def test_recommended_hours_use_the_same_starting_level_costs(self):
+        student = make_student("cost-advice-student")
+        student.exam_date = timezone.localdate() + timedelta(days=7)
+        student.save(update_fields=["exam_date"])
+        set_mastery(student, self.node_short, 100)
+        set_mastery(student, self.node_long, 100)
+        zero = make_node("cost-advice-zero", hours_estimate=4)
+        partly = make_node("cost-advice-partly", cluster=zero.cluster, hours_estimate=4)
+        for node in (zero, partly):
+            make_assignment(node, answer="1")
+        set_mastery(student, zero, 0)
+        set_mastery(student, partly, 60)
+
+        from .services import recommended_weekly_hours
+
+        self.assertEqual(recommended_weekly_hours(student), 6)
+
+    def test_recommended_hours_query_count_does_not_grow_with_nodes(self):
+        from .services import recommended_weekly_hours
+
+        small = make_student("query-small")
+        small.exam_date = timezone.localdate() + timedelta(days=21)
+        small.save(update_fields=["exam_date"])
+        small_node = make_node("query-small-node")
+        make_assignment(small_node)
+
+        large = make_student("query-large")
+        large.exam_date = timezone.localdate() + timedelta(days=21)
+        large.save(update_fields=["exam_date"])
+        cluster = None
+        for index in range(8):
+            node = make_node(f"query-large-{index}", cluster=cluster)
+            cluster = node.cluster
+            make_assignment(node)
+
+        with CaptureQueriesContext(connection) as small_queries:
+            recommended_weekly_hours(small)
+        with CaptureQueriesContext(connection) as large_queries:
+            recommended_weekly_hours(large)
+        self.assertEqual(len(small_queries), len(large_queries))
+
+    def test_student_weekly_hours_override_trajectory_for_scheduling(self):
+        from .models import Trajectory
+
+        student = make_student("student-hours-student")
+        student.weekly_hours = 4
+        student.exam_date = timezone.localdate() + timedelta(days=14)
+        student.save(update_fields=["weekly_hours", "exam_date"])
+        set_mastery(student, self.node_short, 100)
+        set_mastery(student, self.node_long, 100)
+        trajectory = Trajectory.objects.create(
+            slug="ten-hour-hint",
+            title="10h",
+            target_min=80,
+            target_max=90,
+            weekly_load_hours=10,
+        )
+        node_a = make_node("student-hours-a", hours_estimate=4)
+        node_b = make_node("student-hours-b", cluster=node_a.cluster, hours_estimate=4)
+        for node in (node_a, node_b):
+            make_assignment(node, answer="1")
+        from .models import TrajectoryTransition
+
+        TrajectoryTransition.objects.create(student=student, to_trajectory=trajectory)
+
+        plan = build_study_plan(student)
+
+        weeks = {
+            item.node_id: item.week_index
+            for item in plan.items.filter(item_type=StudyPlanItem.ItemType.LESSON)
+        }
+        self.assertNotEqual(weeks[node_a.id], weeks[node_b.id])
+
+    def test_planner_uses_exam_profile_weights_before_bank_volume(self):
+        from apps.exams.models import ExamProfile, ExamTask, ExamTaskSkill
+
+        student = make_student("profile-plan-student")
+        set_mastery(student, self.node_short, 100)
+        set_mastery(student, self.node_long, 100)
+        light = make_node("profile-light")
+        heavy = make_node("profile-heavy", cluster=light.cluster)
+        for index in range(12):
+            make_assignment(light, answer=str(index))
+        make_assignment(heavy, answer="h")
+        profile = ExamProfile.objects.create(
+            year=2030,
+            title="Planner profile",
+            max_primary_score=5,
+            primary_to_scaled=[0, 20, 40, 60, 80, 100],
+            is_active=True,
+        )
+        light_task = ExamTask.objects.create(
+            profile=profile, number=1, max_score=1, difficulty=3
+        )
+        heavy_task = ExamTask.objects.create(
+            profile=profile, number=2, max_score=4, difficulty=3
+        )
+        ExamTaskSkill.objects.create(task=light_task, node=light)
+        ExamTaskSkill.objects.create(task=heavy_task, node=heavy)
+
+        ordered = order_pending_nodes(student)
+
+        self.assertLess(
+            [node.id for node in ordered].index(heavy.id),
+            [node.id for node in ordered].index(light.id),
+        )
+
 
 class UrgentReworkTests(TestCase):
     def setUp(self):
@@ -125,7 +308,7 @@ class UrgentReworkTests(TestCase):
         self.other = make_node("other-node", cluster=self.node.cluster)
         for node in (self.node, self.other):
             make_assignment(node, answer="1")
-        build_study_plan(self.student)
+        self.plan = build_study_plan(self.student)
 
     def test_returned_topic_goes_to_the_front_of_the_queue(self):
         returned = make_node("returned", cluster=self.node.cluster)
@@ -139,7 +322,100 @@ class UrgentReworkTests(TestCase):
             .first()
         )
         self.assertEqual(first.pk, item.pk)
+        self.assertEqual(item.origin, StudyPlanItem.Origin.URGENT)
         self.assertEqual(item.due_date, timezone.localdate() + timedelta(days=1))
+
+    def test_existing_pending_topic_becomes_urgent_instead_of_duplicate(self):
+        practice = self.plan.items.get(
+            node=self.node, item_type=StudyPlanItem.ItemType.PRACTICE
+        )
+        old_due = practice.due_date
+
+        item = reinsert_node(self.student, self.node, reason="decay", in_days=1)
+
+        practice.refresh_from_db()
+        self.assertEqual(item.pk, practice.pk)
+        self.assertEqual(practice.origin, StudyPlanItem.Origin.URGENT)
+        self.assertEqual(
+            practice.due_date, min(old_due, timezone.localdate() + timedelta(days=1))
+        )
+        self.assertEqual(
+            self.plan.items.filter(
+                node=self.node, item_type=StudyPlanItem.ItemType.PRACTICE
+            ).count(),
+            1,
+        )
+
+    def test_urgent_item_survives_reprioritize_even_when_mastered(self):
+        returned = make_node("mastered-returned", cluster=self.node.cluster)
+        set_mastery(self.student, returned, 95)
+        item = reinsert_node(
+            self.student, returned, reason="decay", description="", in_days=0
+        )
+
+        reprioritize_plan(self.student)
+
+        item.refresh_from_db()
+        self.assertEqual(item.origin, StudyPlanItem.Origin.URGENT)
+        first = (
+            get_active_plan(self.student).items
+            .exclude(status=StudyPlanItem.Status.DONE)
+            .order_by("order")
+            .first()
+        )
+        self.assertEqual(first.pk, item.pk)
+
+
+class BuildCarryOverTests(TestCase):
+    def setUp(self):
+        self.student = make_student("build-carry-student")
+        self.node = make_node("build-carry-node")
+        self.other = make_node("build-carry-other", cluster=self.node.cluster)
+        for node in (self.node, self.other):
+            make_assignment(node, answer="1")
+        self.plan = build_study_plan(self.student)
+
+    def test_build_study_plan_carries_future_manual_and_urgent_items(self):
+        manual = self.plan.items.get(
+            node=self.node, item_type=StudyPlanItem.ItemType.LESSON
+        )
+        manual_date = timezone.localdate() + timedelta(days=4)
+        move_item(manual, manual_date)
+        urgent = reinsert_node(
+            self.student,
+            make_node("build-carry-urgent", cluster=self.node.cluster),
+            reason="decay",
+            in_days=0,
+        )
+
+        new_plan = build_study_plan(self.student, reason="manual")
+
+        carried_manual = new_plan.items.get(
+            node=self.node, item_type=StudyPlanItem.ItemType.LESSON
+        )
+        carried_urgent = new_plan.items.get(
+            node=urgent.node, item_type=StudyPlanItem.ItemType.PRACTICE
+        )
+        self.assertEqual(carried_manual.origin, StudyPlanItem.Origin.MANUAL)
+        self.assertEqual(carried_manual.due_date, manual_date)
+        self.assertEqual(carried_urgent.origin, StudyPlanItem.Origin.URGENT)
+        pairs = list(new_plan.items.values_list("node_id", "item_type"))
+        self.assertEqual(len(pairs), len(set(pairs)))
+
+    def test_build_study_plan_does_not_carry_past_manual_item(self):
+        manual = self.plan.items.get(
+            node=self.node, item_type=StudyPlanItem.ItemType.LESSON
+        )
+        manual.origin = StudyPlanItem.Origin.MANUAL
+        manual.due_date = timezone.localdate() - timedelta(days=1)
+        manual.save(update_fields=["origin", "due_date"])
+
+        new_plan = build_study_plan(self.student, reason="manual")
+
+        item = new_plan.items.get(
+            node=self.node, item_type=StudyPlanItem.ItemType.LESSON
+        )
+        self.assertEqual(item.origin, StudyPlanItem.Origin.PLAN)
 
 
 class CarryOverTests(TestCase):

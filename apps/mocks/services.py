@@ -1,17 +1,12 @@
-"""Mock exam completion: score, snapshot, calibration, plan adaptation."""
-from django.db import transaction
+"""Mock exam completion: score, snapshot, calibration, events."""
 from django.utils import timezone
 from django.db import transaction
 
 from apps.content.models import Assignment
-from apps.planning.models import PlanChangeLog
-from apps.planning.services import log_plan_change, maybe_transition, reinsert_node
 from apps.progress.services import (
     calibrate_forecast,
     create_snapshot,
-    predict_score,
     primary_to_scaled,
-    weak_topics,
 )
 
 from .models import MockExam, MockExamResult
@@ -32,11 +27,6 @@ def save_mock_exam(exam: MockExam, *, title, is_active, duration_minutes,
 
 def remove_mock_assignment(exam: MockExam, assignment) -> None:
     exam.assignments.remove(assignment)
-
-# Predicted-vs-mock gap (scaled points) that triggers a plan adjustment.
-POOR_MOCK_GAP = 10
-# Дней отработки, добавляемых на слабую тему после плохого пробника.
-POOR_MOCK_EXTRA_DAYS = 4
 
 
 class MockDeadlineExpired(Exception):
@@ -124,8 +114,8 @@ def complete_mock_part1(result: MockExamResult) -> MockExamResult:
     if result.status == MockExamResult.Status.COMPLETED:
         _finalize(result)
     else:
-        # Пока вторая часть у эксперта, балл неполный: снапшот без калибровки
-        # и без адаптации плана — они произойдут в maybe_complete_mock().
+        # Пока вторая часть у эксперта, балл неполный: снапшот без калибровки;
+        # финальная калибровка произойдёт в maybe_complete_mock().
         create_snapshot(result.student)
     return result
 
@@ -211,22 +201,10 @@ def maybe_complete_mock(result: MockExamResult) -> MockExamResult:
 
 
 def _finalize(result: MockExamResult) -> None:
-    """Пробник — механизм пересчёта траектории: калибровка, снапшот, план."""
+    """Пробник — экзаменационное измерение: калибровка, снапшот, событие."""
     # Калибруем в первичных баллах: это то, что реально измерил пробник.
     calibrate_forecast(result.student, result.total_primary_score, mock_result=result)
     create_snapshot(result.student)
-    weakest = weak_topics(result.student, limit=3)
-    maybe_transition(
-        result.student,
-        PlanChangeLog.Reason.POOR_MOCK,
-        {
-            "mock_title": result.exam.title,
-            "scaled_score": result.scaled_score,
-            "primary_score": result.total_primary_score,
-            "node_ids": [topic["node_id"] for topic in weakest],
-        },
-    )
-    _adapt_plan_after_mock(result)
     from apps.events.models import Event
     from apps.events.services import log_event
 
@@ -240,36 +218,3 @@ def _finalize(result: MockExamResult) -> None:
         total_primary_score=result.total_primary_score,
         scaled_score=result.scaled_score,
     )
-
-
-def _adapt_plan_after_mock(result: MockExamResult) -> None:
-    snapshot = result.forecast_at_start
-    table = snapshot.get("primary_to_scaled") if snapshot else None
-    if table and "calibrated_primary" in snapshot:
-        from apps.engine.forecast import scaled_score
-        predicted = scaled_score(snapshot["calibrated_primary"], table)
-    else:
-        predicted, _ = predict_score(result.student)
-    if result.scaled_score is not None and result.scaled_score + POOR_MOCK_GAP < predicted:
-        from apps.knowledge.models import KnowledgeNode
-
-        weakest = weak_topics(result.student, limit=3)
-        titles = ", ".join(t["title"] for t in weakest)
-        log_plan_change(
-            result.student,
-            reason=PlanChangeLog.Reason.POOR_MOCK,
-            description=(
-                f"Пробник «{result.exam.title}» показал слабые темы: {titles}. "
-                f"Добавил {POOR_MOCK_EXTRA_DAYS} дня на отработку, "
-                f"потолок уточнён: {predicted}."
-            ),
-            is_major=True,
-        )
-        for topic in weakest:
-            node = KnowledgeNode.objects.get(pk=topic["node_id"])
-            reinsert_node(
-                result.student, node,
-                reason=PlanChangeLog.Reason.POOR_MOCK,
-                description=f"Отработка после пробника: {node.title}",
-                in_days=POOR_MOCK_EXTRA_DAYS,
-            )

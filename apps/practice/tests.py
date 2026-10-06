@@ -6,7 +6,7 @@ from django.utils import timezone
 from apps.content.models import Assignment, AssignmentSkillTag
 from apps.knowledge.services import mastery_map
 from apps.knowledge.tests import make_node, make_student
-from apps.planning.models import PlanChangeLog, StudyPlanItem
+from apps.planning.models import PlanChangeLog, StudyPlanItem, TrajectoryTransition
 from apps.planning.services import build_study_plan
 from apps.practice.models import Attempt, MistakeBacklogItem, ReviewSchedule
 from apps.practice.services import complete_review, submit_attempt
@@ -74,7 +74,9 @@ class MistakeBacklogTests(TestCase):
             submit_attempt(self.student, self.assignment, "wrong", Attempt.Context.LESSON)
         self.assertTrue(
             StudyPlanItem.objects.filter(
-                node=self.node, status=StudyPlanItem.Status.PENDING
+                node=self.node,
+                status=StudyPlanItem.Status.PENDING,
+                origin=StudyPlanItem.Origin.URGENT,
             ).exists()
         )
         self.assertTrue(
@@ -82,6 +84,7 @@ class MistakeBacklogTests(TestCase):
                 reason=PlanChangeLog.Reason.FREQUENT_MISTAKES
             ).exists()
         )
+        self.assertFalse(TrajectoryTransition.objects.exists())
 
     def test_review_flow_resolves_backlog(self):
         submit_attempt(self.student, self.assignment, "wrong", Attempt.Context.LESSON)

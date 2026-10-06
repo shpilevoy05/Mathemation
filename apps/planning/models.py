@@ -46,6 +46,11 @@ class StudyPlanItem(models.Model):
         IN_PROGRESS = "in_progress"
         DONE = "done"
 
+    class Origin(models.TextChoices):
+        PLAN = "plan"
+        MANUAL = "manual"
+        URGENT = "urgent"
+
     class ItemType(models.TextChoices):
         LESSON = "lesson"
         PRACTICE = "practice"
@@ -62,6 +67,7 @@ class StudyPlanItem(models.Model):
     week_index = models.PositiveSmallIntegerField(default=0)
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    origin = models.CharField(max_length=16, choices=Origin.choices, default=Origin.PLAN)
     # Когда пункт закрыли на самом деле. Отчёт родителя считает недели по этому
     # полю: пункт с прошлой недели, закрытый сегодня, — работа этой недели.
     completed_at = models.DateTimeField(null=True, blank=True)
