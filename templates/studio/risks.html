@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load l10n %}
+{% block title %}Риски по целям · Матемация{% endblock %}
+{% block content %}
+<div class="studio-page">
+  <header class="page-heading">
+    <div>
+      <p class="eyebrow">Кураторство</p>
+      <h1>Риски по целям</h1>
+      <p>Ученики, которым при нынешних часах не хватает до цели. Расчёт тот же, что видят ученик и родитель на вкладке «Прогноз»; обновляется каждую ночь.</p>
+    </div>
+  </header>
+
+  {% if rows %}
+    <section class="form-section">
+      <div class="studio-table-wrap">
+        <table class="data-table risk-table">
+          <thead>
+            <tr><th>Ученик</th><th>Часов в неделю</th><th>Цель</th><th>Прогноз</th><th>Разрыв</th><th>Что нужно</th><th>План не берёт</th></tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                <td><strong>{{ row.student.user.get_full_name|default:row.student.user.username }}</strong></td>
+                <td class="num">{{ row.contract.weekly_hours|unlocalize }}</td>
+                <td class="num">{{ row.contract.target_score }}</td>
+                <td class="num">{{ row.contract.forecast_score|default:"—" }}</td>
+                <td><span class="chip risk-gap">−{{ row.gap|unlocalize }}</span></td>
+                <td>
+                  {% if row.contract.status == "needs_hours" %}
+                    <span class="chip warning-soft">{{ row.contract.needed_hours|unlocalize }} ч в неделю</span>
+                  {% else %}
+                    <span class="chip chip-draft">цель недостижима · реально ~{{ row.contract.best_score }}</span>
+                  {% endif %}
+                </td>
+                <td class="risk-dropped">{{ row.contract.not_taken|join:", "|default:"—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% else %}
+    <section class="empty-state card">
+      <h2>Рисков нет</h2>
+      <p>У всех учеников ваших групп хватает часов на цель.</p>
+    </section>
+  {% endif %}
+</div>
+{% endblock %}

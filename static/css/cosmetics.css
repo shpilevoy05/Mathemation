@@ -1,0 +1,137 @@
+/* Анимации косметики: аватары, рамки и событийные эффекты.
+
+   Описание движения — design/ANIMATIONS.md; рисунки собирает design/brand/build.py.
+   Классы анимируемых элементов в рисунках должны совпадать с этим файлом. Все анимации построены на transform и opacity,
+   исключение — потоки чёрной дыры и ленты Мёбиуса на stroke-dashoffset.
+
+   Главное правило дизайна: у элементов внутри SVG центр вращения по умолчанию
+   в левом верхнем углу холста, поэтому каждому анимируемому элементу заданы
+   transform-box: view-box и явный центр (80px для рамок, 64px для аватаров). */
+
+/* — Кейфреймы — */
+@keyframes spin { to { transform: rotate(360deg) } }
+@keyframes breathe { 0%,100% { transform: scale(1) } 50% { transform: scale(1.045) } }
+@keyframes blink { 0%,100% { opacity: .3 } 18% { opacity: 1 } 45% { opacity: .3 } }
+@keyframes twinkle { 0%,100% { opacity: .2 } 50% { opacity: 1 } }
+@keyframes glow { 0%,100% { opacity: .32 } 28% { opacity: 1 } 60% { opacity: .32 } }
+@keyframes orbit { to { transform: rotate(360deg) } }
+@keyframes shine { 0%,100% { opacity: .25; transform: translate(-6px,0) } 40% { opacity: .95; transform: translate(6px,0) } }
+@keyframes flow { to { stroke-dashoffset: -12 } }
+@keyframes dash { 0%,100% { transform: translate(0,0) } 45% { transform: translate(7px,-7px) } }
+@keyframes tailfade { 0%,100% { opacity: .55 } 45% { opacity: 1 } }
+@keyframes drift { 0%,100% { transform: translate(0,0); opacity: .7 } 45% { transform: translate(-7px,7px); opacity: .2 } }
+@keyframes flap { 0%,100% { transform: scaleX(1) } 50% { transform: scaleX(.74) } }
+@keyframes flow2 { to { stroke-dashoffset: -28 } }
+@keyframes appear { from { transform: scale(.82); opacity: 0 } 60% { transform: scale(1.04); opacity: 1 } to { transform: scale(1) } }
+@keyframes win { 0%,100% { transform: translateY(0) scaleY(1) } 45% { transform: translateY(-9px) scaleY(1.05) } 70% { transform: translateY(0) scaleY(.93) } }
+
+/* — Рамки магазина (design/brand/frames.py) —
+   Движутся только рамки уровня «анимированный»: Сатурн, Комета, Аврора,
+   Механизм, Битовый ток, Туманность. Остальные восемь — покупные и
+   статичные. Обод у всех неподвижен: движется только мотив вокруг него. */
+
+.frame-saturn .sa-moon,
+.frame-saturn .sa-track { transform-box: view-box; transform-origin: 80px 80px; }
+.frame-saturn .sa-moon  { animation: spin 14s linear infinite; }
+.frame-saturn .sa-track { animation: spin 60s linear infinite reverse; }
+.frame-saturn .sa-glint { animation: twinkle 4s ease-in-out infinite; }
+/* Кольцо скрыто внутри диска маской: аватар выглядит планетой, за которой
+   проходит кольцо, — само кольцо не вращается, иначе маска «моргала» бы. */
+
+.frame-comet .co-orbit { transform-box: view-box; transform-origin: 80px 80px;
+                         animation: orbit 6s linear infinite; }       /* облёт аватара */
+.frame-comet .co-halo  { transform-box: fill-box; transform-origin: center;
+                         animation: breathe 1.5s ease-in-out infinite; }
+.frame-comet .co-star  { animation: twinkle calc(1.6s + var(--i) * .3s) ease-in-out infinite; }
+/* Хвост и белая струя гаснут градиентом от головы — движение их не меняет. */
+
+.frame-aurora .au-wave { transform-box: view-box; transform-origin: 80px 80px;
+                         animation: spin calc(14s + var(--i) * 6s) linear infinite; }
+.frame-aurora .au-wave:nth-of-type(even) { animation-direction: reverse; }
+
+.frame-gears .gr-ring {
+  transform-box: view-box; transform-origin: 80px 80px;
+  animation: spin 24s linear infinite;
+}
+
+.frame-bitflow .bt-pulse { transform-box: view-box; transform-origin: 80px 80px;
+                           animation: spin 2.4s linear infinite; }
+.frame-bitflow .bt-bit   { animation: blink 2.4s linear infinite;
+                           animation-delay: calc(var(--i) * -100ms); }
+
+.frame-nebula .nb-glow { transform-box: view-box; transform-origin: 80px 80px;
+                        animation: breathe 3.6s ease-in-out infinite; }
+.frame-nebula .nb-star { animation: twinkle calc(1.2s + var(--i) * .2s) ease-in-out infinite; }
+
+/* — Аватары — */
+.avatar-tesseract .tsr-inner,
+.avatar-tesseract .tsr-outer { transform-box: view-box; transform-origin: 64px 64px; }
+.avatar-tesseract .tsr-inner { animation: spin 12s linear infinite reverse; }
+.avatar-tesseract .tsr-outer { animation: spin 24s linear infinite; }
+.avatar-tesseract .tsr-link  { animation: glow 3s ease-in-out infinite;
+                               animation-delay: calc(var(--i) * -.42s); }
+
+.avatar-fractal .frc-tri {
+  animation: glow 2.8s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -90ms);   /* --i — порядок построения Серпинского */
+}
+
+.avatar-crystal .cr-facet { animation: glow 4.2s ease-in-out infinite;
+                            animation-delay: calc(var(--i) * -.55s); }
+.avatar-crystal .cr-shine { transform-box: view-box; transform-origin: 64px 64px;
+                            animation: shine 4.2s ease-in-out infinite; }
+
+/* Диск не вращается целиком — по нему «течёт» вещество:
+   pathLength=100 делает штрих в процентах, а не в пикселях. */
+.avatar-blackhole .bh-flow { animation: flow 2.6s linear infinite; }
+.avatar-blackhole .bh-core { transform-box: view-box; transform-origin: 64px 64px;
+                             animation: breathe 4s ease-in-out infinite; }
+.avatar-blackhole .bh-star { animation: twinkle calc(1.4s + var(--i) * .3s) ease-in-out infinite; }
+
+.avatar-comet .cmv-head,
+.avatar-comet .cmv-dust { transform-box: view-box; transform-origin: 64px 64px; }
+.avatar-comet .cmv-head { animation: dash 3.4s cubic-bezier(.3,0,.2,1) infinite; }
+.avatar-comet .cmv-tail { animation: tailfade 3.4s ease-in-out infinite; }
+.avatar-comet .cmv-dust { animation: drift 3.4s ease-in-out infinite;
+                          animation-delay: calc(var(--i) * -.2s); }
+
+.avatar-origami .orx-wing { transform-box: view-box; transform-origin: 64px 64px; }
+.avatar-origami .orx-wing--l { animation: flap 2.6s ease-in-out infinite; }
+.avatar-origami .orx-wing--r { animation: flap 2.6s ease-in-out infinite; animation-delay: -.13s; }
+/* Крылья сжимаются по X от осевой линии тела — бумага поворачивается, а не гнётся. */
+
+.avatar-mobius .mb-flow { animation: flow2 6s linear infinite; }
+.avatar-mobius .mb-face { animation: glow 6s ease-in-out infinite;
+                          animation-delay: calc(var(--i) * -2s); }
+
+/* Рамки-розетки призёров лиг (rosette-<лига>-<место>): два набора лепестков
+   вращаются навстречу с разной скоростью — узор переливается, как гильош;
+   по ободу бежит блик, на кромке мерцают искры. */
+@keyframes rsx-twinkle { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+[class*="frame-rosette-"] .rsx-a,
+[class*="frame-rosette-"] .rsx-b,
+[class*="frame-rosette-"] .rsx-shine { transform-box: view-box; transform-origin: 80px 80px; }
+[class*="frame-rosette-"] .rsx-a     { animation: spin 48s linear infinite; }
+[class*="frame-rosette-"] .rsx-b     { animation: spin 72s linear infinite reverse; }
+[class*="frame-rosette-"] .rsx-shine { animation: spin 7s linear infinite; }
+[class*="frame-rosette-"] .rsx-spark { animation: rsx-twinkle 2.8s ease-in-out infinite;
+                                       animation-delay: calc(var(--i) * .35s); }
+
+.avatar-art { animation: appear 320ms cubic-bezier(.34,1.56,.64,1) 1; }
+
+.avatar-badge.is-win .avatar-art { animation: win 520ms cubic-bezier(.22,1.2,.36,1) 1; }
+
+/* — Управление движением —
+   По умолчанию анимации стоят на паузе: в списках, таблицах и разборе аватар
+   работает как данные, а не как аттракцион. Движение включает класс `motion`
+   на самом значке — его ставит шаблон там, где косметику показывают крупно.
+   Системная настройка «меньше движения» выключает всё безоговорочно. */
+.avatar-art *, .frame-art * { animation-play-state: paused; }
+.avatar-badge.motion .avatar-art *,
+.avatar-badge.motion .frame-art * { animation-play-state: running; }
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-art *, .frame-art *,
+  .avatar-badge.motion .avatar-art *,
+  .avatar-badge.motion .frame-art * { animation: none !important; }
+}

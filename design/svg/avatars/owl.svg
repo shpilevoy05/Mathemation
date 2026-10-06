@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="owbg" cx=".35" cy=".28" r=".85"><stop offset="0" stop-color="#9FB2FF"/><stop offset=".5" stop-color="#4C60D8"/><stop offset="1" stop-color="#1E2770"/></radialGradient>
+<linearGradient id="owbody" x1=".2" y1="0" x2=".8" y2="1"><stop offset="0" stop-color="#D9995A"/><stop offset=".55" stop-color="#A9672F"/><stop offset="1" stop-color="#6E3E17"/></linearGradient>
+<linearGradient id="owwing" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8E5626"/><stop offset="1" stop-color="#5A3110"/></linearGradient>
+<radialGradient id="owbelly" cx=".5" cy=".35" r=".7"><stop offset="0" stop-color="#FFF3DC"/><stop offset="1" stop-color="#E8C893"/></radialGradient>
+<radialGradient id="owdisc" cx=".5" cy=".45" r=".6"><stop offset="0" stop-color="#FFF9EE"/><stop offset=".75" stop-color="#F3DDB8"/><stop offset="1" stop-color="#D9B27E"/></radialGradient>
+<radialGradient id="owiris" cx=".45" cy=".4" r=".6"><stop offset="0" stop-color="#FFE27A"/><stop offset=".7" stop-color="#F29A12"/><stop offset="1" stop-color="#B8620A"/></radialGradient>
+<linearGradient id="owbeak" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFC14D"/><stop offset="1" stop-color="#D9781A"/></linearGradient>
+<linearGradient id="owgold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE9A3"/><stop offset=".5" stop-color="#D9A631"/><stop offset="1" stop-color="#8A6206"/></linearGradient>
+<clipPath id="owclip"><circle cx="64" cy="64" r="60"/></clipPath>
+<linearGradient id="owgloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<radialGradient id="owvig" cx=".5" cy=".5" r=".5"><stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></radialGradient>
+</defs>
+<circle cx="64" cy="64" r="60" fill="url(#owbg)"/>
+<g clip-path="url(#owclip)">
+<g opacity=".35" fill="#fff"><circle cx="24" cy="30" r="1.2"/><circle cx="104" cy="24" r="1.5"/><circle cx="110" cy="52" r="1"/><circle cx="16" cy="70" r="1"/><circle cx="96" cy="14" r=".9"/></g>
+<path d="M38 44 C30 32 30 20 33 12 C40 20 48 28 54 36 Z" fill="url(#owwing)"/>
+<path d="M90 44 C98 32 98 20 95 12 C88 20 80 28 74 36 Z" fill="url(#owwing)"/>
+<path d="M64 30 C92 30 108 52 108 80 C108 106 90 124 64 124 C38 124 20 106 20 80 C20 52 36 30 64 30 Z" fill="url(#owbody)"/>
+<path d="M24 74 C14 90 18 112 34 122 C32 104 34 88 42 76 Z" fill="url(#owwing)"/>
+<path d="M104 74 C114 90 110 112 94 122 C96 104 94 88 86 76 Z" fill="url(#owwing)"/>
+<path d="M30 80 Q28 92 34 104" fill="none" stroke="#3E2008" stroke-opacity=".35" stroke-width="1.3" stroke-linecap="round"/><path d="M35 78 Q33 90 38 102" fill="none" stroke="#3E2008" stroke-opacity=".35" stroke-width="1.3" stroke-linecap="round"/><path d="M98 80 Q100 92 94 104" fill="none" stroke="#3E2008" stroke-opacity=".35" stroke-width="1.3" stroke-linecap="round"/><path d="M93 78 Q95 90 90 102" fill="none" stroke="#3E2008" stroke-opacity=".35" stroke-width="1.3" stroke-linecap="round"/>
+<path d="M64 76 C80 76 90 88 90 104 C90 118 78 128 64 128 C50 128 38 118 38 104 C38 88 48 76 64 76 Z" fill="url(#owbelly)"/>
+<path d="M52 88 Q56 92.5 60 88" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M60 88 Q64 92.5 68 88" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M68 88 Q72 92.5 76 88" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M48 95 Q52 99.5 56 95" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M56 95 Q60 99.5 64 95" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M64 95 Q68 99.5 72 95" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M72 95 Q76 99.5 80 95" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M52 102 Q56 106.5 60 102" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M60 102 Q64 106.5 68 102" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M68 102 Q72 106.5 76 102" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M48 109 Q52 113.5 56 109" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M56 109 Q60 113.5 64 109" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M64 109 Q68 113.5 72 109" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/><path d="M72 109 Q76 113.5 80 109" fill="none" stroke="#C59A62" stroke-width="1.4" stroke-linecap="round"/>
+<path d="M64 46 C72 40 84 38 92 44 C100 52 100 70 90 78 C82 84 70 82 64 76 C58 82 46 84 38 78 C28 70 28 52 36 44 C44 38 56 40 64 46 Z" fill="url(#owdisc)"/>
+<path d="M40 50 Q50 44 60 52" fill="none" stroke="#7A4719" stroke-width="2.6" stroke-linecap="round"/>
+<path d="M88 50 Q78 44 68 52" fill="none" stroke="#7A4719" stroke-width="2.6" stroke-linecap="round"/>
+<circle cx="50" cy="62" r="11.5" fill="url(#owiris)"/><circle cx="78" cy="62" r="11.5" fill="url(#owiris)"/>
+<circle cx="51" cy="63" r="6" fill="#1B1626"/><circle cx="79" cy="63" r="6" fill="#1B1626"/>
+<circle cx="47.5" cy="58.5" r="3" fill="#fff"/><circle cx="75.5" cy="58.5" r="3" fill="#fff"/>
+<circle cx="54" cy="66" r="1.3" fill="#fff" opacity=".8"/><circle cx="82" cy="66" r="1.3" fill="#fff" opacity=".8"/>
+<circle cx="50" cy="62" r="15" fill="none" stroke="url(#owgold)" stroke-width="2.6"/>
+<circle cx="78" cy="62" r="15" fill="none" stroke="url(#owgold)" stroke-width="2.6"/>
+<path d="M60.5 60 Q64 57 67.5 60" fill="none" stroke="url(#owgold)" stroke-width="2.4" stroke-linecap="round"/>
+<path d="M35 60 L30 57 M93 60 L98 57" stroke="url(#owgold)" stroke-width="2.2" stroke-linecap="round"/>
+<path d="M64 69 L58.5 75 Q64 84 69.5 75 Z" fill="url(#owbeak)" stroke="#9A520E" stroke-width=".8" stroke-linejoin="round"/>
+<path d="M64 69 L61.5 74 Q64 76 66.5 74 Z" fill="#fff" opacity=".35"/><circle cx="64" cy="64" r="60" fill="url(#owvig)"/></g>
+<path d="M22 46 C30 22 52 10 74 12 C58 18 40 30 30 50 Z" fill="url(#owgloss)"/>
+<circle cx="64" cy="64" r="59.2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.6"/>
+<circle cx="64" cy="64" r="61" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1.2"/>
+</svg>

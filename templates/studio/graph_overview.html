@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Граф знаний · Матемация{% endblock %}
+{% block content %}
+<div class="studio-page">
+  <header class="page-heading"><div><p>Рабочее место методиста</p><h1>Граф знаний</h1></div><div class="studio-actions"><a class="button button-primary" href="{% url 'studio_node_new' %}">Создать тему</a></div></header>
+  <form class="studio-filters" method="get"><label for="graph-q">Поиск по названию или коду</label><input id="graph-q" name="q" value="{{ search }}" placeholder="Поиск по названию или коду темы"><button class="button" type="submit">Найти</button></form>
+  {% regroup nodes by cluster as cluster_list %}{% for cluster in cluster_list %}<section class="form-section"><h2>{{ cluster.grouper.title }}</h2>
+    <div class="studio-table-wrap"><table class="data-table"><thead><tr><th>Тема</th><th>Требует</th><th>Открывает</th><th>Уроки</th><th>Задачи</th></tr></thead><tbody>{% for node in cluster.list %}<tr><td><a href="{% url 'studio_node_edit' node.pk %}">{{ node.title }}</a> <span class="chip chip-mute">{{ node.code }}</span>{% if node.is_markup_managed %} <span class="chip chip-warn">из методической книги</span>{% endif %}</td><td>{{ node.prerequisite_count }}</td><td>{{ node.dependent_count }}</td><td>{{ node.lesson_count }}</td><td>{{ node.task_count }}</td></tr>{% endfor %}</tbody></table></div>
+  </section>{% empty %}<p class="empty-copy">Темы не найдены.</p>{% endfor %}
+</div>
+{% endblock %}

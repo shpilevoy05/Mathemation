@@ -1,0 +1,38 @@
+suite: skill-supply-chain-audit
+kind: negative
+version: 1.0.0
+cases:
+  - id: SCA-N-001
+    kind: negative
+    prompt: "Поправь опечатку в описании собственного скилла adaptive-planner"
+    must_not_activate:
+      - skill-supply-chain-audit
+    expect: работает skill-structure-validator, внешнего кода нет
+
+  - id: SCA-N-002
+    kind: negative
+    prompt: "Добавь индекс в модель KnowledgeNode и миграцию"
+    must_not_activate:
+      - skill-supply-chain-audit
+    expect: прикладная задача Django, аудит цепочки поставок не при чём
+
+  - id: SCA-N-003
+    kind: negative
+    prompt: "Запусти golden tasks и покажи отчёт"
+    must_not_activate:
+      - skill-supply-chain-audit
+    expect: активируются skill-golden-task-runner и skill-acceptance-suite
+
+  - id: SCA-N-004
+    kind: negative
+    prompt: "Обнови last_reviewed у собственного скилла"
+    must_not_activate:
+      - skill-supply-chain-audit
+    expect: активируется skill-metadata-governance
+
+  - id: SCA-N-005
+    kind: negative
+    prompt: "pip install -r requirements.txt падает на Windows"
+    must_not_activate:
+      - skill-supply-chain-audit
+    expect: обычная инженерная задача окружения, не аудит скиллов

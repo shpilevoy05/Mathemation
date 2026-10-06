@@ -1,0 +1,40 @@
+suite: skill-routing-evaluation
+kind: positive
+version: 1.0.0
+cases:
+  - id: RE-P-001
+    kind: positive
+    prompt: "Я добавил новый скилл adaptive-planner, проверь что агент его выбирает"
+    expected:
+      - skill-routing-evaluation
+    expect: покрытие positive/negative проверено, метрики посчитаны
+
+  - id: RE-P-002
+    kind: positive
+    prompt: "Агент постоянно активирует safe-database-migrations на правки шаблонов"
+    expected:
+      - skill-routing-evaluation
+    expect: false positive rate измерен, причина указана как широкое описание
+
+  - id: RE-P-003
+    kind: positive
+    prompt: "Я переписал description у socratic-tutor-rag"
+    expected:
+      - skill-routing-evaluation
+    expect: перезапуск routing-кейсов до принятия правки
+
+  - id: RE-P-004
+    kind: positive
+    prompt: "Сравни выбор скиллов у Claude Code и Codex на наших кейсах"
+    expected:
+      - skill-routing-evaluation
+      - skill-cross-agent-consistency
+    expect: две таблицы метрик и список расхождений
+
+  - id: RE-P-005
+    kind: positive
+    prompt: "Плановая приёмка системы навыков, начни с routing"
+    expected:
+      - skill-acceptance-suite
+      - skill-routing-evaluation
+    expect: routing-тесты как часть приёмочного набора

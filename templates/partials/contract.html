@@ -1,0 +1,39 @@
+{% load l10n %}{% comment %}
+Договор плана: прогноз при текущих часах и что нужно для цели (docs/product/study-plan-v2.md §4.7).
+
+Параметры: `contract` — plan_contract(); `phase` — plan_phase() (необязательно);
+`variant` — "line" (строка над планом, у родителя) или "card" (вкладка «Прогноз»);
+`link` — показать ссылку на вкладку «Прогноз». Тексты повторяет renderContract() в app.js.
+{% endcomment %}
+{% if contract %}
+<div class="contract contract--{{ variant|default:'line' }}" data-contract data-status="{{ contract.status }}">
+  {% if variant == "card" %}
+    <div class="contract-numbers">
+      <div><small>Прогноз на экзамен</small><strong class="num" data-contract-forecast>{{ contract.forecast_score|default:"—" }}</strong><span>при <b data-contract-hours>{{ contract.weekly_hours|unlocalize }}</b> ч в неделю</span></div>
+      <div><small>Цель</small><strong class="num">{{ contract.target_score|default:"—" }}</strong><span>баллов</span></div>
+      <div><small>Нужно для цели</small><strong class="num" data-contract-needed>{% if contract.needed_hours %}{{ contract.needed_hours|unlocalize }} ч{% elif contract.status == "unreachable" %}больше 20 ч{% else %}—{% endif %}</strong><span>в неделю</span></div>
+    </div>
+  {% endif %}
+  <p class="contract-text" data-contract-text>
+    {% if contract.status == "no_data" %}
+      {{ contract.reason }}
+    {% elif contract.status == "on_track" %}
+      При {{ contract.weekly_hours|unlocalize }} ч в неделю прогноз — <b>{{ contract.forecast_score }}</b>. Цель {{ contract.target_score }} достижима.
+    {% elif contract.status == "needs_hours" %}
+      При {{ contract.weekly_hours|unlocalize }} ч в неделю прогноз — <b>{{ contract.forecast_score }}</b>, цель — {{ contract.target_score }}. Чтобы успеть, нужно <b>{{ contract.needed_hours|unlocalize }} ч</b> в неделю.
+    {% else %}
+      При {{ contract.weekly_hours|unlocalize }} ч в неделю прогноз — <b>{{ contract.forecast_score }}</b>, цель — {{ contract.target_score }}. Даже при 20 ч в неделю реально около <b>{{ contract.best_score }}</b>.
+    {% endif %}
+  </p>
+  {% if contract.not_taken and contract.status != "on_track" %}
+    <p class="contract-dropped" data-contract-dropped>План сознательно не берёт: {{ contract.not_taken|join:", " }}.</p>
+  {% endif %}
+  {% if phase and phase.phase %}
+    <p class="contract-phase">
+      <span class="phase-chip phase-{{ phase.phase }}">{% if phase.phase == "exam" %}Экзаменационный режим{% elif phase.phase == "consolidation" %}Закрепление{% else %}Изучение{% endif %}</span>
+      {% if phase.phase == "learning" and phase.ends_on %}закрепление начнётся после {{ phase.ends_on|date:"d.m" }}{% elif phase.ends_on %}до {{ phase.ends_on|date:"d.m" }}{% endif %}
+    </p>
+  {% endif %}
+  {% if link %}<a class="contract-link" href="{% url 'forecast' %}">Изменить часы на вкладке «Прогноз» <span aria-hidden="true">→</span></a>{% endif %}
+</div>
+{% endif %}

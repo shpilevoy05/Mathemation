@@ -1,0 +1,9 @@
+{% comment %}
+Логотип — фирменный вордмарк «МАТΣМАЦИЯ» с пламенем над Σ, один рисунок
+(группа brand-art в partials/art.html). Эмблема — тот же рисунок, обрезанный
+по Σ с пламенем: на узком экране вместо слова показывается она.
+{% endcomment %}
+<span class="logo logo--{{ size|default:'sm' }}">
+  <svg class="logo-word" viewBox="0 0 3854 912" role="img" aria-label="Матемация"><use href="#brand-art"></use></svg>
+  <svg class="logo-mark" viewBox="1330 0 316 712" aria-hidden="true"><use href="#brand-art"></use></svg>
+</span>

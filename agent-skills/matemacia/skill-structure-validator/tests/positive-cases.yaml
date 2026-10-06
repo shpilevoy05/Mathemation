@@ -1,0 +1,39 @@
+suite: skill-structure-validator
+kind: positive
+version: 1.0.0
+cases:
+  - id: SV-P-001
+    kind: positive
+    prompt: "Создал новый скилл, проверь его структуру перед добавлением в lock"
+    expected:
+      - skill-structure-validator
+    expect: отчёт skill/status/errors/warnings
+
+  - id: SV-P-002
+    kind: positive
+    prompt: "В SKILL.md нет раздела «Запрещено»"
+    expected:
+      - skill-structure-validator
+    expect: status invalid, указан отсутствующий раздел
+
+  - id: SV-P-003
+    kind: positive
+    prompt: "Проверь все наши скиллы строго, warning считать ошибкой"
+    expected:
+      - skill-structure-validator
+    expect: запуск с -Strict, код выхода 2 при warning
+
+  - id: SV-P-004
+    kind: positive
+    prompt: "В скилле ссылка на references/migration-notes.md, а файла нет"
+    expected:
+      - skill-structure-validator
+    expect: битая ссылка как error
+
+  - id: SV-P-005
+    kind: positive
+    prompt: "Routing упал из-за описания скилла, что именно поправить?"
+    expected:
+      - skill-structure-validator
+      - skill-routing-evaluation
+    expect: указано широкое описание и отсутствие negative-условий

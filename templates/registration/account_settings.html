@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Настройки — Матемация{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Настройки</h1>
+    <p>Профиль, доступ родителей и ваши данные.</p>
+  </div>
+</div>
+
+<div class="settings-layout">
+  <section class="card settings-card">
+    <h2>Профиль</h2>
+    <form method="post" class="settings-form" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<p class="form-error">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+      <div class="field-row">
+        <div class="field">
+          <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>{{ form.first_name }}
+          {% if form.first_name.errors %}<p class="form-error">{{ form.first_name.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div class="field">
+          <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>{{ form.last_name }}
+          {% if form.last_name.errors %}<p class="form-error">{{ form.last_name.errors|join:" " }}</p>{% endif %}
+        </div>
+      </div>
+      <div class="field">
+        <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>{{ form.email }}
+        {% if form.email.errors %}<p class="form-error">{{ form.email.errors|join:" " }}</p>{% endif %}
+      </div>
+      {% if user.role == "student" %}
+        <a class="settings-note" href="{% url 'forecast' %}">
+          <span class="settings-note-icon" aria-hidden="true"><svg><use href="#i-chart"></use></svg></span>
+          <span><b>Дата экзамена и часы в неделю — в «Прогнозе»</b>
+          <small>Там видно, как они меняют балл и расписание, и применить новый сценарий можно одной кнопкой.</small></span>
+        </a>
+      {% endif %}
+      <button class="button button-primary" type="submit">Сохранить</button>
+    </form>
+  </section>
+
+  <div class="settings-side">
+    <section class="card settings-card">
+      <h2>Пароль</h2>
+      <p>Если пароль знает кто-то ещё — смените его.</p>
+      <a class="button" href="{% url 'account_password' %}">Изменить пароль</a>
+    </section>
+
+    {% if user.student_profile %}
+      <section class="card settings-card">
+        <h2>Родители</h2>
+        <p>Родитель увидит недельный отчёт и прогноз, но не переписку с наставником.</p>
+        <form method="post" action="{% url 'parent_invite_create' %}">{% csrf_token %}
+          <button class="button button-primary" type="submit">Пригласить родителя</button>
+        </form>
+        {% for invite in parent_invites %}
+          <div class="invite-row">
+            <div>
+              <input type="text" readonly value="{{ request.scheme }}://{{ request.get_host }}{% url 'register_by_invite' invite.code %}" aria-label="Ссылка-приглашение для родителя" onfocus="this.select()">
+              <small>Действует до {{ invite.expires_at|date:"d.m.Y H:i" }}</small>
+            </div>
+            <form method="post" action="{% url 'parent_invite_revoke' invite.pk %}">{% csrf_token %}
+              <button class="button button-small" type="submit">Отозвать</button>
+            </form>
+          </div>
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    <section class="card settings-card">
+      <h2>Мои данные</h2>
+      <p>Копия всего, что платформа хранит о вас, одним файлом.</p>
+      <a class="button" href="{% url 'account_data_export' %}">Скачать мои данные</a>
+      <p class="legal-links" style="text-align: left"><a href="{% url 'legal_terms' %}">Пользовательское соглашение</a> · <a href="{% url 'legal_privacy' %}">Политика обработки персональных данных</a></p>
+    </section>
+  </div>
+</div>
+
+<section class="card settings-card danger-zone">
+  <h2>Удаление аккаунта</h2>
+  {% if deletion_request %}
+    <p>Запрос на удаление: <strong>{{ deletion_request.get_status_display }}</strong>.</p>
+  {% else %}
+    <p>Методист обезличит аккаунт: имя, почта, переписка и загруженные работы будут удалены, вход станет невозможен. Действие необратимо.</p>
+    <form method="post" action="{% url 'account_delete_request' %}">{% csrf_token %}
+      <div class="field">
+        <label for="id_delete_password">Текущий пароль для подтверждения</label>
+        <input id="id_delete_password" type="password" name="password" autocomplete="current-password" required>
+      </div>
+      <button class="button button-danger" type="submit">Запросить удаление</button>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

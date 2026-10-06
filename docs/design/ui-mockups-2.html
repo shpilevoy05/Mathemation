@@ -1,0 +1,1155 @@
+<title>Матемация — макеты, часть 2</title>
+<style>
+  :root {
+    --paper: #EEF2FD; --grid: rgba(79, 107, 234, .08);
+    --surface: #FFFFFF; --surface-2: #F6F8FE; --surface-3: #E9EEFC;
+    --ink: #10162A; --ink-2: #3A4460; --muted: #6B7590;
+    --line: #DCE3F6; --line-strong: #C2CCEA;
+    --brand: #4F6BEA; --brand-2: #7C90F8; --brand-ink: #2E45B8; --brand-soft: #E6EBFE;
+    --periwinkle: #C3CFF5;
+    --good: #0E9A64; --good-soft: #DFF3E9;
+    --warn: #C97D0C; --warn-soft: #FAEFD9;
+    --bad: #D33A50; --bad-soft: #FBE4E8;
+    --sigma: #5B6FE8; --sigma-soft: #E7EBFF;
+    --shadow: 0 1px 2px rgba(16, 22, 42, .05), 0 14px 30px -20px rgba(16, 22, 42, .4);
+    --r: 14px; --r-sm: 9px;
+    --display: Georgia, "Times New Roman", serif;
+    --ui: "Segoe UI", system-ui, -apple-system, sans-serif;
+    --data: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #080D18; --grid: rgba(124, 144, 248, .07);
+      --surface: #111828; --surface-2: #0D1423; --surface-3: #192136;
+      --ink: #E8EDFF; --ink-2: #BAC4E0; --muted: #8592B4;
+      --line: #212B45; --line-strong: #32405F;
+      --brand: #7C90F8; --brand-2: #9EAEFF; --brand-ink: #AFBEFF; --brand-soft: #1B2444;
+      --periwinkle: #2B3663;
+      --good: #3FC78D; --good-soft: #0F2A20;
+      --warn: #E1A845; --warn-soft: #2C2312;
+      --bad: #F0697D; --bad-soft: #31191F;
+      --sigma: #8FA2FF; --sigma-soft: #1D2647;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 16px 34px -22px rgba(0, 0, 0, .9);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #080D18; --grid: rgba(124, 144, 248, .07);
+    --surface: #111828; --surface-2: #0D1423; --surface-3: #192136;
+    --ink: #E8EDFF; --ink-2: #BAC4E0; --muted: #8592B4;
+    --line: #212B45; --line-strong: #32405F;
+    --brand: #7C90F8; --brand-2: #9EAEFF; --brand-ink: #AFBEFF; --brand-soft: #1B2444;
+    --periwinkle: #2B3663;
+    --good: #3FC78D; --good-soft: #0F2A20;
+    --warn: #E1A845; --warn-soft: #2C2312;
+    --bad: #F0697D; --bad-soft: #31191F;
+    --sigma: #8FA2FF; --sigma-soft: #1D2647;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 16px 34px -22px rgba(0, 0, 0, .9);
+  }
+  :root[data-theme="light"] {
+    --paper: #EEF2FD; --grid: rgba(79, 107, 234, .08);
+    --surface: #FFFFFF; --surface-2: #F6F8FE; --surface-3: #E9EEFC;
+    --ink: #10162A; --ink-2: #3A4460; --muted: #6B7590;
+    --line: #DCE3F6; --line-strong: #C2CCEA;
+    --brand: #4F6BEA; --brand-2: #7C90F8; --brand-ink: #2E45B8; --brand-soft: #E6EBFE;
+    --periwinkle: #C3CFF5;
+    --good: #0E9A64; --good-soft: #DFF3E9;
+    --warn: #C97D0C; --warn-soft: #FAEFD9;
+    --bad: #D33A50; --bad-soft: #FBE4E8;
+    --sigma: #5B6FE8; --sigma-soft: #E7EBFF;
+    --shadow: 0 1px 2px rgba(16, 22, 42, .05), 0 14px 30px -20px rgba(16, 22, 42, .4);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 20px 90px; color: var(--ink);
+    background-color: var(--paper);
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 26px 26px;
+    font-family: var(--ui); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { margin: 0; font-family: var(--display); font-weight: 700; text-wrap: balance; letter-spacing: -.01em; }
+  p { margin: 0; }
+  .num { font-family: var(--data); font-variant-numeric: tabular-nums; }
+  .hint { color: var(--muted); font-size: .8rem; }
+  .wrap { width: min(1180px, 100%); margin: 0 auto; }
+
+  .logo { display: inline-flex; align-items: center; gap: 10px; }
+  .wordmark {
+    font-family: "Segoe UI Black", "Arial Black", var(--ui); font-weight: 900;
+    letter-spacing: .06em; line-height: 1; text-transform: uppercase;
+    background: linear-gradient(180deg, var(--ink) 64%, #D8BE3C 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .wordmark .sig { color: var(--sigma); -webkit-text-fill-color: var(--sigma); }
+
+  .doc-head { padding: 56px 0 26px; display: grid; gap: 16px; }
+  .doc-head h1 { font-size: clamp(2rem, 4.4vw, 2.9rem); line-height: 1.06; }
+  .doc-head .lede { max-width: 64ch; color: var(--ink-2); font-size: 1.02rem; }
+  .kicker { font-family: var(--data); font-size: .72rem; letter-spacing: .16em; text-transform: uppercase; color: var(--brand); }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; }
+  .toc a { padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink-2); text-decoration: none; font-size: .84rem; }
+  .toc a:hover { border-color: var(--brand); color: var(--brand-ink); }
+
+  .screen { margin-top: 56px; scroll-margin-top: 20px; }
+  .screen-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; margin-bottom: 14px; }
+  .screen-head h2 { font-size: 1.55rem; }
+  .screen-head .route { font-family: var(--data); font-size: .8rem; color: var(--muted); padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 14px 0 18px; }
+  .note { padding: 12px 14px; border-left: 3px solid var(--brand); border-radius: 0 var(--r-sm) var(--r-sm) 0; background: var(--surface); color: var(--ink-2); font-size: .89rem; }
+  .note b { color: var(--ink); }
+
+  .frame { border: 1px solid var(--line-strong); border-radius: 18px; background: var(--surface-2); box-shadow: var(--shadow); overflow: hidden; }
+  .frame-bar { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--line); background: var(--surface-3); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); }
+  .frame-url { margin-left: 8px; font-family: var(--data); font-size: .76rem; color: var(--muted); }
+
+  .app { display: grid; grid-template-columns: 218px minmax(0, 1fr); min-height: 520px; }
+  .rail { display: flex; flex-direction: column; gap: 4px; padding: 16px 12px; border-right: 1px solid var(--line); background: var(--surface); }
+  .rail-brand { padding: 4px 8px 16px; }
+  .rail a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-sm); color: var(--ink-2); text-decoration: none; font-size: .9rem; }
+  .rail a .gl { width: 18px; text-align: center; color: var(--muted); font-family: var(--data); font-size: .82rem; }
+  .rail a:hover { background: var(--surface-3); }
+  .rail a.on { background: var(--brand-soft); color: var(--brand-ink); font-weight: 600; }
+  .rail a.on .gl { color: var(--brand); }
+  .rail-foot { margin-top: auto; padding: 12px 10px 0; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 9px; font-size: .84rem; color: var(--muted); }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-ink); display: grid; place-items: center; font-weight: 700; font-size: .8rem; flex: 0 0 auto; }
+  .stage { padding: 22px 24px 28px; display: grid; gap: 18px; align-content: start; background: var(--surface-2); }
+  .stage-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 14px; }
+  .stage-head h3 { font-size: 1.4rem; }
+  .stage-head .sub { color: var(--muted); font-size: .88rem; margin-top: 3px; }
+
+  .card { padding: 18px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+  .card > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+  .card h4 { font-size: 1.02rem; }
+  .grid-2 { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; }
+  .grid-even { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: .76rem; font-weight: 600; white-space: nowrap; }
+  .chip-good { color: var(--good); background: var(--good-soft); }
+  .chip-warn { color: var(--warn); background: var(--warn-soft); }
+  .chip-bad { color: var(--bad); background: var(--bad-soft); }
+  .chip-brand { color: var(--brand-ink); background: var(--brand-soft); }
+  .chip-sigma { color: var(--brand-ink); background: var(--sigma-soft); }
+  .chip-mute { color: var(--muted); background: var(--surface-3); }
+
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; }
+  .btn:hover { border-color: var(--brand); color: var(--brand-ink); }
+  .btn-main { border-color: var(--brand); background: var(--brand); color: #fff; }
+  .btn-main:hover { background: var(--brand-ink); border-color: var(--brand-ink); color: #fff; }
+  .btn-danger { border-color: var(--bad); color: var(--bad); }
+  .btn-sm { padding: 5px 11px; font-size: .8rem; }
+  .btn[disabled] { opacity: .55; cursor: not-allowed; }
+  .btn:focus-visible, a:focus-visible, .tab:focus-visible, .nav-cell:focus-visible, .crit input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+  .list { display: grid; gap: 9px; }
+  .row { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); }
+  .row .grow { flex: 1; min-width: 0; }
+  .row strong { display: block; font-size: .92rem; font-weight: 600; }
+  .row small { color: var(--muted); font-size: .79rem; }
+  .bar { height: 7px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+  .bar > span { display: block; height: 100%; border-radius: 999px; background: var(--brand); }
+  .bar.good > span { background: var(--good); }
+  .bar.warn > span { background: var(--warn); }
+  .bar.bad > span { background: var(--bad); }
+  .tile { padding: 14px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); display: grid; gap: 4px; }
+  .tile .label { font-size: .75rem; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+  .tile .value { font-family: var(--data); font-size: 1.55rem; font-weight: 600; letter-spacing: -.02em; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tab { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font: inherit; font-size: .83rem; color: var(--ink-2); cursor: pointer; }
+  .tab.on { background: var(--brand-soft); border-color: var(--brand); color: var(--brand-ink); font-weight: 600; }
+
+  /* Занятие */
+  .player { position: relative; aspect-ratio: 16 / 9; border-radius: var(--r); overflow: hidden; background: radial-gradient(circle at 30% 30%, #2C3B78, #0B1330 70%); display: grid; place-items: center; }
+  .player .play { width: 66px; height: 66px; border-radius: 50%; background: rgba(255, 255, 255, .93); display: grid; place-items: center; color: #2E45B8; font-size: 1.4rem; }
+  .player .badge { position: absolute; left: 14px; top: 14px; padding: 4px 10px; border-radius: 999px; background: rgba(10, 15, 30, .6); color: #fff; font-size: .74rem; letter-spacing: .04em; }
+  .player .time { position: absolute; right: 14px; bottom: 14px; padding: 3px 9px; border-radius: 6px; background: rgba(10, 15, 30, .65); color: #fff; font-family: var(--data); font-size: .75rem; }
+  .player .scrub { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255, 255, 255, .22); }
+  .player .scrub span { display: block; height: 100%; width: 38%; background: var(--brand-2); }
+  details.theory { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); padding: 10px 14px; }
+  details.theory + details.theory { margin-top: 8px; }
+  details.theory summary { cursor: pointer; font-weight: 600; font-size: .92rem; }
+  details.theory p { margin-top: 8px; color: var(--ink-2); font-size: .9rem; }
+  .phase { display: inline-flex; padding: 3px 10px; border-radius: 999px; font-size: .74rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .phase-warm { color: var(--warn); background: var(--warn-soft); }
+  .phase-new { color: var(--brand-ink); background: var(--brand-soft); }
+  .phase-fix { color: var(--good); background: var(--good-soft); }
+  .statement { font-size: 1.06rem; margin: 14px 0 16px; }
+  .answer-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .answer-row input { flex: 1; min-width: 180px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); font: inherit; font-family: var(--data); }
+  .verdict { margin-top: 14px; padding: 12px 14px; border-radius: var(--r-sm); font-size: .92rem; }
+  .verdict.ok { color: var(--good); background: var(--good-soft); }
+  .verdict.no { color: var(--bad); background: var(--bad-soft); }
+  .answer-progress { margin-top: 10px; padding: 10px 14px; border-radius: var(--r-sm); background: var(--surface-3); font-size: .86rem; color: var(--ink-2); display: grid; gap: 4px; }
+  .mentor { margin-top: 16px; padding: 16px; border: 1px solid var(--brand-soft); border-radius: var(--r); background: var(--surface-2); }
+  .mentor .head { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+  .mentor .head .ic { width: 32px; height: 32px; border-radius: 9px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 700; }
+  .msg { padding: 9px 12px; border-radius: var(--r-sm); font-size: .88rem; margin-bottom: 8px; max-width: 90%; }
+  .msg.me { background: var(--brand-soft); color: var(--brand-ink); margin-left: auto; }
+  .msg.bot { background: var(--surface-3); color: var(--ink-2); }
+  .steps { display: grid; gap: 8px; }
+  .step { display: flex; gap: 10px; align-items: center; padding: 9px 11px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface-2); font-size: .87rem; }
+  .step .n { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-family: var(--data); font-size: .78rem; background: var(--surface-3); color: var(--muted); flex: 0 0 auto; }
+  .step.done .n { background: var(--good); color: #fff; }
+  .step.now { border-color: var(--brand); }
+  .step.now .n { background: var(--brand); color: #fff; }
+
+  /* Пробник */
+  .timer { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-family: var(--data); font-weight: 600; }
+  .timer.low { border-color: var(--bad); color: var(--bad); }
+  .navigator { display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 7px; }
+  .nav-cell { aspect-ratio: 1; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--surface); font-family: var(--data); font-size: .84rem; color: var(--ink-2); cursor: pointer; display: grid; place-items: center; }
+  .nav-cell.filled { background: var(--brand-soft); border-color: var(--brand); color: var(--brand-ink); font-weight: 700; }
+  .nav-cell.now { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 700; }
+  .nav-cell.flag { border-color: var(--warn); color: var(--warn); }
+  .nav-cell.part2 { border-style: dashed; }
+  .upload { display: grid; gap: 8px; place-items: center; padding: 22px; border: 2px dashed var(--line-strong); border-radius: var(--r); background: var(--surface-2); text-align: center; color: var(--muted); font-size: .87rem; }
+  .table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .table th, .table td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+  .table th { font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  .table td.n, .table th.n { text-align: right; font-family: var(--data); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .table th.n { width: 1%; }
+  .table tr:last-child td { border-bottom: 0; }
+  .scroll-x { overflow-x: auto; }
+
+  /* Прогноз */
+  .gauge-axis { position: relative; height: 58px; }
+  .gauge-track { position: absolute; left: 0; right: 0; top: 26px; height: 12px; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--line); }
+  .gauge-fill { position: absolute; top: 27px; left: 1px; height: 10px; border-radius: 999px 0 0 999px; background: linear-gradient(90deg, var(--brand-2), var(--brand)); }
+  .gauge-band { position: absolute; top: 22px; height: 20px; border-radius: 6px; border: 1px solid var(--brand); background: repeating-linear-gradient(135deg, var(--brand-soft), var(--brand-soft) 4px, transparent 4px, transparent 8px); }
+  .gauge-now { position: absolute; top: 20px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; background: var(--surface); border: 5px solid var(--brand); }
+  .gauge-flag { position: absolute; top: 4px; bottom: 12px; width: 2px; background: var(--good); }
+  .gauge-flag span { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 2px 7px; border-radius: 999px; background: var(--good-soft); color: var(--good); font-size: .72rem; font-weight: 700; }
+  .gauge-ticks { display: flex; justify-content: space-between; font-family: var(--data); font-size: .72rem; color: var(--muted); }
+  .slider { display: grid; gap: 6px; }
+  .slider input[type="range"] { width: 100%; accent-color: var(--brand); }
+  .coverage { display: flex; flex-wrap: wrap; gap: 5px; }
+  .cov { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-family: var(--data); font-size: .76rem; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); }
+  .cov.mapped { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+
+  /* Эксперт и панель */
+  .queue-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px 120px; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); }
+  .sla { display: grid; gap: 5px; }
+  .sla .bar { height: 6px; }
+  .solution { border: 1px solid var(--line); border-radius: var(--r); background: repeating-linear-gradient(0deg, var(--surface-2), var(--surface-2) 23px, var(--line) 23px, var(--line) 24px); min-height: 250px; padding: 18px; font-family: "Comic Sans MS", var(--ui); color: var(--ink-2); line-height: 24px; font-size: .92rem; }
+  .crit { display: flex; flex-wrap: wrap; gap: 8px; }
+  .crit label { position: relative; }
+  .crit input { position: absolute; opacity: 0; inset: 0; }
+  .crit span { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--surface); font-family: var(--data); font-weight: 600; cursor: pointer; }
+  .crit input:checked + span { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .panel-nav { display: flex; flex-wrap: wrap; gap: 6px; }
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; }
+  .st-pub { background: var(--good); } .st-draft { background: var(--muted); } .st-arch { background: var(--line-strong); }
+
+  /* Вход */
+  .auth-shell { display: grid; place-items: center; padding: 44px 20px; background: linear-gradient(150deg, var(--periwinkle), var(--surface-2) 68%); }
+  .auth-card { width: min(420px, 100%); padding: 28px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); display: grid; gap: 12px; }
+  .auth-card h3 { font-size: 1.3rem; }
+  .field { display: grid; gap: 5px; }
+  .field label { font-size: .82rem; color: var(--muted); }
+  .field input { padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink); font: inherit; }
+  .field .err { color: var(--bad); font-size: .8rem; }
+  .field input.is-bad { border-color: var(--bad); }
+  .tagline { font-family: "Segoe UI Black", "Arial Black", var(--ui); font-weight: 900; letter-spacing: .2em; text-transform: uppercase; color: var(--brand-2); font-size: .74rem; text-align: center; }
+
+  .caption { margin-top: 10px; color: var(--muted); font-size: .82rem; }
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .rail { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    .rail-brand, .rail-foot { display: none; }
+    .grid-2, .grid-even, .grid-3, .grid-4 { grid-template-columns: minmax(0, 1fr); }
+    .queue-row { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFD54D"/><stop offset=".45" stop-color="#FF8A1F"/><stop offset="1" stop-color="#EE3A0C"/>
+    </linearGradient>
+    <linearGradient id="sigmaGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4257D6"/><stop offset="1" stop-color="#8FA2FF"/>
+    </linearGradient>
+    <linearGradient id="integralGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8FA2FF"/><stop offset="1" stop-color="#4F6BEA"/>
+    </linearGradient>
+    <symbol id="mark" viewBox="0 0 64 92">
+      <path fill="url(#flame)" d="M32 2c3.4 8.6-6 12-4 18.6 1.4 4.5 6.2 5.3 8.3 2.1 5 5.2 3.7 13.9-4.3 13.9-8.7 0-12.7-7.3-9.3-14.6-6 3.3-8 12-3.3 16.6C12 34.6 10.6 25.3 16.6 17.3 21.3 11.3 28 6.6 32 2z"/>
+      <path fill="#FFE9A8" d="M32 16c1.3 4-2.7 5.3-1.7 8.5.8 2.4 3.4 2.3 4 .4 1.7 3.4-.3 7-3.6 7-4 0-6.1-3.4-4.5-7.2-2.1 1.3-3 4.4-1.9 6.7C20.9 27.7 22.1 20.3 32 16z"/>
+      <path fill="url(#sigmaGrad)" d="M18 42h28v7.5H30.4l11.2 10.2-11.2 10.3H46V77.5H18v-7.3l12.6-10.5L18 49.2z"/>
+      <path fill="none" stroke="url(#integralGrad)" stroke-width="4.5" stroke-linecap="round" d="M35.5 80.5c4-1.6 4.6 3.4 1.6 5.6-2.8 2-3.2 4.4.9 4.9"/>
+    </symbol>
+    <symbol id="flame-mark" viewBox="0 0 64 44">
+      <path fill="url(#flame)" d="M32 2c3.4 8.6-6 12-4 18.6 1.4 4.5 6.2 5.3 8.3 2.1 5 5.2 3.7 13.9-4.3 13.9-8.7 0-12.7-7.3-9.3-14.6-6 3.3-8 12-3.3 16.6C12 34.6 10.6 25.3 16.6 17.3 21.3 11.3 28 6.6 32 2z"/>
+      <path fill="#FFE9A8" d="M32 16c1.3 4-2.7 5.3-1.7 8.5.8 2.4 3.4 2.3 4 .4 1.7 3.4-.3 7-3.6 7-4 0-6.1-3.4-4.5-7.2-2.1 1.3-3 4.4-1.9 6.7C20.9 27.7 22.1 20.3 32 16z"/>
+    </symbol>
+    <symbol id="sigma-coin" viewBox="0 0 40 40">
+      <path d="M20 1.6l14.7 8.5a3.2 3.2 0 0 1 1.6 2.8v14.2a3.2 3.2 0 0 1-1.6 2.8L20 38.4a3.2 3.2 0 0 1-3.2 0L2.1 29.9a3.2 3.2 0 0 1-1.6-2.8V12.9a3.2 3.2 0 0 1 1.6-2.8L16.8 1.6a3.2 3.2 0 0 1 3.2 0z" fill="url(#sigmaGrad)"/>
+      <path fill="#fff" d="M13.4 12.2h13.2v3.3h-7.4l5.3 4.6-5.3 4.7h7.4v3.3H13.4v-3.2l5.9-4.8-5.9-4.7z"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header class="doc-head">
+    <p class="kicker">Матемация · визуальное направление · часть 2</p>
+    <h1>Остальные экраны</h1>
+    <p class="lede">Продолжение первой части в той же системе: знак, индиго из логотипа, сигмы вместо монет, первичные баллы как единственная ось. Ниже — восемь экранов, закрывающих оставшиеся роли и сценарии.</p>
+    <nav class="toc">
+      <a href="#lesson">Занятие</a>
+      <a href="#homework">Домашки</a>
+      <a href="#daily">Задание дня</a>
+      <a href="#backlog">Отработка</a>
+      <a href="#mock">Пробник</a>
+      <a href="#forecast">Прогноз</a>
+      <a href="#expert">Эксперт</a>
+      <a href="#panel">Панель методиста</a>
+      <a href="#auth">Вход и приглашение</a>
+    </nav>
+  </header>
+
+  <!-- ЗАНЯТИЕ -->
+  <section class="screen" id="lesson">
+    <div class="screen-head"><h2>1. Занятие</h2><span class="route">/lesson/&lt;node&gt;/</span></div>
+    <div class="notes">
+      <p class="note"><b>Одна задача на экране.</b> Очередь показана слева в виде фаз: разогрев, новое, закрепление — видно, сколько осталось.</p>
+      <p class="note"><b>Ответ сразу показывает движение.</b> Под вердиктом строка: освоение темы, решено из скольких, какой пункт плана закрылся.</p>
+      <p class="note"><b>Наставник наводит, а не решает.</b> Панель показывает историю подсказок и кнопку эскалации к живому эксперту.</p>
+    </div>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">matemacia.ru/lesson/5/</span></div>
+      <div class="app">
+        <nav class="rail">
+          <div class="rail-brand"><span class="logo"><svg width="26" height="38" aria-hidden="true"><use href="#mark"></use></svg><span class="wordmark" style="font-size:.94rem">МАТ<span class="sig">Σ</span>МАЦИЯ</span></span></div>
+          <a href="#lesson"><span class="gl">▣</span>Кабинет</a>
+          <a href="#lesson"><span class="gl">◇</span>Карта навыков</a>
+          <a href="#lesson" class="on"><span class="gl">━</span>Дорожка</a>
+          <a href="#lesson"><span class="gl">↺</span>Отработка</a>
+          <a href="#lesson"><span class="gl">✎</span>Домашки</a>
+          <a href="#lesson"><span class="gl">★</span>Задание дня</a>
+          <a href="#lesson"><span class="gl">◷</span>Пробники</a>
+          <a href="#lesson"><span class="gl">◢</span>Прогноз</a>
+          <a href="#lesson"><span class="gl">Σ</span>Магазин</a>
+          <div class="rail-foot"><span class="avatar">К</span><div>Катя М.<br><span class="num" style="font-size:.76rem">12 дней подряд</span></div></div>
+        </nav>
+        <div class="stage">
+          <div class="stage-head">
+            <div><h3>Тригонометрические уравнения</h3><p class="sub">Задание ЕГЭ 13 · освоение 54 % · порог 70 %</p></div>
+            <span class="chip chip-brand">закроет пункт плана на сегодня</span>
+          </div>
+
+          <div class="grid-2">
+            <div style="display:grid; gap:16px">
+              <div class="card" style="padding:14px">
+                <div class="player">
+                  <span class="badge">Kinescope · разбор темы</span>
+                  <span class="play">▶</span>
+                  <span class="time">6:12 / 16:40</span>
+                  <span class="scrub"><span></span></span>
+                </div>
+              </div>
+
+              <div class="card">
+                <header><h4>Теория коротко</h4><span class="hint">3 блока</span></header>
+                <details class="theory" open>
+                  <summary>Как разложить уравнение на множители</summary>
+                  <p>Если во всех слагаемых есть общий множитель — выноси его. Уравнение распадается на два простых, и каждое решается отдельно.</p>
+                </details>
+                <details class="theory"><summary>Отбор корней на отрезке</summary></details>
+                <details class="theory"><summary>Частые потери корней</summary></details>
+              </div>
+
+              <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px">
+                  <span class="phase phase-new">новое</span>
+                  <span class="hint num">задача 2 из 4</span>
+                </div>
+                <p class="statement">а) Решите уравнение 2sin²x − sin x = 0.<br>б) Укажите корни на отрезке [0; π].</p>
+                <div class="answer-row">
+                  <input value="0; π/6; 5π/6; π" aria-label="Твой ответ">
+                  <button class="btn btn-main" type="button">Проверить</button>
+                </div>
+                <div class="verdict ok">Верно. Ошибка в отборе корней не повторилась — прошлый повтор засчитан.</div>
+                <div class="answer-progress">
+                  <span><b>Тригонометрические уравнения:</b> освоение <span class="num">54 % → 61 %</span> · решено <span class="num">2 из 4</span></span>
+                  <span>Пункт плана «Практика: тригонометрические уравнения» закроется после 70 %</span>
+                </div>
+                <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
+                  <button class="btn btn-main" type="button">Следующая задача →</button>
+                  <button class="btn" type="button">Показать разбор</button>
+                </div>
+
+                <div class="mentor">
+                  <div class="head"><span class="ic">?</span><div><strong style="font-size:.94rem">Наставник</strong><p class="hint">Наводит вопросами, готовое решение не выдаёт</p></div></div>
+                  <div class="msg me">Не понимаю, почему теряются корни при делении на sin x</div>
+                  <div class="msg bot">Проверь: что будет с уравнением, если sin x = 0? Это допустимое значение? Раздели случаи вместо деления.</div>
+                  <div class="answer-row" style="margin-top:10px">
+                    <input placeholder="Где именно не складывается?" aria-label="Вопрос наставнику">
+                    <button class="btn" type="button">Спросить</button>
+                  </div>
+                  <p class="hint" style="margin-top:10px">Если наставник не уверен в шаге, он помечает это и предлагает живого преподавателя.</p>
+                </div>
+              </div>
+            </div>
+
+            <aside style="display:grid; gap:16px; align-content:start">
+              <div class="card">
+                <header><h4>Очередь занятия</h4><span class="hint num">45 мин</span></header>
+                <div class="steps">
+                  <div class="step done"><span class="n">✓</span><div><strong style="font-size:.88rem">Разогрев: значения синуса</strong><p class="hint">верно с первой попытки</p></div></div>
+                  <div class="step now"><span class="n">2</span><div><strong style="font-size:.88rem">Новое: разложение на множители</strong><p class="hint">идёт сейчас</p></div></div>
+                  <div class="step"><span class="n">3</span><div><strong style="font-size:.88rem">Новое: отбор корней</strong></div></div>
+                  <div class="step"><span class="n">4</span><div><strong style="font-size:.88rem">Закрепление: смешанная задача</strong></div></div>
+                </div>
+              </div>
+              <div class="card">
+                <header><h4>Прогресс темы</h4></header>
+                <div class="bar" style="margin-bottom:8px"><span style="width:61%"></span></div>
+                <p class="hint">Освоение <span class="num">61 %</span> из <span class="num">70 %</span>. После порога тема станет «освоено», а в план встанет контрольный повтор.</p>
+                <div class="list" style="margin-top:12px">
+                  <div class="row"><span class="grow"><strong>Вклад в прогноз</strong><small>задача 13 — до 2 первичных баллов</small></span></div>
+                  <div class="row"><span class="grow"><strong>Открывает</strong><small>логарифмические неравенства (задача 15)</small></span></div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ДОМАШКИ -->
+  <section class="screen" id="homework">
+    <div class="screen-head"><h2>2. Домашки</h2><span class="route">/homework/</span></div>
+    <div class="notes">
+      <p class="note"><b>Задача засчитывается везде.</b> Решённая на дорожке задача закрывает и домашку — об этом сказано прямо в шапке.</p>
+      <p class="note"><b>Срок виден до, а не после.</b> Просрочка помечена цветом и текстом, а не мелкой датой.</p>
+      <p class="note"><b>Каждая задача ведёт к теме.</b> Из строки — сразу в занятие по нужному узлу.</p>
+    </div>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">matemacia.ru/homework/</span></div>
+      <div class="app">
+        <nav class="rail">
+          <div class="rail-brand"><span class="logo"><svg width="26" height="38" aria-hidden="true"><use href="#mark"></use></svg><span class="wordmark" style="font-size:.94rem">МАТ<span class="sig">Σ</span>МАЦИЯ</span></span></div>
+          <a href="#homework"><span class="gl">▣</span>Кабинет</a>
+          <a href="#homework"><span class="gl">◇</span>Карта навыков</a>
+          <a href="#homework"><span class="gl">━</span>Дорожка</a>
+          <a href="#homework"><span class="gl">↺</span>Отработка</a>
+          <a href="#homework" class="on"><span class="gl">✎</span>Домашки</a>
+          <a href="#homework"><span class="gl">★</span>Задание дня</a>
+          <a href="#homework"><span class="gl">◷</span>Пробники</a>
+          <a href="#homework"><span class="gl">◢</span>Прогноз</a>
+          <a href="#homework"><span class="gl">Σ</span>Магазин</a>
+          <div class="rail-foot"><span class="avatar">К</span><div>Катя М.<br><span class="num" style="font-size:.76rem">12 дней подряд</span></div></div>
+        </nav>
+        <div class="stage">
+          <div class="stage-head">
+            <div><h3>Домашки</h3><p class="sub">Задача засчитывается, где бы ты её ни решила. Домашка закроется сама, когда решены все задачи.</p></div>
+            <span class="chip chip-brand">1 в работе</span>
+          </div>
+
+          <div class="card">
+            <header>
+              <div><h4>Домашка: вычисления и уравнения</h4><p class="hint">выдал куратор 26 июля · до 2 августа, 21:00</p></div>
+              <span class="chip chip-warn">осталось 2 дня</span>
+            </header>
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px">
+              <div class="bar" style="flex:1"><span style="width:67%"></span></div>
+              <span class="num" style="font-size:.86rem">2 / 3</span>
+            </div>
+            <div class="list">
+              <div class="row"><span class="grow"><strong>Степени</strong><small>Дроби и степени · решено на дорожке</small></span><span class="chip chip-good">верно</span></div>
+              <div class="row"><span class="grow"><strong>Логарифм</strong><small>Корни и логарифмы · решено в занятии</small></span><span class="chip chip-good">верно</span></div>
+              <div class="row"><span class="grow"><strong>Квадратное уравнение</strong><small>Линейные и квадратные уравнения</small></span><button class="btn btn-sm btn-main" type="button">Решать →</button></div>
+            </div>
+            <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
+              <button class="btn" type="button">Сдать как есть</button>
+              <p class="hint" style="align-self:center">Сдать можно и с нерешёнными — куратор увидит, что именно не пошло.</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <header>
+              <div><h4>Домашка: планиметрия перед пробником</h4><p class="hint">сдана 24 июля · проверена куратором</p></div>
+              <span class="chip chip-good">закрыта</span>
+            </header>
+            <div style="display:flex; align-items:center; gap:12px">
+              <div class="bar good" style="flex:1"><span style="width:100%"></span></div>
+              <span class="num" style="font-size:.86rem">4 / 4</span>
+            </div>
+            <p class="hint" style="margin-top:12px">Комментарий куратора: «Вписанные углы уверенно, но в задаче про касательную решение длиннее нужного — посмотри разбор».</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ЗАДАНИЕ ДНЯ -->
+  <section class="screen" id="daily">
+    <div class="screen-head"><h2>3. Задание дня</h2><span class="route">/daily/</span></div>
+    <div class="notes">
+      <p class="note"><b>Одна задача, один экран.</b> Ни очереди, ни выбора — задание дня существует ради возвращаемости.</p>
+      <p class="note"><b>Награда названа заранее.</b> XP и сигмы видны до решения, а не всплывают после.</p>
+      <p class="note"><b>Решённое состояние закрыто.</b> Второй раз задачу дня решить нельзя — показан результат и путь дальше.</p>
+    </div>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">matemacia.ru/daily/</span></div>
+      <div class="app">
+        <nav class="rail">
+          <div class="rail-brand"><span class="logo"><svg width="26" height="38" aria-hidden="true"><use href="#mark"></use></svg><span class="wordmark" style="font-size:.94rem">МАТ<span class="sig">Σ</span>МАЦИЯ</span></span></div>
+          <a href="#daily"><span class="gl">▣</span>Кабинет</a>
+          <a href="#daily"><span class="gl">◇</span>Карта навыков</a>
+          <a href="#daily"><span class="gl">━</span>Дорожка</a>
+          <a href="#daily"><span class="gl">↺</span>Отработка</a>
+          <a href="#daily"><span class="gl">✎</span>Домашки</a>
+          <a href="#daily" class="on"><span class="gl">★</span>Задание дня</a>
+          <a href="#daily"><span class="gl">◷</span>Пробники</a>
+          <a href="#daily"><span class="gl">◢</span>Прогноз</a>
+          <a href="#daily"><span class="gl">Σ</span>Магазин</a>
+          <div class="rail-foot"><span class="avatar">К</span><div>Катя М.<br><span class="num" style="font-size:.76rem">12 дней подряд</span></div></div>
+        </nav>
+        <div class="stage">
+          <div class="stage-head">
+            <div><h3>Задание дня · 1 августа</h3><p class="sub">Короткая привычка возвращаться. План она не заменяет — стоит рядом с ним.</p></div>
+            <div style="display:flex; gap:8px">
+              <span class="chip chip-brand">+15 XP</span>
+              <span class="chip chip-sigma">+8 сигм</span>
+            </div>
+          </div>
+          <div class="grid-even">
+            <div class="card">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
+                <span class="phase phase-warm">не решено</span>
+                <span class="hint">Классическая вероятность</span>
+              </div>
+              <p class="statement">В классе 12 мальчиков и 13 девочек. Случайно выбирают одного дежурного. Найдите вероятность того, что это девочка.</p>
+              <div class="answer-row">
+                <input placeholder="Ответ" aria-label="Ответ на задание дня">
+                <button class="btn btn-main" type="button">Проверить</button>
+              </div>
+              <p class="hint" style="margin-top:12px">Одна попытка в день не ограничена по времени: важна привычка, а не скорость.</p>
+            </div>
+            <div class="card" style="border-color:var(--good)">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
+                <span class="phase phase-fix">решено сегодня</span>
+                <span class="hint">так выглядит после верного ответа</span>
+              </div>
+              <p class="statement">Ответ <span class="num">0,52</span> — верно.</p>
+              <div class="verdict ok">Награда начислена: 15 XP и 8 сигм. Стрик продолжается — 12 дней.</div>
+              <div class="answer-progress">
+                <span><b>Классическая вероятность:</b> освоение <span class="num">95 %</span> · тема остаётся освоенной</span>
+                <span>Следующее задание дня появится завтра</span>
+              </div>
+              <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
+                <button class="btn btn-main" type="button">К дорожке</button>
+                <button class="btn" type="button">Показать разбор</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ОТРАБОТКА -->
+  <section class="screen" id="backlog">
+    <div class="screen-head"><h2>4. Отработка ошибок</h2><span class="route">/practice/backlog/</span></div>
+    <div class="notes">
+      <p class="note"><b>Ошибка — это не «неверно», а тип.</b> Полка сгруппирована по типам, поэтому видно систему, а не список неудач.</p>
+      <p class="note"><b>Повторы по расписанию.</b> Интервалы 1 / 3 / 7 / 30 дней показаны шкалой: на каком круге сейчас каждая ошибка.</p>
+      <p class="note"><b>Сегодня — сверху.</b> Просроченные повторы отделены от будущих и подписаны сроком.</p>
+    </div>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">matemacia.ru/practice/backlog/</span></div>
+      <div class="app">
+        <nav class="rail">
+          <div class="rail-brand"><span class="logo"><svg width="26" height="38" aria-hidden="true"><use href="#mark"></use></svg><span class="wordmark" style="font-size:.94rem">МАТ<span class="sig">Σ</span>МАЦИЯ</span></span></div>
+          <a href="#backlog"><span class="gl">▣</span>Кабинет</a>
+          <a href="#backlog"><span class="gl">◇</span>Карта навыков</a>
+          <a href="#backlog"><span class="gl">━</span>Дорожка</a>
+          <a href="#backlog" class="on"><span class="gl">↺</span>Отработка</a>
+          <a href="#backlog"><span class="gl">✎</span>Домашки</a>
+          <a href="#backlog"><span class="gl">★</span>Задание дня</a>
+          <a href="#backlog"><span class="gl">◷</span>Пробники</a>
+          <a href="#backlog"><span class="gl">◢</span>Прогноз</a>
+          <a href="#backlog"><span class="gl">Σ</span>Магазин</a>
+          <div class="rail-foot"><span class="avatar">К</span><div>Катя М.<br><span class="num" style="font-size:.76rem">12 дней подряд</span></div></div>
+        </nav>
+        <div class="stage">
+          <div class="stage-head">
+            <div><h3>Полка ошибок</h3><p class="sub">7 открытых · 2 повтора на сегодня · 1 просрочен</p></div>
+            <button class="btn btn-main" type="button">Начать отработку (2)</button>
+          </div>
+
+          <div class="grid-4">
+            <div class="tile"><span class="label">Вычислительные</span><span class="value">3</span><div class="bar warn" style="margin-top:6px"><span style="width:44%"></span></div></div>
+            <div class="tile"><span class="label">Неверный метод</span><span class="value">2</span><div class="bar" style="margin-top:6px"><span style="width:29%"></span></div></div>
+            <div class="tile"><span class="label">ОДЗ и границы</span><span class="value">1</span><div class="bar" style="margin-top:6px"><span style="width:14%"></span></div></div>
+            <div class="tile"><span class="label">Невнимательность</span><span class="value">1</span><div class="bar good" style="margin-top:6px"><span style="width:14%"></span></div></div>
+          </div>
+
+          <div class="card">
+            <header><h4>Повторы на сегодня</h4><span class="chip chip-bad">1 просрочен</span></header>
+            <div class="list">
+              <div class="row" style="border-color:var(--bad)">
+                <span class="grow">
+                  <strong>Потеря корней при делении на sin x</strong>
+                  <small>Тригонометрические уравнения · тип: неверный метод · повтор был 30 июля</small>
+                </span>
+                <span class="chip chip-bad">просрочен на 2 дня</span>
+                <button class="btn btn-sm btn-main" type="button">Отработать</button>
+              </div>
+              <div class="row">
+                <span class="grow">
+                  <strong>Знак при переносе через модуль</strong>
+                  <small>Логарифмические неравенства · тип: вычислительная · круг 3 из 4</small>
+                </span>
+                <span class="chip chip-warn">сегодня</span>
+                <button class="btn btn-sm btn-main" type="button">Отработать</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <header><h4>Вся полка</h4><div class="tabs"><button class="tab on" type="button">Открытые</button><button class="tab" type="button">На повторах</button><button class="tab" type="button">Закрытые</button></div></header>
+            <div class="scroll-x">
+              <table class="table">
+                <thead><tr><th>Ошибка</th><th>Тема</th><th>Тип</th><th>Круг повторов</th><th class="n">Следующий</th></tr></thead>
+                <tbody>
+                  <tr><td>Потеря корней при делении</td><td>Тригонометрические уравнения</td><td><span class="chip chip-brand">неверный метод</span></td><td><span class="num">● ● ○ ○</span></td><td class="n">просрочен</td></tr>
+                  <tr><td>Знак при переносе</td><td>Логарифмические неравенства</td><td><span class="chip chip-warn">вычислительная</span></td><td><span class="num">● ● ● ○</span></td><td class="n">сегодня</td></tr>
+                  <tr><td>Неверная ОДЗ логарифма</td><td>Показательные уравнения</td><td><span class="chip chip-bad">ОДЗ</span></td><td><span class="num">● ○ ○ ○</span></td><td class="n">3 авг</td></tr>
+                  <tr><td>Ошибка в таблице значений</td><td>Тригонометрия</td><td><span class="chip chip-warn">вычислительная</span></td><td><span class="num">● ● ● ●</span></td><td class="n">14 авг</td></tr>
+                  <tr><td>Переписал условие неверно</td><td>Квадратные уравнения</td><td><span class="chip chip-mute">невнимательность</span></td><td><span class="num">● ● ○ ○</span></td><td class="n">5 авг</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="caption">Четыре круга — это 1, 3, 7 и 30 дней. Ошибка уходит с полки только после успешного четвёртого повтора.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ПРОБНИК -->
+  <section class="screen" id="mock">
+    <div class="screen-head"><h2>5. Пробник: прохождение и результат</h2><span class="route">/mocks/run/ · /mocks/result/</span></div>
+    <div class="notes">
+      <p class="note"><b>Формат экзамена, а не викторины.</b> Таймер, навигатор по 19 заданиям, загрузка листов второй части.</p>
+      <p class="note"><b>Результат в первичных.</b> Сначала первичный балл и перевод, потом разбор по заданиям — в том же порядке, что на экзамене.</p>
+      <p class="note"><b>Видно, что сделал пробник с прогнозом.</b> Калибровка показана явно: было, стало, почему.</p>
+    </div>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">matemacia.ru/mocks/run/12/</span></div>
+      <div class="app">
+        <nav class="rail">
+          <div class="rail-brand"><span class="logo"><svg width="26" height="38" aria-hidden="true"><use href="#mark"></use></svg><span class="wordmark" style="font-size:.94rem">МАТ<span class="sig">Σ</span>МАЦИЯ</span></span></div>
+          <a href="#mock"><span class="gl">▣</span>Кабинет</a>
+          <a href="#mock"><span class="gl">◇</span>Карта навыков</a>
+          <a href="#mock"><span class="gl">━</span>Дорожка</a>
+          <a href="#mock"><span class="gl">↺</span>Отработка</a>
+          <a href="#mock"><span class="gl">✎</span>Домашки</a>
+          <a href="#mock"><span class="gl">★</span>Задание дня</a>
+          <a href="#mock" class="on"><span class="gl">◷</span>Пробники</a>
+          <a href="#mock"><span class="gl">◢</span>Прогноз</a>
+          <a href="#mock"><span class="gl">Σ</span>Магазин</a>
+          <div class="rail-foot"><span class="avatar">К</span><div>Катя М.<br><span class="num" style="font-size:.76rem">12 дней подряд</span></div></div>
+        </nav>
+        <div class="stage">
+          <div class="stage-head">
+            <div><h3>Пробник ЕГЭ № 3</h3><p class="sub">19 заданий · первая часть проверяется сразу, вторая уходит эксперту</p></div>
+            <span class="timer low">⏱ 42:17 до конца</span>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px">
+                <span class="phase phase-new">задание 15 · вторая часть</span>
+                <span class="hint num">до 2 первичных</span>
+              </div>
+              <p class="statement">Решите неравенство log₂(x − 1) + log₂(x + 1) ≤ 3.</p>
+              <div class="upload">
+                <strong style="font-size:.92rem; color:var(--ink)">Перетащи фото решения или выбери файл</strong>
+                <span>JPG или PNG до 10 МБ · файл виден только тебе и проверяющему эксперту</span>
+                <button class="btn btn-sm" type="button">Выбрать файл</button>
+              </div>
+              <div class="row" style="margin-top:12px"><span class="grow"><strong>zadanie-15.jpg</strong><small>загружено 2,1 МБ · заменить можно до сдачи</small></span><button class="btn btn-sm btn-danger" type="button">Удалить</button></div>
+              <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
+                <button class="btn" type="button">← Задание 14</button>
+                <button class="btn btn-main" type="button">Задание 16 →</button>
+                <button class="btn" type="button">Отметить флажком</button>
+              </div>
+            </div>
+
+            <aside style="display:grid; gap:16px; align-content:start">
+              <div class="card">
+                <header><h4>Навигатор</h4><span class="hint">13 из 19 заполнено</span></header>
+                <div class="navigator">
+                  <button class="nav-cell filled" type="button">1</button><button class="nav-cell filled" type="button">2</button>
+                  <button class="nav-cell filled" type="button">3</button><button class="nav-cell filled" type="button">4</button>
+                  <button class="nav-cell filled" type="button">5</button><button class="nav-cell flag" type="button">6</button>
+                  <button class="nav-cell filled" type="button">7</button><button class="nav-cell filled" type="button">8</button>
+                  <button class="nav-cell filled" type="button">9</button><button class="nav-cell" type="button">10</button>
+                  <button class="nav-cell filled" type="button">11</button><button class="nav-cell filled" type="button">12</button>
+                  <button class="nav-cell filled part2" type="button">13</button><button class="nav-cell part2" type="button">14</button>
+                  <button class="nav-cell now part2" type="button">15</button><button class="nav-cell part2" type="button">16</button>
+                  <button class="nav-cell part2" type="button">17</button><button class="nav-cell part2" type="button">18</button>
+                  <button class="nav-cell part2" type="button">19</button>
+                </div>
+                <p class="caption">Сплошная рамка — первая часть, пунктир — вторая. Охра — отмечено флажком.</p>
+                <button class="btn btn-main" type="button" style="width:100%; margin-top:12px">Завершить пробник</button>
+              </div>
+              <div class="card">
+                <header><h4>Правила</h4></header>
+                <div class="list">
+                  <div class="row"><span class="grow"><strong>Черновик не проверяется</strong><small>эксперт видит только загруженные листы</small></span></div>
+                  <div class="row"><span class="grow"><strong>Время не останавливается</strong><small>как на экзамене; результат сохранится и по истечении</small></span></div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame" style="margin-top:20px">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">matemacia.ru/mocks/result/12/</span></div>
+      <div class="app">
+        <nav class="rail">
+          <div class="rail-brand"><span class="logo"><svg width="26" height="38" aria-hidden="true"><use href="#mark"></use></svg><span class="wordmark" style="font-size:.94rem">МАТ<span class="sig">Σ</span>МАЦИЯ</span></span></div>
+          <a href="#mock"><span class="gl">▣</span>Кабинет</a>
+          <a href="#mock"><span class="gl">◇</span>Карта навыков</a>
+          <a href="#mock"><span class="gl">━</span>Дорожка</a>
+          <a href="#mock"><span class="gl">↺</span>Отработка</a>
+          <a href="#mock"><span class="gl">✎</span>Домашки</a>
+          <a href="#mock"><span class="gl">★</span>Задание дня</a>
+          <a href="#mock" class="on"><span class="gl">◷</span>Пробники</a>
+          <a href="#mock"><span class="gl">◢</span>Прогноз</a>
+          <a href="#mock"><span class="gl">Σ</span>Магазин</a>
+          <div class="rail-foot"><span class="avatar">К</span><div>Катя М.<br><span class="num" style="font-size:.76rem">12 дней подряд</span></div></div>
+        </nav>
+        <div class="stage">
+          <div class="stage-head">
+            <div><h3>Результат пробника № 3</h3><p class="sub">27 июля · первая часть проверена автоматически, задачи 13 и 14 — экспертом</p></div>
+            <span class="chip chip-good">прогноз пересчитан</span>
+          </div>
+
+          <div class="grid-4">
+            <div class="tile"><span class="label">Первичный балл</span><span class="value">20 / 32</span><span class="hint">первая часть 10 из 12</span></div>
+            <div class="tile"><span class="label">Тестовый балл</span><span class="value">76</span><span class="hint">по таблице перевода 2027</span></div>
+            <div class="tile"><span class="label">Прогноз до</span><span class="value">78</span><span class="hint">интервал 74–83</span></div>
+            <div class="tile"><span class="label">Прогноз после</span><span class="value">77</span><span class="hint">интервал сузился: 74–81</span></div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <header><h4>Разбор по заданиям</h4><span class="hint">в порядке экзамена</span></header>
+              <div class="scroll-x">
+                <table class="table">
+                  <thead><tr><th class="n">№</th><th>Тема</th><th class="n">Балл</th><th>Что случилось</th></tr></thead>
+                  <tbody>
+                    <tr><td class="n">6</td><td>Квадратные уравнения</td><td class="n">0 / 1</td><td>Вычислительная ошибка в дискриминанте → на полку</td></tr>
+                    <tr><td class="n">10</td><td>Текстовые задачи</td><td class="n">0 / 1</td><td>Не решено, время кончилось</td></tr>
+                    <tr><td class="n">13</td><td>Тригонометрические уравнения</td><td class="n">1 / 2</td><td>Пункт «а» верно, отбор корней неполный</td></tr>
+                    <tr><td class="n">14</td><td>Угол между плоскостями</td><td class="n">0 / 3</td><td>Тема ещё закрыта пререквизитом</td></tr>
+                    <tr><td class="n">15</td><td>Логарифмические неравенства</td><td class="n">2 / 2</td><td>Полное решение, ОДЗ выписана</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <header><h4>Что сделала калибровка</h4></header>
+              <p class="hint">Модель ждала <span class="num">21,5</span> первичных, факт — <span class="num">20</span>. Расхождение <span class="num">1,5</span> внутри интервала, поэтому прогноз сместился на <span class="num">−1</span> тестовый балл, а не пересобрался.</p>
+              <div class="list" style="margin-top:12px">
+                <div class="row"><span class="grow"><strong>Интервал сузился</strong><small>третий пробник подряд — разброс оценки падает</small></span><span class="chip chip-good">хорошо</span></div>
+                <div class="row"><span class="grow"><strong>2 ошибки ушли в отработку</strong><small>повтор через 1 день</small></span><span class="chip chip-warn">действие</span></div>
+                <div class="row"><span class="grow"><strong>План пересобран</strong><small>добавлены текстовые задачи, задача 10</small></span><span class="chip chip-brand">план</span></div>
+              </div>
+              <button class="btn btn-main" type="button" style="width:100%; margin-top:14px">Разобрать ошибки (2)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ПРОГНОЗ -->
+  <section class="screen" id="forecast">
+    <div class="screen-head"><h2>6. Прогноз и потолок</h2><span class="route">/forecast/</span></div>
+    <div class="notes">
+      <p class="note"><b>Одна ось — первичные баллы.</b> Тестовые подписаны как перевод, потому что он нелинейный.</p>
+      <p class="note"><b>Потолок зависит от часов.</b> Ползунок темпа меняет достижимый максимум к дате экзамена прямо на шкале.</p>
+      <p class="note"><b>Покрытие профиля видно.</b> Неразмеченное задание даёт ноль — это показано, а не спрятано.</p>
+    </div>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">matemacia.ru/forecast/</span></div>
+      <div class="app">
+        <nav class="rail">
+          <div class="rail-brand"><span class="logo"><svg width="26" height="38" aria-hidden="true"><use href="#mark"></use></svg><span class="wordmark" style="font-size:.94rem">МАТ<span class="sig">Σ</span>МАЦИЯ</span></span></div>
+          <a href="#forecast"><span class="gl">▣</span>Кабинет</a>
+          <a href="#forecast"><span class="gl">◇</span>Карта навыков</a>
+          <a href="#forecast"><span class="gl">━</span>Дорожка</a>
+          <a href="#forecast"><span class="gl">↺</span>Отработка</a>
+          <a href="#forecast"><span class="gl">✎</span>Домашки</a>
+          <a href="#forecast"><span class="gl">★</span>Задание дня</a>
+          <a href="#forecast"><span class="gl">◷</span>Пробники</a>
+          <a href="#forecast" class="on"><span class="gl">◢</span>Прогноз</a>
+          <a href="#forecast"><span class="gl">Σ</span>Магазин</a>
+          <div class="rail-foot"><span class="avatar">К</span><div>Катя М.<br><span class="num" style="font-size:.76rem">12 дней подряд</span></div></div>
+        </nav>
+        <div class="stage">
+          <div class="stage-head">
+            <div><h3>Прогноз и потолок</h3><p class="sub">До экзамена 148 дней · темп 8 часов в неделю</p></div>
+            <span class="chip chip-brand">цель траектории — 84</span>
+          </div>
+
+          <div class="card">
+            <header><h4>Шкала первичных баллов</h4><span class="hint">потолок — максимум, достижимый к дате экзамена при текущем темпе</span></header>
+            <div class="gauge-axis" role="img" aria-label="Сейчас 21,5 первичных, интервал 19–24, цель 24, потолок 27">
+              <div class="gauge-track"></div>
+              <div class="gauge-fill" style="width:67%"></div>
+              <div class="gauge-band" style="left:59.4%; width:15.6%"></div>
+              <div class="gauge-now" style="left:67%"></div>
+              <div class="gauge-flag" style="left:75%"><span>цель 84 = 24 первичных</span></div>
+              <div class="gauge-flag" style="left:84.4%; background:var(--brand-2)"><span style="background:var(--brand-soft); color:var(--brand-ink)">потолок 27</span></div>
+            </div>
+            <div class="gauge-ticks"><span>0</span><span>4</span><span>8</span><span>12</span><span>16</span><span>20</span><span>24</span><span>28</span><span>32</span></div>
+            <div class="grid-3" style="margin-top:16px">
+              <div class="slider">
+                <label for="pace">Темп: <b class="num">8 часов в неделю</b></label>
+                <input id="pace" type="range" min="2" max="16" value="8">
+                <span class="hint">При 10 часах потолок вырастет до 29 первичных (89 тестовых).</span>
+              </div>
+              <div class="slider">
+                <label for="date">Дата экзамена: <b class="num">27 декабря</b></label>
+                <input id="date" type="range" min="30" max="240" value="148">
+                <span class="hint">148 дней. Каждая неделя простоя снимает примерно 0,4 первичных.</span>
+              </div>
+              <div class="list">
+                <div class="row"><span class="grow"><strong>До цели</strong><small>2,5 первичных ≈ 14 часов работы</small></span></div>
+                <div class="row"><span class="grow"><strong>Запас до потолка</strong><small>5,5 первичных — цель достижима с запасом</small></span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <header><h4>Разбор по заданиям экзамена</h4><span class="hint">сумма равна ожидаемому первичному баллу</span></header>
+              <div class="scroll-x">
+                <table class="table">
+                  <thead><tr><th class="n">№</th><th>Тема</th><th class="n">Максимум</th><th class="n">Ожидание</th><th class="n">Резерв</th></tr></thead>
+                  <tbody>
+                    <tr><td class="n">7</td><td>Вычисления</td><td class="n">1</td><td class="n">0,94</td><td class="n">0,06</td></tr>
+                    <tr><td class="n">13</td><td>Тригонометрические уравнения</td><td class="n">2</td><td class="n">0,71</td><td class="n">1,29</td></tr>
+                    <tr><td class="n">14</td><td>Угол между плоскостями</td><td class="n">3</td><td class="n">0,12</td><td class="n">2,88</td></tr>
+                    <tr><td class="n">15</td><td>Логарифмические неравенства</td><td class="n">2</td><td class="n">0,38</td><td class="n">1,62</td></tr>
+                    <tr><td class="n">18</td><td>Задачи с параметром</td><td class="n">4</td><td class="n">0,08</td><td class="n">3,92</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="caption">Резерв — сколько первичных ещё можно забрать. Планировщик берёт задания с лучшим отношением резерва к часам.</p>
+            </div>
+
+            <div style="display:grid; gap:16px; align-content:start">
+              <div class="card">
+                <header><h4>Покрытие профиля экзамена</h4><span class="chip chip-good">19 из 19</span></header>
+                <div class="coverage">
+                  <span class="cov mapped">1</span><span class="cov mapped">2</span><span class="cov mapped">3</span><span class="cov mapped">4</span>
+                  <span class="cov mapped">5</span><span class="cov mapped">6</span><span class="cov mapped">7</span><span class="cov mapped">8</span>
+                  <span class="cov mapped">9</span><span class="cov mapped">10</span><span class="cov mapped">11</span><span class="cov mapped">12</span>
+                  <span class="cov mapped">13</span><span class="cov mapped">14</span><span class="cov mapped">15</span><span class="cov mapped">16</span>
+                  <span class="cov mapped">17</span><span class="cov mapped">18</span><span class="cov mapped">19</span>
+                </div>
+                <p class="caption">Задание без размеченных тем считается нулём и занижает прогноз, поэтому методист видит такие номера серыми.</p>
+              </div>
+              <div class="card">
+                <header><h4>Прогноз против факта</h4><span class="hint">3 пробника</span></header>
+                <div class="list">
+                  <div class="row"><span class="grow"><strong>12 апреля</strong><small>прогноз 68 · факт 64</small></span><span class="chip chip-bad">−4</span></div>
+                  <div class="row"><span class="grow"><strong>7 июня</strong><small>прогноз 74 · факт 72</small></span><span class="chip chip-warn">−2</span></div>
+                  <div class="row"><span class="grow"><strong>27 июля</strong><small>прогноз 78 · факт 76</small></span><span class="chip chip-good">−2, внутри интервала</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ЭКСПЕРТ -->
+  <section class="screen" id="expert">
+    <div class="screen-head"><h2>7. Эксперт: очередь и проверка</h2><span class="route">/expert/ · /expert/review/&lt;id&gt;/</span></div>
+    <div class="notes">
+      <p class="note"><b>Очередь живёт по SLA.</b> Просроченное сверху, полоса показывает, сколько времени осталось.</p>
+      <p class="note"><b>Оценка — по критериям.</b> Балл ставится кнопками 0…N, рядом тип ошибки и темы, куда она попадёт.</p>
+      <p class="note"><b>Работа ученика приватна.</b> Файл отдаётся по объектному праву; ссылка не угадывается и не расшаривается.</p>
+    </div>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">matemacia.ru/expert/</span></div>
+      <div class="app">
+        <nav class="rail">
+          <div class="rail-brand"><span class="logo"><svg width="26" height="38" aria-hidden="true"><use href="#mark"></use></svg><span class="wordmark" style="font-size:.94rem">МАТ<span class="sig">Σ</span>МАЦИЯ</span></span></div>
+          <a href="#expert" class="on"><span class="gl">▤</span>Очередь</a>
+          <a href="#expert"><span class="gl">✓</span>Проверенные</a>
+          <a href="#expert"><span class="gl">◷</span>Мои сроки</a>
+          <div class="rail-foot"><span class="avatar">Э</span><div>Сергей П.<br><span style="font-size:.76rem">эксперт ЕГЭ</span></div></div>
+        </nav>
+        <div class="stage">
+          <div class="stage-head">
+            <div><h3>Очередь проверки</h3><p class="sub">4 работы · 1 просрочена · за 7 дней проверено 23</p></div>
+            <div class="tabs"><button class="tab on" type="button">Все</button><button class="tab" type="button">Просроченные</button><button class="tab" type="button">Задача 19</button></div>
+          </div>
+
+          <div class="list">
+            <div class="queue-row" style="border-color:var(--bad)">
+              <div><strong style="font-size:.94rem">Задача 14 · угол между плоскостями</strong><p class="hint">Катя М. · загружено 30 июля, 18:20 · пробник № 3</p></div>
+              <div class="sla"><span class="hint">срок вышел 6 часов назад</span><div class="bar bad"><span style="width:100%"></span></div></div>
+              <button class="btn btn-main btn-sm" type="button">Проверить</button>
+            </div>
+            <div class="queue-row">
+              <div><strong style="font-size:.94rem">Задача 18 · параметр</strong><p class="hint">Игорь С. · загружено сегодня, 09:05</p></div>
+              <div class="sla"><span class="hint">осталось 9 часов из 24</span><div class="bar warn"><span style="width:62%"></span></div></div>
+              <button class="btn btn-sm" type="button">Проверить</button>
+            </div>
+            <div class="queue-row">
+              <div><strong style="font-size:.94rem">Задача 13 · тригонометрия</strong><p class="hint">Марина Т. · загружено сегодня, 14:40</p></div>
+              <div class="sla"><span class="hint">осталось 20 часов из 24</span><div class="bar good"><span style="width:18%"></span></div></div>
+              <button class="btn btn-sm" type="button">Проверить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame" style="margin-top:20px">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">matemacia.ru/expert/review/48/</span></div>
+      <div class="app">
+        <nav class="rail">
+          <div class="rail-brand"><span class="logo"><svg width="26" height="38" aria-hidden="true"><use href="#mark"></use></svg><span class="wordmark" style="font-size:.94rem">МАТ<span class="sig">Σ</span>МАЦИЯ</span></span></div>
+          <a href="#expert" class="on"><span class="gl">▤</span>Очередь</a>
+          <a href="#expert"><span class="gl">✓</span>Проверенные</a>
+          <a href="#expert"><span class="gl">◷</span>Мои сроки</a>
+          <div class="rail-foot"><span class="avatar">Э</span><div>Сергей П.<br><span style="font-size:.76rem">эксперт ЕГЭ</span></div></div>
+        </nav>
+        <div class="stage">
+          <div class="stage-head">
+            <div><h3>Задача 14 · угол между плоскостями</h3><p class="sub">Катя М. · максимум 3 первичных балла</p></div>
+            <span class="chip chip-bad">просрочено на 6 часов</span>
+          </div>
+          <div class="grid-2">
+            <div class="card">
+              <header><h4>Решение ученика</h4><span class="hint">приватный файл, доступ по объектному праву</span></header>
+              <div class="solution">
+                SABCD — правильная пирамида, сторона основания 4, ребро 6.<br>
+                Строю апофему SM боковой грани SAB и проекцию SO на основание.<br>
+                Угол SMO — искомый.<br>
+                OM = 2, SO = √(36 − 8) = √28.<br>
+                tg∠SMO = √28 / 2 = 2,64 → ∠SMO ≈ 69°.
+              </div>
+              <p class="caption">Файл отдаётся через X-Accel-Redirect и не лежит в общедоступной медиапапке.</p>
+            </div>
+            <div style="display:grid; gap:16px; align-content:start">
+              <div class="card">
+                <header><h4>Балл по критериям</h4><span class="hint">0…3</span></header>
+                <div class="crit">
+                  <label><input type="radio" name="score" checked><span>0</span></label>
+                  <label><input type="radio" name="score"><span>1</span></label>
+                  <label><input type="radio" name="score"><span>2</span></label>
+                  <label><input type="radio" name="score"><span>3</span></label>
+                </div>
+                <p class="hint" style="margin-top:10px">2 — верное построение и ход, ошибка в вычислении; 3 — полное обоснованное решение.</p>
+              </div>
+              <div class="card">
+                <header><h4>Тип ошибки</h4><span class="hint">попадёт на полку ученика</span></header>
+                <div class="tabs">
+                  <button class="tab" type="button">вычислительная</button>
+                  <button class="tab on" type="button">неверный метод</button>
+                  <button class="tab" type="button">ОДЗ и границы</button>
+                  <button class="tab" type="button">обоснование</button>
+                  <button class="tab" type="button">невнимательность</button>
+                </div>
+                <div class="list" style="margin-top:12px">
+                  <div class="row"><span class="grow"><strong>Тема ошибки</strong><small>Угол между плоскостями · можно добавить «Объёмы многогранников»</small></span></div>
+                </div>
+              </div>
+              <div class="card">
+                <header><h4>Комментарий ученику</h4></header>
+                <div class="field"><textarea rows="3" style="padding:10px 12px; border:1px solid var(--line-strong); border-radius:var(--r-sm); background:var(--surface-2); color:var(--ink); font:inherit; font-family:var(--ui)">Проекция вершины найдена верно, но OM для правильной четырёхугольной пирамиды равна половине стороны — 2, а не 2√2. Пересчитай tg и посмотри разбор.</textarea></div>
+                <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap">
+                  <button class="btn btn-main" type="button">Поставить балл и закрыть</button>
+                  <button class="btn" type="button">Вернуть на доработку</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ПАНЕЛЬ МЕТОДИСТА -->
+  <section class="screen" id="panel">
+    <div class="screen-head"><h2>8. Панель методиста</h2><span class="route">/panel/</span></div>
+    <div class="notes">
+      <p class="note"><b>Сначала дыры контента.</b> Панель открывается тем, что мешает ученикам: узлы без задач, уроки без теории, незакрытые номера профиля.</p>
+      <p class="note"><b>Публикация — явное действие.</b> Черновик виден только методисту; пустой урок опубликовать нельзя, и это объяснено в строке.</p>
+      <p class="note"><b>Правка задания — новая версия.</b> Старые попытки остаются на своей версии, поэтому история не переписывается задним числом.</p>
+    </div>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">matemacia.ru/panel/lessons/</span></div>
+      <div class="app">
+        <nav class="rail">
+          <div class="rail-brand"><span class="logo"><svg width="26" height="38" aria-hidden="true"><use href="#mark"></use></svg><span class="wordmark" style="font-size:.94rem">МАТ<span class="sig">Σ</span>МАЦИЯ</span></span></div>
+          <a href="#panel"><span class="gl">▦</span>Обзор</a>
+          <a href="#panel" class="on"><span class="gl">▶</span>Уроки</a>
+          <a href="#panel"><span class="gl">∑</span>Задачи и версии</a>
+          <a href="#panel"><span class="gl">✎</span>Домашки</a>
+          <a href="#panel"><span class="gl">★</span>Задания дня</a>
+          <a href="#panel"><span class="gl">◇</span>Граф знаний</a>
+          <a href="#panel"><span class="gl">◷</span>Профиль экзамена</a>
+          <a href="#panel"><span class="gl">☺</span>Ученики и группы</a>
+          <a href="#panel"><span class="gl">＋</span>Приглашения</a>
+          <a href="#panel"><span class="gl">Σ</span>Магазин и тарифы</a>
+          <div class="rail-foot"><span class="avatar">М</span><div>Анна К.<br><span style="font-size:.76rem">методист</span></div></div>
+        </nav>
+        <div class="stage">
+          <div class="stage-head">
+            <div><h3>Уроки</h3><p class="sub">22 темы · опубликовано 19 · черновиков 3</p></div>
+            <button class="btn btn-main" type="button">Новый урок</button>
+          </div>
+
+          <div class="grid-4">
+            <div class="tile"><span class="label">Узлы без задач</span><span class="value">2</span><span class="hint">ученик упрётся в пустую тему</span></div>
+            <div class="tile"><span class="label">Уроки без теории</span><span class="value">3</span><span class="hint">нельзя публиковать</span></div>
+            <div class="tile"><span class="label">Задачи без разбора</span><span class="value">5</span><span class="hint">наставник не сможет подсказать</span></div>
+            <div class="tile"><span class="label">Профиль размечен</span><span class="value">19/19</span><span class="hint">пробелов нет</span></div>
+          </div>
+
+          <div class="card">
+            <header><h4>Список уроков</h4><div class="tabs"><button class="tab on" type="button">Все</button><button class="tab" type="button">Черновики</button><button class="tab" type="button">Без видео</button></div></header>
+            <div class="scroll-x">
+              <table class="table">
+                <thead><tr><th>Урок</th><th>Тема графа</th><th>Видео</th><th class="n">Задач</th><th>Статус</th><th></th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td>Тригонометрические уравнения</td><td>trig-eq</td>
+                    <td><span class="chip chip-brand">Kinescope · 16:40</span></td><td class="n">6</td>
+                    <td><span class="status-dot st-pub"></span>опубликован</td>
+                    <td style="text-align:right"><button class="btn btn-sm" type="button">Открыть</button></td>
+                  </tr>
+                  <tr>
+                    <td>Экономическая задача</td><td>economics</td>
+                    <td><span class="hint">нет</span></td><td class="n">1</td>
+                    <td><span class="status-dot st-draft"></span>черновик · нет теории</td>
+                    <td style="text-align:right"><button class="btn btn-sm" type="button" disabled>Опубликовать</button></td>
+                  </tr>
+                  <tr>
+                    <td>Числа и их свойства</td><td>number-theory</td>
+                    <td><span class="hint">нет</span></td><td class="n">1</td>
+                    <td><span class="status-dot st-draft"></span>черновик</td>
+                    <td style="text-align:right"><button class="btn btn-sm btn-main" type="button">Опубликовать</button></td>
+                  </tr>
+                  <tr>
+                    <td>Дроби и степени</td><td>frac-powers</td>
+                    <td><span class="chip chip-brand">Kinescope · 12:00</span></td><td class="n">2</td>
+                    <td><span class="status-dot st-pub"></span>опубликован</td>
+                    <td style="text-align:right"><button class="btn btn-sm" type="button">Открыть</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="caption">Кнопка публикации неактивна, пока в уроке нет ни теории, ни видео: пустая тема на дорожке хуже её отсутствия.</p>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <header><h4>Версии задания «Показательное уравнение»</h4><span class="chip chip-brand">актуальна v3</span></header>
+              <div class="list">
+                <div class="row"><span class="grow"><strong>v3 · с 12 июля</strong><small>условие уточнено, ответ прежний · 148 попыток</small></span><span class="chip chip-good">текущая</span></div>
+                <div class="row"><span class="grow"><strong>v2 · 3 мая — 12 июля</strong><small>92 попытки остались на этой версии</small></span><span class="chip chip-mute">архив</span></div>
+                <div class="row"><span class="grow"><strong>v1 · до 3 мая</strong><small>31 попытка</small></span><span class="chip chip-mute">архив</span></div>
+              </div>
+              <button class="btn" type="button" style="margin-top:12px">Создать новую версию</button>
+            </div>
+            <div class="card">
+              <header><h4>Приглашения</h4><span class="hint">одноразовые, срок 7 дней</span></header>
+              <div class="list">
+                <div class="row"><span class="grow"><strong class="num">RtY7-QwEr-2026</strong><small>ученик · группа «Поток 2027» · истекает 5 августа</small></span><button class="btn btn-sm" type="button">Копировать ссылку</button></div>
+                <div class="row"><span class="grow"><strong class="num">Mn4K-Zx91-2026</strong><small>родитель · использован Ириной М. 28 июля</small></span><span class="chip chip-mute">использован</span></div>
+              </div>
+              <button class="btn btn-main" type="button" style="margin-top:12px">Создать код</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ВХОД -->
+  <section class="screen" id="auth">
+    <div class="screen-head"><h2>9. Вход и регистрация по коду</h2><span class="route">/accounts/login/ · /invite/</span></div>
+    <div class="notes">
+      <p class="note"><b>Регистрация только по коду.</b> Код выдаёт куратор; открытой формы «создать аккаунт» нет.</p>
+      <p class="note"><b>Ошибка не сжигает код.</b> Занятый логин или слабый пароль — форма, а не потерянное приглашение.</p>
+      <p class="note"><b>Обещание на первом экране.</b> Строка «для тех, кто ценит время и деньги» — часть входа, а не только сайта.</p>
+    </div>
+    <div class="frame">
+      <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="frame-url">matemacia.ru/accounts/login/</span></div>
+      <div class="auth-shell">
+        <div class="grid-even" style="width:min(880px, 100%)">
+          <div class="auth-card">
+            <div style="display:grid; justify-items:center; gap:10px">
+              <svg width="44" height="64" aria-hidden="true"><use href="#mark"></use></svg>
+              <span class="wordmark" style="font-size:1.35rem">МАТ<span class="sig">Σ</span>МАЦИЯ</span>
+              <p class="tagline">для тех, кто ценит время и деньги</p>
+            </div>
+            <h3>Вход</h3>
+            <div class="field"><label for="log">Логин</label><input id="log" value="katya.m"></div>
+            <div class="field"><label for="pw">Пароль</label><input id="pw" type="password" value="passw0rd"></div>
+            <button class="btn btn-main" type="button">Войти</button>
+            <p class="hint">Есть код приглашения? <a href="#auth" style="color:var(--brand-ink)">Зарегистрироваться</a></p>
+          </div>
+
+          <div class="auth-card">
+            <h3>Регистрация по коду</h3>
+            <p class="hint">Код выдаёт куратор. Он одноразовый и со сроком — по нему сразу заводится профиль и группа.</p>
+            <div class="field"><label for="code">Код приглашения</label><input id="code" class="num" value="RtY7-QwEr-2026"></div>
+            <div class="field">
+              <label for="login2">Логин</label>
+              <input id="login2" class="is-bad" value="katya">
+              <span class="err">Пользователь с таким логином уже существует. Код не потрачен — выбери другой логин.</span>
+            </div>
+            <div class="field"><label for="pw1">Пароль</label><input id="pw1" type="password" value="12345678"><span class="hint">Не короче 8 символов, не только цифры.</span></div>
+            <div class="field"><label for="pw2">Пароль ещё раз</label><input id="pw2" type="password" value="12345678"></div>
+            <button class="btn btn-main" type="button">Создать аккаунт</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  (function () {
+    "use strict";
+    document.querySelectorAll(".tabs").forEach(function (group) {
+      group.addEventListener("click", function (event) {
+        var tab = event.target.closest(".tab");
+        if (!tab) return;
+        group.querySelectorAll(".tab").forEach(function (item) { item.classList.remove("on"); });
+        tab.classList.add("on");
+      });
+    });
+    document.querySelectorAll(".navigator").forEach(function (grid) {
+      grid.addEventListener("click", function (event) {
+        var cell = event.target.closest(".nav-cell");
+        if (!cell) return;
+        grid.querySelectorAll(".nav-cell").forEach(function (item) { item.classList.remove("now"); });
+        cell.classList.add("now");
+      });
+    });
+  })();
+</script>

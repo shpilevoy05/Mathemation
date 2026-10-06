@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% load l10n cosmetics %}
+{% block title %}Арена — Матемация{% endblock %}
+{% block content %}
+{% if not student %}
+  <section class="empty-state"><h1>Арена</h1><p>Раздел доступен ученику.</p></section>
+{% else %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Соревнование</p>
+      <h1>Арена</h1>
+      <p>Короткие партии против друга, случайного соперника или бота. Задачи те же, что в тренировке, теория — та же, что в уроках; меняется только азарт.</p>
+    </div>
+    <div class="league-card league-card--{{ arena_rank.code }}">
+      <svg class="league-card-badge" viewBox="0 0 48 48" aria-hidden="true"><use href="#rank-{{ arena_rank.code }}"></use></svg>
+      <div class="league-card-copy">
+        <small>Ранг арены</small>
+        <b>{{ arena_rank.title }} <span class="num">· {{ arena_rating }}</span></b>
+        {% if arena_rank.next_title %}
+          <span class="league-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ arena_rank.progress_percent }}" aria-label="До ранга «{{ arena_rank.next_title }}»"><i style="width: {{ arena_rank.progress_percent }}%"></i></span>
+          <small class="num">до ранга «{{ arena_rank.next_title }}» {{ arena_rank.points_to_next }} очк. · наград сегодня {{ rewarded_today }} из {{ reward_limit }}</small>
+        {% else %}
+          <small class="num">высший ранг · наград сегодня {{ rewarded_today }} из {{ reward_limit }}</small>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="content-grid">
+    <section class="card card-wide arena-setup">
+      <div class="section-heading"><h2>Новая партия</h2></div>
+      {% comment %}
+      Короткие наборы — видимыми вариантами (плитки и сегменты), длинный список
+      прототипов — списком. Имена полей те же, что ждёт API: скрипт собирает их
+      из формы как раньше. Карточка справа пересказывает выбор: кто против кого
+      и что будет, — кнопка старта стоит там, где итог перед глазами.
+      {% endcomment %}
+      <form class="arena-setup-grid" data-match-form>
+        <div class="arena-setup-fields">
+          <fieldset class="setup-group">
+            <legend class="setup-label">Режим</legend>
+            <div class="mode-tiles">
+              <label class="mode-tile"><input class="choice-input" type="radio" name="mode" value="speed" checked>
+                <span class="tile-icon"><svg aria-hidden="true"><use href="#i-bolt"></use></svg></span>
+                <span class="tile-copy"><b>Нарешивание</b><small>Задачи из тренировки на скорость</small></span>
+                <span class="tile-check" aria-hidden="true"><svg><use href="#i-check"></use></svg></span></label>
+              <label class="mode-tile"><input class="choice-input" type="radio" name="mode" value="quiz">
+                <span class="tile-icon"><svg aria-hidden="true"><use href="#i-bulb"></use></svg></span>
+                <span class="tile-copy"><b>Квиз по теории</b><small>4 варианта, 30 с на вопрос</small></span>
+                <span class="tile-check" aria-hidden="true"><svg><use href="#i-check"></use></svg></span></label>
+              <label class="mode-tile"><input class="choice-input" type="radio" name="mode" value="board">
+                <span class="tile-icon"><svg aria-hidden="true"><use href="#i-grid"></use></svg></span>
+                <span class="tile-copy"><b>Своя игра</b><small>5 тем, клетки 100–500</small></span>
+                <span class="tile-check" aria-hidden="true"><svg><use href="#i-check"></use></svg></span></label>
+            </div>
+          </fieldset>
+
+          <fieldset class="setup-group">
+            <legend class="setup-label">Соперник</legend>
+            <div class="segmented is-wide">
+              <label><input class="choice-input" type="radio" name="opponent_kind" value="bot" checked>Бот</label>
+              <label><input class="choice-input" type="radio" name="opponent_kind" value="friend">Друг</label>
+              <label><input class="choice-input" type="radio" name="opponent_kind" value="random">Случайный</label>
+            </div>
+          </fieldset>
+
+          <fieldset class="setup-group" data-friend-block hidden>
+            <legend class="setup-label">Кого позвать</legend>
+            {% if friends %}
+              <div class="friend-chips">
+                {% for friend in friends %}
+                  <label><input class="choice-input" type="radio" name="opponent" value="{{ friend.id|unlocalize }}"{% if forloop.first %} checked{% endif %}
+                                data-friend-name="{{ friend.user.get_full_name|default:friend.user.username }}">
+                    <span class="friend-dot" aria-hidden="true">{{ friend.user.get_full_name|default:friend.user.username|first|upper }}</span>{{ friend.user.get_full_name|default:friend.user.username }}</label>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="setup-hint">Друзей пока нет — позовите по логину в карточке «Друзья».</p>
+            {% endif %}
+          </fieldset>
+
+          <fieldset class="setup-group" data-bot-level>
+            <legend class="setup-label">Сложность бота</legend>
+            <div class="level-steps">
+              {% for step in "12345" %}
+                <label><input class="choice-input" type="radio" name="bot_level" value="{{ step }}"{% if step == "3" %} checked{% endif %}>
+                  <span class="pips" aria-hidden="true">{% for pip in "12345" %}<i{% if pip <= step %} class="on"{% endif %}></i>{% endfor %}</span><b>{{ step }}</b></label>
+              {% endfor %}
+            </div>
+            <p class="setup-hint"><span data-level-prefix>Уровень</span> <b class="num" data-level-output>3</b> — <span data-level-note>ошибается в 15 % задач, на задачу — около 30 секунд</span>.</p>
+          </fieldset>
+
+          <div class="setup-speed" data-speed-rules>
+            <div class="setup-row">
+              <fieldset class="setup-group">
+                <legend class="setup-label">Правило</legend>
+                <div class="segmented is-wide">
+                  <label><input class="choice-input" type="radio" name="limit_kind" value="questions" checked>Быстрее решить</label>
+                  <label><input class="choice-input" type="radio" name="limit_kind" value="time">Больше за время</label>
+                </div>
+              </fieldset>
+              <fieldset class="setup-group" data-question-count>
+                <legend class="setup-label">Сколько задач</legend>
+                <div class="segmented is-wide is-numbers">
+                  <label><input class="choice-input" type="radio" name="question_count" value="5"><span class="big">5</span><small>короткая</small></label>
+                  <label><input class="choice-input" type="radio" name="question_count" value="8" checked><span class="big">8</span><small>обычная</small></label>
+                  <label><input class="choice-input" type="radio" name="question_count" value="12"><span class="big">12</span><small>длинная</small></label>
+                  <label><input class="choice-input" type="radio" name="question_count" value="16"><span class="big">16</span><small>марафон</small></label>
+                </div>
+              </fieldset>
+              <fieldset class="setup-group" data-time-limit hidden>
+                <legend class="setup-label">Время на партию</legend>
+                <div class="segmented is-wide is-numbers">
+                  <label><input class="choice-input" type="radio" name="time_limit_seconds" value="120"><span class="big">2</span><small>минуты</small></label>
+                  <label><input class="choice-input" type="radio" name="time_limit_seconds" value="180" checked><span class="big">3</span><small>минуты</small></label>
+                  <label><input class="choice-input" type="radio" name="time_limit_seconds" value="300"><span class="big">5</span><small>минут</small></label>
+                </div>
+              </fieldset>
+            </div>
+            <div class="setup-group" data-task-block>
+              <label class="setup-label" for="match-task">Прототип</label>
+              <div class="select-wrap">
+                <select id="match-task" name="ege_task_number">
+                  <option value="">Случайный набор</option>
+                  {% for number in part1_numbers %}<option value="{{ number|unlocalize }}">Задание {{ number|unlocalize }}</option>{% endfor %}
+                </select>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="match-preview" aria-label="Ваша партия">
+          <h3>Ваша партия</h3>
+          <div class="versus">
+            <div class="versus-side">
+              {% include "partials/avatar.html" with size="lg" %}
+              <b>Вы</b><small class="num">рейтинг {{ arena_rating }}</small>
+            </div>
+            <span class="versus-mark" aria-hidden="true">VS</span>
+            <div class="versus-side">
+              <span class="rival-face" data-rival-face>
+                <span class="rival-art" data-rival-bot>{% cosmetic "avatar" "robot" %}</span>
+                <span class="rival-letter" data-rival-letter hidden></span>
+              </span>
+              <b data-rival-name>Бот · 3</b><small data-rival-note>15 % ошибок</small>
+            </div>
+          </div>
+          <dl class="preview-facts">
+            <div><dt>Режим</dt><dd data-fact-mode>Нарешивание</dd></div>
+            <div><dt data-fact-set-label>Задачи</dt><dd data-fact-set>8 · случайный набор</dd></div>
+            <div data-fact-pace-row><dt>Бот на задачу</dt><dd data-fact-pace>≈30 секунд</dd></div>
+            <div data-fact-time-row><dt>Займёт</dt><dd data-fact-time>около 8 минут</dd></div>
+          </dl>
+          <p class="form-error" data-match-error hidden></p>
+          <button class="button button-primary" type="submit" data-match-submit>Начать партию</button>
+        </aside>
+      </form>
+
+      <div class="queue-box" data-queue hidden>
+        <p><b data-queue-status>Ищем соперника…</b></p>
+        <p class="muted">Ваш рейтинг <b class="num" data-queue-rating>{{ arena_rating }}</b>. Сначала ищем равного, затем — ближайшего по уровню.</p>
+        <div class="arena-actions">
+          <button class="button button-small" type="button" data-queue-cancel>Отменить поиск</button>
+          <button class="button button-small button-primary" type="button" data-queue-bot hidden>Сыграть с ботом выбранной сложности</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="card">
+      <div class="section-heading"><h2>Друзья</h2><span class="count-badge">{{ friends|length }}</span></div>
+      <form class="answer-row" data-friend-form>
+        <input name="username" placeholder="Логин друга" autocomplete="off" required>
+        <button class="button" type="submit">Позвать</button>
+      </form>
+      <p class="form-error" data-friend-error hidden></p>
+
+      {% if incoming %}
+        <h3 class="arena-subhead">Зовут в друзья</h3>
+        <ul class="plain-list">
+          {% for link in incoming %}
+            <li class="arena-row">
+              <strong>{{ link.from_student.user.get_full_name|default:link.from_student.user.username }}</strong>
+              <span class="arena-row-actions">
+                <button class="button button-small button-primary" type="button" data-friend-answer="{{ link.id }}" data-action="accept">Принять</button>
+                <button class="button button-small" type="button" data-friend-answer="{{ link.id }}" data-action="decline">Нет</button>
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      <ul class="plain-list">
+        {% for friend in friends %}
+          <li><strong>{{ friend.user.get_full_name|default:friend.user.username }}</strong><small>@{{ friend.user.username }}</small></li>
+        {% empty %}
+          <li><small class="muted">Друзей пока нет — позовите по логину, и появится соперник.</small></li>
+        {% endfor %}
+      </ul>
+      {% if outgoing %}
+        <p class="muted">Ждут ответа: {% for link in outgoing %}{{ link.to_student.user.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+      {% endif %}
+    </aside>
+  </div>
+
+  {% if match_invites %}
+    <section class="card">
+      <div class="section-heading"><h2>Вызовы</h2><span class="count-badge">{{ match_invites|length }}</span></div>
+      <ul class="plain-list">
+        {% for row in match_invites %}
+          <li class="arena-row">
+            <strong>{{ row.opponent }} · {{ row.match.get_mode_display }}</strong>
+            <span class="arena-row-actions">
+              <button class="button button-small button-primary" type="button" data-match-answer="{{ row.match.id }}" data-action="accept">Принять</button>
+              <button class="button button-small" type="button" data-match-answer="{{ row.match.id }}" data-action="decline">Отказаться</button>
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <section class="card">
+    <div class="section-heading"><h2>Идут сейчас</h2><span class="count-badge">{{ active_matches|length }}</span></div>
+    {% if active_matches %}
+      <ul class="plain-list">
+        {% for row in active_matches %}
+          <li class="arena-row">
+            <span>
+              <strong>{{ row.match.get_mode_display }} · против {{ row.opponent }}</strong>
+              <small>
+                {% if row.waiting %}ждём игроков
+                {% elif row.mine_done %}вы закончили, ждём соперника
+                {% elif row.match.mode == 'board' %}{% if row.my_turn %}ваш ход{% else %}ход соперника{% endif %}
+                {% else %}ваш ход{% endif %}
+              </small>
+            </span>
+            <a class="button button-small button-primary" href="{% url 'arena_match' row.match.id %}">{% if row.waiting %}Открыть{% elif row.mine_done %}Посмотреть{% else %}Играть{% endif %}</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-copy">Активных партий нет. Начните новую — это пять минут.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <div class="section-heading"><h2>Сыгранные</h2></div>
+    {% if match_history %}
+      <ul class="plain-list">
+        {% for row in match_history %}
+          <li class="arena-row">
+            <span>
+              <strong>{{ row.match.get_mode_display }} · против {{ row.opponent }}</strong>
+              <small class="arena-results">{% for participant in row.results %}<span>{% if participant.rank_code %}<svg class="league-mini" viewBox="0 0 48 48" aria-hidden="true"><use href="#rank-{{ participant.rank_code }}"></use></svg>{% endif %}{{ participant.title }} — {{ participant.score }}</span>{% if not forloop.last %} · {% endif %}{% endfor %}</small>
+            </span>
+            <a class="button button-small" href="{% url 'arena_match' row.match.id %}">Разбор</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-copy">Здесь появится история партий.</p>
+    {% endif %}
+    <p class="disclaimer">Партии не двигают освоение тем: скорость под таймером — не то же самое, что понимание. Награда даётся за первые {{ reward_limit }} партий в день, чтобы арена не заменяла занятия.</p>
+  </section>
+{% endif %}
+{% endblock %}

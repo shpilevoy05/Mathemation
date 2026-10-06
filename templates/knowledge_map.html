@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Карта навыков — Матемация{% endblock %}
+{% block content %}
+{% if not student %}<section class="empty-state"><h1>Карта навыков</h1><p>Этот раздел доступен ученикам.</p></section>{% else %}
+<div class="page-heading"><div><p class="eyebrow">Твой граф подготовки</p><h1>Карта навыков</h1><p>Освоение, доступность и остывание тем — в одном месте.</p></div><a class="toggle {% if ceiling_overlay %}is-on{% endif %}" href="{% if ceiling_overlay %}{% url 'knowledge_map' %}{% else %}{% url 'knowledge_map' %}?overlay=ceiling{% endif %}"><span></span>Потолок</a></div>
+{% if ceiling_overlay %}<p class="notice">Оверлей показывает, какие узлы достижимы к экзамену при текущем темпе.</p>{% endif %}
+
+<div class="view-switch" data-view-switch role="tablist" aria-label="Вид карты">
+  <button class="is-on" type="button" data-view="graph" aria-pressed="true">Граф</button>
+  <button type="button" data-view="list" aria-pressed="false">Список тем</button>
+</div>
+
+<section class="graph-layout" data-view-panel="graph">
+  <div>
+    <div class="graph-wrap" data-graph>
+      {{ graph|json_script:"graph-data" }}
+      <svg viewBox="0 0 {{ graph.width }} {{ graph.height }}" role="img" aria-label="Граф знаний: темы по кластерам, рёбра — зависимости"></svg>
+      <div class="graph-legend">
+        <span class="lg-mastered"><i></i>освоено</span>
+        <span class="lg-progress"><i></i>в процессе</span>
+        <span class="lg-available"><i></i>можно начинать</span>
+        <span class="lg-decayed"><i></i>подзабылось</span>
+        <span class="lg-locked"><i></i>закрыто пререквизитом</span>
+      </div>
+    </div>
+    <p class="disclaimer">Наведи на тему — карточка справа обновится. Клик оставляет на карте только цепочку пререквизитов; повторный клик снимает подсветку.</p>
+  </div>
+  <aside class="card" data-graph-inspector>
+    <div class="graph-inspector-heading"><h2 data-ins-title>Выбери тему</h2><span class="chip chip-status" data-ins-state>на карте</span></div>
+    <p class="muted" data-ins-why>Кольцо вокруг темы — освоение, штриховка — состояние: закрытая тема подписана тем, чего ей не хватает.</p>
+    <div class="progress-bar"><span data-ins-bar style="width: 0%"></span></div>
+    <ul class="plain-list">
+      <li><strong data-ins-task>Номера ЕГЭ появятся здесь</strong><small data-ins-hint>Вклад темы в первичный балл</small></li>
+    </ul>
+    <a class="button button-primary" data-ins-link href="{% url 'track' %}">Открыть тему</a>
+  </aside>
+</section>
+
+<div class="cluster-list" data-view-panel="list" hidden>
+  {% for cluster in clusters %}
+    <section class="cluster" style="--cluster-color: {{ cluster.color }}">
+      <div class="cluster-heading"><span></span><h2>{{ cluster.title }}</h2></div>
+      {% if cluster.loose_nodes %}
+        <div class="node-grid">
+          {% for node in cluster.loose_nodes %}{% include "partials/node_card.html" %}{% endfor %}
+        </div>
+      {% endif %}
+      {% for group in cluster.groups %}
+        <section class="skill-group">
+          <div class="skill-group-head">
+            <h3>{{ group.title }}</h3>
+            <span class="chip chip-status state-{{ group.state }}">{{ group.state_label }}</span>
+            <strong class="num">{{ group.mastery|floatformat:0 }}%</strong>
+            <small>складывается из {{ group.nodes|length }} навык{{ group.nodes|length|pluralize:"а,ов" }}</small>
+          </div>
+          <div class="node-grid">
+            {% for node in group.nodes %}{% include "partials/node_card.html" %}{% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    </section>
+  {% empty %}<section class="empty-state"><p>Карта навыков пока не настроена.</p></section>{% endfor %}
+</div>
+{% endif %}{% endblock %}

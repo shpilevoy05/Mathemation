@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Уроки · Матемация{% endblock %}
+{% block content %}
+<div class="studio-page">
+  <header class="page-heading">
+    <div><p>Рабочее место методиста</p><h1>Уроки</h1></div>
+    <div class="studio-actions"><a class="button button-primary" href="{% url 'studio_lesson_new' %}">Создать урок</a></div>
+  </header>
+  <form class="studio-filters" method="get">
+    <label for="lesson-q">Поиск</label><input id="lesson-q" name="q" value="{{ filters.q }}" placeholder="Поиск по названию урока">
+    <label for="lesson-cluster">Кластер</label>
+    <select id="lesson-cluster" name="cluster"><option value="">Все разделы</option>{% for cluster in clusters %}<option value="{{ cluster.pk }}"{% if filters.cluster == cluster.pk|stringformat:'s' %} selected{% endif %}>{{ cluster.title }}</option>{% endfor %}</select>
+    <label for="lesson-status">Статус</label>
+    <select id="lesson-status" name="status"><option value="">Любой статус</option>{% for value, label in statuses %}<option value="{{ value }}"{% if filters.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <button class="button" type="submit">Показать</button>
+  </form>
+  {% regroup lessons by node.cluster as cluster_list %}
+  {% for cluster in cluster_list %}
+    <section class="form-section"><h2>{{ cluster.grouper.title }}</h2>
+      <div class="studio-table-wrap"><table class="data-table">
+        <thead><tr><th>Урок</th><th>Статус</th><th>Видео</th><th>Блоков теории</th><th>Задач</th><th><span class="visually-hidden">Действия</span></th></tr></thead>
+        {% regroup cluster.list by node as node_list %}
+        {% for node in node_list %}
+          <tbody>
+            <tr class="group-row"><th colspan="6" scope="rowgroup">{{ node.grouper.title }}</th></tr>
+            {% for lesson in node.list %}<tr>
+              <td><a href="{% url 'studio_lesson_edit' lesson.pk %}">{{ lesson.title }}</a></td>
+              <td><span class="chip {% if lesson.status == 'published' %}chip-live{% else %}chip-draft{% endif %}">{{ lesson.get_status_display|lower }}</span></td>
+              <td>{% if lesson.has_video %}есть{% else %}<span class="muted">нет</span>{% endif %}</td>
+              <td class="num">{{ lesson.theory_count }}</td><td class="num">{% if lesson.task_count %}{{ lesson.task_count }}{% else %}<span class="chip chip-warn">0</span>{% endif %}</td>
+              <td><a class="button button-small" href="{% url 'studio_lesson_edit' lesson.pk %}">Изменить</a></td>
+            </tr>{% endfor %}
+          </tbody>
+        {% endfor %}
+      </table></div>
+    </section>
+  {% empty %}<p class="empty-copy">Уроки не найдены.</p>{% endfor %}
+</div>
+{% endblock %}

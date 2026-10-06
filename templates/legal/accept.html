@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Согласия — Матемация{% endblock %}
+{% block content %}<div class="auth-shell"><section class="auth-card">
+  <div class="auth-brand">{% include "partials/logo.html" with size="lg" %}</div>
+  <h1>Документы обновились</h1>
+  <p>Чтобы продолжить занятия, примите актуальные версии.</p>
+  <form method="post" class="stack-form" novalidate>{% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="consent-list">
+      {% for field in form %}
+        <label for="{{ field.id_for_label }}">{{ field }}<span>{{ field.label }}</span></label>
+        {% if field.errors %}<p class="form-error">{{ field.errors|join:" " }}</p>{% endif %}
+      {% endfor %}
+    </div>
+    <button class="button button-primary" type="submit">Принять и продолжить</button>
+  </form>
+  <p class="legal-links"><a href="{% url 'legal_terms' %}" target="_blank" rel="noopener">Пользовательское соглашение</a> · <a href="{% url 'legal_privacy' %}" target="_blank" rel="noopener">Политика обработки персональных данных</a></p>
+  <form class="auth-switch" method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link-button" type="submit">Выйти из аккаунта</button></form>
+</section></div>{% endblock %}

@@ -1,0 +1,14 @@
+{% comment %}
+Карточка навыка на карте. Вынесена в partial: список показывает её и внутри
+папки, и вне её, а расходиться эти два вида не должны.
+{% endcomment %}
+<a class="node-card state-{{ node.state }} {% if ceiling_overlay and not node.reachable_by_exam %}is-unreachable{% endif %}" href="{% url 'knowledge_node' node.id %}">
+  <div class="node-top"><span class="status-pill">{% if node.state == 'locked' %}🔒 {% endif %}{{ node.state_label }}</span><strong class="num">{{ node.mastery|floatformat:0 }}%</strong></div>
+  <h3>{{ node.title }}</h3>
+  {% if node.ege_task_numbers %}<p>Номера ЕГЭ: {{ node.ege_task_numbers|join:", " }}</p>{% endif %}
+  <div class="progress-bar"><span style="width: {{ node.mastery|stringformat:'f' }}%"></span></div>
+  {% if node.state == 'locked' and node.unmet_conditions %}<div class="unlock-conditions"><b>Чтобы открыть:</b>{% for condition in node.unmet_conditions %}<div class="unlock-row"><small>{{ condition.title }}</small><div><i style="width: {{ condition.current_mastery_percent }}%"></i></div><small>сейчас {{ condition.current_mastery_percent }}% из {{ condition.required_mastery }}% · нужно {{ condition.required_mastery }}%</small></div>{% endfor %}</div>{% endif %}
+  {% if node.state == 'decayed' %}<small class="cooling">Остывание: {{ node.decay_percent }}%</small>{% endif %}
+  <small>Последняя практика: {{ node.last_practiced_at|date:"d.m.Y"|default:"ещё не было" }}</small>
+  {% if ceiling_overlay and not node.reachable_by_exam %}<b class="ceiling-mark">За текущий темп не успеть</b>{% endif %}
+</a>

@@ -1,0 +1,93 @@
+from django.shortcuts import get_object_or_404
+from rest_framework import permissions, views
+from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+
+from apps.accounts.api import get_student
+from apps.billing.access import Feature
+from apps.billing.gate import HasFeature
+from apps.content.models import Assignment
+from apps.content.visibility import visible_assignments
+from apps.practice.models import Attempt
+
+from .services import DailyHintLimitExceeded, HintNotAllowed, request_hint
+
+
+class HintView(views.APIView):
+    # Каждая подсказка — платный запрос к LLM.
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "hint"
+    permission_classes = [permissions.IsAuthenticated, HasFeature]
+    feature = Feature.AI_HINTS
+    """POST /api/assignments/<id>/hint/ {"question": "...", "context": "lesson"}"""
+
+    def post(self, request, assignment_id):
+        student = get_student(request)
+        assignment = get_object_or_404(visible_assignments(), pk=assignment_id)
+        question = request.data.get("question", "")
+        if not isinstance(question, str) or len(question) > 2000:
+            return Response({"detail": "Вопрос должен быть текстом до 2000 символов."}, status=400)
+        try:
+            result = request_hint(
+                student, assignment,
+                question=question,
+                context=request.data.get("context", Attempt.Context.LESSON),
+            )
+        except HintNotAllowed as e:
+            return Response(e.payload or {"detail": str(e)}, status=403)
+        except DailyHintLimitExceeded as e:
+            return Response(
+                {"detail": str(e), "code": "hint_daily_limit"}, status=429
+            )
+        return Response({
+            "hint": result["text"],
+            "hints_used": result["session"].hints_used,
+            "escalated_to_expert": result["escalated"],
+        })
+
+
+class ParentAiLogView(views.APIView):
+    """Родительский контур: детальный лог общения ребёнка с ИИ.
+
+    GET ?student=<id> — список сессий (тема, задача, число подсказок);
+    GET ?student=<id>&session=<id> — переписка внутри одной сессии.
+    """
+
+    def get(self, request):
+        parent = getattr(request.user, "parent_profile", None)
+        if parent is None:
+            return Response({"detail": "Нет профиля родителя."}, status=403)
+        student_id = request.query_params.get("student")
+        children = parent.children.all()
+        student = children.filter(pk=student_id).first() if student_id else children.first()
+        if student is None:
+            return Response({"detail": "Ученик не найден."}, status=404)
+
+        from .models import AiHintSession
+
+        session_id = request.query_params.get("session")
+        if session_id:
+            session = get_object_or_404(AiHintSession, pk=session_id, student=student)
+            return Response({
+                "assignment": session.assignment.title,
+                "node": session.node.title if session.node else None,
+                "hints_used": session.hints_used,
+                "escalated_to_expert": session.escalated_to_expert,
+                "messages": [
+                    {"role": m.role, "text": m.text, "created_at": m.created_at}
+                    for m in session.messages.filter(is_blocked=False)
+                ],
+            })
+        return Response([
+            {
+                "id": s.id,
+                "assignment": s.assignment.title,
+                "node": s.node.title if s.node else None,
+                "hints_used": s.hints_used,
+                "escalated_to_expert": s.escalated_to_expert,
+                "created_at": s.created_at,
+            }
+            for s in AiHintSession.objects.filter(student=student)
+            .select_related("assignment", "node")
+            .order_by("-created_at")
+        ])

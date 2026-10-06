@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+<defs>
+<radialGradient id="rbbg" cx=".35" cy=".28" r=".85"><stop offset="0" stop-color="#FFD29A"/><stop offset=".5" stop-color="#F27A1F"/><stop offset="1" stop-color="#7A2E05"/></radialGradient><linearGradient id="rbmetal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F3F6FA"/><stop offset="0.45" stop-color="#C3CCD8"/><stop offset="1" stop-color="#7C889A"/></linearGradient><linearGradient id="rbscreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2340"/><stop offset="1" stop-color="#0B1022"/></linearGradient><radialGradient id="rbled" cx=".5" cy=".5" r=".55"><stop offset="0" stop-color="#E8FFFF"/><stop offset="0.6" stop-color="#5EE6FF"/><stop offset="1" stop-color="#1A9AC8"/></radialGradient><radialGradient id="rbbulb" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#FFB0B0"/><stop offset="0.6" stop-color="#FF3B3B"/><stop offset="1" stop-color="#8E0F0F"/></radialGradient>
+<clipPath id="rbclip"><circle cx="64" cy="64" r="60"/></clipPath>
+<linearGradient id="rbgloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<radialGradient id="rbvig" cx=".5" cy=".5" r=".5"><stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></radialGradient>
+</defs>
+<circle cx="64" cy="64" r="60" fill="url(#rbbg)"/>
+<g clip-path="url(#rbclip)">
+<rect x="36" y="100" width="56" height="34" rx="10" fill="url(#rbmetal)"/>
+<rect x="50" y="108" width="28" height="16" rx="4" fill="url(#rbscreen)"/>
+<path d="M58.6 111.4 H69.4 V113.4 H62 L66 116 L62 118.6 H69.4 V120.6 H58.6 V118.8 L62.6 116 L58.6 113.2 Z" fill="#5EE6FF"/>
+<rect x="56" y="92" width="16" height="10" rx="3" fill="#8A95A8"/>
+<path d="M64 28 V14" stroke="#8A95A8" stroke-width="3" stroke-linecap="round"/><circle cx="64" cy="11" r="6" fill="url(#rbbulb)"/>
+<rect x="24" y="52" width="10" height="22" rx="4" fill="#8A95A8"/><rect x="94" y="52" width="10" height="22" rx="4" fill="#8A95A8"/>
+<rect x="30" y="26" width="68" height="68" rx="20" fill="url(#rbmetal)"/>
+<rect x="30" y="26" width="68" height="68" rx="20" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.4"/>
+<rect x="38" y="40" width="52" height="40" rx="12" fill="url(#rbscreen)"/>
+<path d="M46 58 Q52 50 58 58 M70 58 Q76 50 82 58" fill="none" stroke="url(#rbled)" stroke-width="4" stroke-linecap="round"/>
+<path d="M54 68 Q64 76 74 68" fill="none" stroke="#5EE6FF" stroke-width="2.6" stroke-linecap="round"/>
+<ellipse cx="46" cy="70" rx="4" ry="2" fill="#FF6B9A" opacity=".55"/><ellipse cx="82" cy="70" rx="4" ry="2" fill="#FF6B9A" opacity=".55"/>
+<circle cx="38" cy="34" r="2" fill="#7C889A"/><circle cx="90" cy="34" r="2" fill="#7C889A"/><circle cx="38" cy="86" r="2" fill="#7C889A"/><circle cx="90" cy="86" r="2" fill="#7C889A"/>
+<path d="M42 44 Q50 41 58 42" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="2" stroke-linecap="round"/><circle cx="64" cy="64" r="60" fill="url(#rbvig)"/></g>
+<path d="M22 46 C30 22 52 10 74 12 C58 18 40 30 30 50 Z" fill="url(#rbgloss)"/>
+<circle cx="64" cy="64" r="59.2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.6"/>
+<circle cx="64" cy="64" r="61" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1.2"/>
+</svg>
